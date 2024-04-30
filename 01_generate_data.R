@@ -1,6 +1,6 @@
 ## Generate 1000 simulations 
 
-setwd("/home/babv971/SSA_model/CNN/pilot")
+setwd("/home/babv971/SSA_model/CNN/")
 
 rm(list = ls())
 
@@ -29,7 +29,7 @@ library(FRK)
 # library("splines")
 
 source("./source/run_sims.R")
-source("./source/fit_fric_basis.R")
+source("./source/fit_basis.R")
 source("./source/surface_elev.R")
 source("./source/create_params.R")
 source("./source/create_ref.R")
@@ -61,14 +61,15 @@ source("./source/obs_operator.R")
 # set.seed(ssa_seed)
 
 ## Some flags
-regenerate_sims <- F
+regenerate_sims <- T
 refit_basis <- T
 save_sims <- T
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 1000 # number of simulations per set
-sets <- 1
+N <- 10000 # number of simulations per set
+sets <- 6 #10
+setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
 
@@ -84,6 +85,7 @@ domain <- ssa_steady$domain
 secpera <- 31556926
 fric_scale <- 1e6 * secpera^(1/3)
 
+t1 <- proc.time()
 if (regenerate_sims) {
 
   for (set in sets) {
@@ -95,43 +97,52 @@ if (regenerate_sims) {
     gl_arr_s <- generated_data$gl_arr
 
     # ## Basis function representation of the friction coefficients
-    # fitted_friction_s <- fit_fric_basis(nbasis = nbasis, domain = domain, friction_arr = friction_arr_s)
+    # fitted_friction_s <- fit_basis(nbasis = nbasis, domain = domain, friction_arr = friction_arr_s)
 
     if (save_sims) {
-        saveRDS(thickness_velocity_arr_s, file = paste0("./training_data/thickness_velocity_arr_", set, "_", data_date))
-        saveRDS(friction_arr_s, file = paste0("./training_data/friction_arr_", set, "_", data_date))
-        saveRDS(gl_arr_s, file = paste0("./training_data/gl_arr_", set, "_", data_date))
-        # saveRDS(fitted_friction_s, file = paste0("./training_data/fitted_friction_", set, "_", data_date))
+        setf <- formatC(set, width=2, flag="0")
+        saveRDS(thickness_velocity_arr_s, file = paste0("./training_data/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(friction_arr_s, file = paste0("./training_data/friction_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(gl_arr_s, file = paste0("./training_data/gl_arr_", setf, "_", data_date, ".rds"))
+        # saveRDS(fitted_friction_s, file = paste0("./training_data/fitted_friction_", setf, "_", data_date))
     }
   }
 }
+
+t2 <- proc.time()
 
 ## Basis function representation of the friction coefficients
 if (refit_basis) {
   for (set in sets) {
     cat("Fitting basis functions for set", set, "\n")
-    friction_arr_s <- readRDS(file = paste0("./training_data/friction_arr_", set, "_", data_date))
+    setf <- formatC(set, width=2, flag="0")
+    friction_arr_s <- readRDS(file = paste0("./training_data/friction_arr_", setf, "_", data_date, ".rds"))
     
     ## Should maybe scale the friction values here?
     friction_arr_s <- friction_arr_s/fric_scale
     
-    friction_basis <- fit_fric_basis(nbasis = nbasis, domain = domain, friction_arr = friction_arr_s)
+    friction_basis <- fit_basis(nbasis = nbasis, domain = domain, sample_arr = friction_arr_s)
 
     if (save_sims) {
-      saveRDS(friction_basis, file = paste0("./training_data/friction_basis_", set, "_", data_date))
+      saveRDS(friction_basis, file = paste0("./training_data/friction_basis_", setf, "_", data_date, ".rds"))
     }
   }
 }
 
+# library(abind)
+# f1 <- readRDS(file = paste0("./training_data/friction_basis_", "01", "_", data_date, ".rds"))$fitted_values
+# f2 <- readRDS(file = paste0("./training_data/friction_basis_", "02", "_", data_date, ".rds"))$fitted_values
+# f12 <- abind(f1, f2, along = 1)
 ## Now re-scale friction and plot it with the original friction
 
 ## Plot some simulations to check 
 set <- 1
-thickness_velocity_arr <- readRDS(file = paste0("./training_data/thickness_velocity_arr_", set, "_", data_date))
-friction_arr <- readRDS(file = paste0("./training_data/friction_arr_", set, "_", data_date))
-gl_arr <- readRDS(file = paste0("./training_data/gl_arr_", set, "_", data_date))
-fitted_friction <- readRDS(file = paste0("./training_data/fitted_friction_", set, "_", data_date))
-
+setf <- formatC(set, width=2, flag="0")
+thickness_velocity_arr <- readRDS(file = paste0("./training_data/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+friction_arr <- readRDS(file = paste0("./training_data/friction_arr_", setf, "_", data_date, ".rds"))
+gl_arr <- readRDS(file = paste0("./training_data/gl_arr_", setf, "_", data_date, ".rds"))
+friction_basis <- readRDS(file = paste0("./training_data/friction_basis_", setf, "_", data_date, ".rds"))
+fitted_friction <- friction_basis$fitted_values
 plots <- list()
 
 nsamples <- 2
@@ -191,9 +202,25 @@ for (sim in 1:nsamples) {
        type = "l", lwd = 1.5, xlab = "Domain (km)", ylab = "Friction (unit)")
   # lines(domain[plot_domain]/1000, lmfit$fitted.values[plot_domain]/fric_scale, col = "seagreen", lwd = 1.5)
   
-  lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain]/fric_scale, col = "red", lwd = 1.5)
+  lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain], col = "red", lwd = 1.5)
   # legend("topright", legend = c("global basis", "local basis"), col = c("seagreen", "red"), lty = 1, lwd = 1.5)
   # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
   
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

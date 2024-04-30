@@ -1,7 +1,9 @@
-fit_fric_basis <- function(nbasis, domain, friction_arr) {
-    basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis+2)
-    basis_centres <- basis_centres[2:(length(basis_centres)-1)]
+fit_basis <- function(nbasis, domain, sample_arr) {
+    ## Place basis function centres along domain
+    # basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis+2)
+    # basis_centres <- basis_centres[2:(length(basis_centres)-1)] 
                             
+    basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis)
     testbasis <- local_basis(manifold = real_line(), 
                             loc = matrix(basis_centres),
                             type = "bisquare",
@@ -14,19 +16,19 @@ fit_fric_basis <- function(nbasis, domain, friction_arr) {
     #         xlab = "Domain (km)", xlim = c(0, 200))
 
 
-    N <- dim(friction_arr)[1]
-    basis_coefs <- matrix(NA, N, nbasis+1) # +1 for the intercept
-    fitted_fric <- matrix(NA, N, length(domain))
-    for (sim in 1:N) {
-        df_local <- as.data.frame(cbind(friction_arr[sim,,,], basis_mat))
+    N <- dim(sample_arr)[1]
+    basis_coefs <- matrix(NA, N, nbasis) 
+    fitted_values <- matrix(NA, N, length(domain))
+    for (sim in 1:N) { # parallelise
+        df_local <- as.data.frame(cbind(sample_arr[sim,,,], basis_mat))
         colnames(df_local) <- c("fric", sapply(1:nbasis, function(x) paste0("eof", x)))
-        lmfit_local <- lm(fric ~ ., data = df_local)
+        lmfit_local <- lm(fric ~ . - 1, data = df_local) # no intercept for now so -1
         basis_coefs[sim, ] <- as.vector(lmfit_local$coefficients)
-        fitted_fric[sim, ] <- as.vector(lmfit_local$fitted.values)
+        fitted_values[sim, ] <- as.vector(lmfit_local$fitted.values)
     }
 
     return(list(basis_coefs = basis_coefs, 
                 basis_mat = basis_mat,
-                fitted_fric = fitted_fric))
+                fitted_values = fitted_values))
 
 }
