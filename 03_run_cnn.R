@@ -9,7 +9,28 @@ reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
 library(ggplot2)
 
-source("source/create_model.R")
+source("./source/create_model.R")
+
+# List physical devices
+# gpus <- tf$config$experimental$list_physical_devices('GPU')
+
+# if (length(gpus) > 0) {
+#   tryCatch({
+#     # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
+#     tf$config$experimental$set_virtual_device_configuration(
+#       gpus[[1]],
+#       list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
+#     )
+    
+#     logical_gpus <- tf$config$experimental$list_logical_devices('GPU')
+    
+#     print(paste0(length(gpus), " Physical GPUs,", length(logical_gpus), " Logical GPUs"))
+#   }, error = function(e) {
+#     # Virtual devices must be set before GPUs have been initialized
+#     print(e)
+#   })
+# }
+
 ## Flags
 rerun_cnn <- T
 # save_output <- T
@@ -17,36 +38,52 @@ rerun_cnn <- T
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1 #arg
+sets <- 7 #arg
 # setf <- formatC(set, width=2, flag="0")
-setf <- paste0("sets", sets[1], "-", sets[length(sets)])
+setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
-train_data <- readRDS(file = paste0("./training_data/train_data_", setf, "_", data_date, ".rds"))
-train_input <- train_data$train_input
-val_input <- train_data$val_input
-test_input <- train_data$test_input
+train_data <- readRDS(file = paste0("./training_data/", setsf, "/train_data_", data_date, ".rds"))
+val_data <- readRDS(file = paste0("./training_data/", setsf, "/val_data_", data_date, ".rds"))
+test_data <- readRDS(file = paste0("./training_data/", setsf, "/test_data_", data_date, ".rds"))
 
-train_output <- train_data$train_output
-val_output <- train_data$val_output
-test_output <- train_data$test_output
+train_input <- train_data$input
+val_input <- val_data$input
+test_input <- test_data$input
+
+train_output <- train_data$output
+val_output <- val_data$output
+test_output <- test_data$output
 
 # if (rerun_cnn) {
 print("Training CNN...")
 # Create a basic model instance
-model <- create_model()
+output_dim <- ncol(train_output)
+model <- create_model(output_dim = output_dim)
 
 # Display the model's architecture
 summary(model)
 
 # Create a callback that saves the model's weights
-checkpoint_path <- paste0("output/checkpoints", setf, "/:/cp-{epoch:04d}.ckpt")
-checkpoint_dir <- fs::path_dir(checkpoint_path)
+
+checkpoint_dir <- paste0("output/", setsf, "/checkpoints")
+if (!dir.exists(checkpoint_dir)) {
+  dir.create(paste0("output/", setsf))
+} else { # delete all previously saved checkpoints
+  unlink(paste0(checkpoint_dir, "/*"))
+}
+# dir.create(paste0("output/", setsf)
+checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+# checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
 epochs <- 100
 
 if (rerun_cnn) {
+  
+  # checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+  # checkpoint_dir <- fs::path_dir(checkpoint_path)
+
   cp_callback <- callback_model_checkpoint(
     filepath = checkpoint_path,
     save_weights_only = TRUE,
@@ -65,13 +102,13 @@ if (rerun_cnn) {
   )
 
   
-  saveRDS(history, file = paste0("./output/history_", setf, "_", data_date, ".rds"))
+  saveRDS(history, file = paste0("./output/", setsf, "/history_", data_date, ".rds"))
 
   # Save the entire model as a SavedModel.
-  save_model_tf(model, paste0("output/model_", setf, "_", data_date))
+  save_model_tf(model, paste0("output/", setsf, "/model_", data_date))
 } else {
-  model <- load_model_tf(paste0("output/model_", setf, "_", data_date))
-  history <- readRDS(file = paste0("./output/history_", setf, "_", data_date, ".rds"))
+  model <- load_model_tf(paste0("output/", setsf, "/model_", data_date))
+  history <- readRDS(file = paste0("./output/", setsf, "/history_", data_date, ".rds"))
 }
 
 # ## Plot the loss

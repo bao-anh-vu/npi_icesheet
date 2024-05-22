@@ -68,7 +68,7 @@ save_sims <- T
 ## Presets
 data_date <- "20240320" #"20220329" 
 N <- 10000 # number of simulations per set
-sets <- 6 #10
+sets <- 1:5
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)

@@ -1,6 +1,6 @@
 ## Train a CNN on ice thickness and velocity data
 
-setwd("/home/babv971/SSA_model/CNN/pilot")
+setwd("/home/babv971/SSA_model/CNN/pilot/")
 
 rm(list = ls())
 
@@ -9,87 +9,109 @@ reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
 library(ggplot2)
 
+source("./source/create_model.R")
+source("./source/data_generator.R")
+
+# List physical devices
+# gpus <- tf$config$experimental$list_physical_devices('GPU')
+
+# if (length(gpus) > 0) {
+#   tryCatch({
+#     # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
+#     tf$config$experimental$set_virtual_device_configuration(
+#       gpus[[1]],
+#       list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
+#     )
+    
+#     logical_gpus <- tf$config$experimental$list_logical_devices('GPU')
+    
+#     print(paste0(length(gpus), " Physical GPUs,", length(logical_gpus), " Logical GPUs"))
+#   }, error = function(e) {
+#     # Virtual devices must be set before GPUs have been initialized
+#     print(e)
+#   })
+# }
+
 ## Flags
-# rerun_cnn <- F
-save_pred <- T
+# rerun_cnn <- T
+# save_output <- T
 
 ## Read data
 data_date <- "20240320"
-set <- 1
-train_data <- readRDS(file = paste0("./training_data/train_data_", data_date, ".rds"))
-train_input <- train_data$train_input
-val_input <- train_data$val_input
-test_input <- train_data$test_input
+# arg <- commandArgs(trailingOnly = TRUE)
+sets <- 1:10 #arg
+# setf <- formatC(set, width=2, flag="0")
+setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-train_output <- train_data$train_output
-val_output <- train_data$val_output
-test_output <- train_data$test_output
+print("Reading data...")
+train_data <- readRDS(file = paste0("./training_data/", setsf, "/train_data_", data_date, ".rds"))
+val_data <- readRDS(file = paste0("./training_data/", setsf, "/val_data_", data_date, ".rds"))
+test_data <- readRDS(file = paste0("./training_data/", setsf, "/test_data_", data_date, ".rds"))
+
+train_input <- train_data$input
+val_input <- val_data$input
+test_input <- test_data$input
+
+train_output <- train_data$output
+val_output <- val_data$output
+test_output <- test_data$output
 
 # if (rerun_cnn) {
-    model <- keras_model_sequential() %>%
-        layer_conv_2d(
-            filters = 32, kernel_size = c(5, 5),
-            padding = "same", activation = "relu",
-            input_shape = c(2001, 50, 2)
-        ) %>%
-        layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-        layer_conv_2d(
-            filters = 64, kernel_size = c(3, 3),
-            padding = "same", activation = "relu"
-        ) %>%
-        layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-        layer_conv_2d(
-            filters = 128, kernel_size = c(3, 3),
-            padding = "same", activation = "relu"
-        ) %>%
-        layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-        # layer_conv_2d(filters = 256, kernel_size = c(3, 3),
-        #                 padding = "same", activation = "relu") %>%
-        layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-        layer_flatten() %>%
-        layer_dropout(rate = 0.5) %>%
-        # layer_dense(units = 256, activation = "relu") %>%
-        layer_dense(units = ncol(train_output))
+print("Training CNN...")
+# Create a basic model instance
+output_dim <- ncol(train_output)
+model <- create_model(output_dim = output_dim)
 
-    summary(model)
+# Display the model's architecture
+summary(model)
 
-    model %>% compile(
-        loss = "mse",
-        optimizer = optimizer_adam(),
-        metrics = list("mean_squared_error")
-    )
-    history <- model %>% fit(train_input, train_output,
-        epochs = 1000,
-        batch_size = 64,
-        validation_data = list(val_input, val_output)
-    )
+# Create a callback that saves the model's weights
+output_dir <- paste0("./output/", setsf) #, "/checkpoints")
 
-    pred_coefs <- model %>% predict(test_input)
+if (file.exists(output_dir)) { # remove old checkpoints
+    unlink(output_dir, recursive = TRUE)
+  } else {
+    dir.create(output_dir)
+  }
 
-    if (save_pred) {
-        saveRDS(history, file = paste0("./output/history_", set, "_", data_date, ".rds"))
-        
-        saveRDS(model, file = paste0("./output/cnn_model_", set, "_", data_date, ".rds"))
-        ## Save predicted friction coefs
-        saveRDS(pred_coefs, file = paste0("./output/pred_coefs_", set, "_", data_date, ".rds"))
-    }
-# } 
-# else {
-#     pred_coefs <- readRDS(file = paste0("./training_data/pred_coefs_", set, "_", data_date, ".rds"))
+checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+# checkpoint_dir <- fs::path_dir(checkpoint_path)
+
+batch_size <- 64
+epochs <- 10
+
+input_paths <- lapply(sets, function(x) paste0("./training_data/thickness_velocity_arr_", 
+                                                formatC(x, width=2, flag="0"), "_", data_date, ".rds"))
+output_paths <- lapply(sets, function(x) paste0("./training_data/friction_basis_", 
+                                                formatC(x, width=2, flag="0"), "_", data_date, ".rds"))
+
+# if (rerun_cnn) {
+
+  cp_callback <- callback_model_checkpoint(
+    filepath = checkpoint_path,
+    save_weights_only = TRUE,
+    verbose = 1#,
+    # save_freq = 10*batch_size # save every 10 epochs
+  )
+
+  # Train the model with the new callback
+  history <- model %>% fit(
+      # train_input, 
+      # train_output,
+      data_generator(input_paths, output_paths),
+      epochs = epochs,
+      batch_size = batch_size,
+      validation_data = list(val_input, val_output),
+      callbacks = list(cp_callback)
+  )
+
+  
+  saveRDS(history, file = paste0("./output/", setsf, "/history_", data_date, ".rds"))
+
+  # Save the entire model as a SavedModel.
+  save_model_tf(model, paste0("output/", setsf, "/model_", data_date))
+# } else {
+#   model <- load_model_tf(paste0("output/", setsf, "/model_", data_date))
+#   history <- readRDS(file = paste0("./output/", setsf, "/history_", data_date, ".rds"))
 # }
 
-## Plot the predicted friction coefs generated by these basis functions
-## And compare them to the original friction coefs ---- move to separate file later
-
-# fric_basis <- readRDS(file = paste0("./training_data/friction_basis_", set, "_", data_date, ".rds"))
-# basis_mat <- cbind(rep(1, nrow(basis_mat)), fric_basis$basis_mat)
-# pred_fric <- basis_mat %*% t(pred_coefs)
-# original_fric <- basis_mat %*% t(test_output)
-# matplot(pred_fric, type = "l")
-
-# par(mfrow = c(nrow(test_output)/2, 2))
-
-# for (i in 1:nrow(test_output)) {
-#     plot(original_fric[, i], type = "l", lwd = 2, ylab = "Friction (unit)", xlab = "Domain (km)")
-#     lines(pred_fric[, i], col = "red", lwd = 2)
-# }

@@ -61,9 +61,9 @@ source("./source/obs_operator.R")
 # set.seed(ssa_seed)
 
 ## Some flags
-regenerate_sims <- T
-refit_basis <- T
-save_sims <- T
+regenerate_sims <- F
+refit_basis <- F
+save_sims <- F
 
 ## Presets
 data_date <- "20240320" #"20220329" 
@@ -140,6 +140,10 @@ friction_arr <- readRDS(file = paste0("./training_data/friction_arr_", setf, "_"
 gl_arr <- readRDS(file = paste0("./training_data/gl_arr_", setf, "_", data_date, ".rds"))
 friction_basis <- readRDS(file = paste0("./training_data/friction_basis_", setf, "_", data_date, ".rds"))
 fitted_friction <- friction_basis$fitted_values
+
+test <- friction_basis$basis_mat %*% t(friction_basis$basis_coefs)
+
+
 plots <- list()
 
 nsamples <- 2
@@ -190,6 +194,7 @@ for (s in 1:nsamples) {
 grid.arrange(grobs = plots, nrow = nsamples, ncol = 3)
 
 ## Plot fitted frictions
+png("./plots/fitted_friction.png", width = 1000, height = 2000)
 nsamples <- 10
 par(mfrow = c(nsamples/2, 2))
 
@@ -199,13 +204,15 @@ for (sim in 1:nsamples) {
        type = "l", lwd = 1.5, xlab = "Domain (km)", ylab = "Friction (unit)")
   # lines(domain[plot_domain]/1000, lmfit$fitted.values[plot_domain]/fric_scale, col = "seagreen", lwd = 1.5)
   
-  lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain], col = "red", lwd = 1.5)
+  # lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain], col = "red", lwd = 1.5)
+  lines(domain[plot_domain]/1000, test[plot_domain, sim], col = "red", lwd = 1.5)
+  
   # legend("topright", legend = c("global basis", "local basis"), col = c("seagreen", "red"), lty = 1, lwd = 1.5)
   # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
   
 }
 
-
+dev.off()
 
 
 
