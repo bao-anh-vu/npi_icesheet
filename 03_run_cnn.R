@@ -33,13 +33,14 @@ source("./source/create_model.R")
 
 ## Flags
 rerun_cnn <- T
+output_var <- "grounding_line" # "friction" # "grounding_line" # "bed_elevation
 # save_output <- T
 
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
 sets <- 7 #arg
-# setf <- formatC(set, width=2, flag="0")
+# setf <- formatC(set, width=2, flag="0"
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")

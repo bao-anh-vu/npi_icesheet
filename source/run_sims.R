@@ -1,4 +1,4 @@
-run_sims <- function(nsims) {
+run_sims <- function(nsims, sim_beds = T) {
 
     N <- nsims
     years <- 50
@@ -19,6 +19,9 @@ run_sims <- function(nsims) {
                                             range = fric.range) # doesn't need input, or maybe just put the mean in there
 
     sim_fric_list <- lapply(1:N, function(c) simulated_friction[, c])
+
+    ## 1.5. Simulate beds
+
 
     ## 2. Simulate ice thickness and velocity observations
     print("Simulating observations...")

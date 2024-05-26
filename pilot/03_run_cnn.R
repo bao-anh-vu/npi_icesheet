@@ -9,9 +9,6 @@ reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
 library(ggplot2)
 
-source("./source/create_model.R")
-source("./source/data_generator.R")
-
 # List physical devices
 # gpus <- tf$config$experimental$list_physical_devices('GPU')
 
@@ -33,8 +30,17 @@ source("./source/data_generator.R")
 # }
 
 ## Flags
-# rerun_cnn <- T
+rerun_cnn <- T
+output_var <- "grounding_line" # "friction" # "grounding_line" # "bed_elevation
 # save_output <- T
+
+if (output_var == "friction") {
+  source("./source/create_model.R")
+} else if (output_var == "grounding_line") {
+  source("./source/create_cnn_gl.R")
+} else {
+  stop("output_var must be either 'friction' or 'grounding_line'")
+}
 
 ## Read data
 data_date <- "20240320"
@@ -44,9 +50,9 @@ sets <- 1:10 #arg
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
-train_data <- readRDS(file = paste0("./training_data/", setsf, "/train_data_", data_date, ".rds"))
-val_data <- readRDS(file = paste0("./training_data/", setsf, "/val_data_", data_date, ".rds"))
-test_data <- readRDS(file = paste0("./training_data/", setsf, "/test_data_", data_date, ".rds"))
+train_data <- readRDS(file = paste0("./training_data/", output_var, "/", setsf, "/train_data_", data_date, ".rds"))
+val_data <- readRDS(file = paste0("./training_data/", output_var, "/", setsf, "/val_data_", data_date, ".rds"))
+test_data <- readRDS(file = paste0("./training_data/", output_var, "/", setsf, "/test_data_", data_date, ".rds"))
 
 train_input <- train_data$input
 val_input <- val_data$input
@@ -65,40 +71,39 @@ model <- create_model(output_dim = output_dim)
 # Display the model's architecture
 summary(model)
 
+browser()
+
 # Create a callback that saves the model's weights
-output_dir <- paste0("./output/", setsf) #, "/checkpoints")
 
-if (file.exists(output_dir)) { # remove old checkpoints
-    unlink(output_dir, recursive = TRUE)
-  } else {
-    dir.create(output_dir)
-  }
-
-checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+output_dir <- paste0("./output/", output_var, "/", setsf)
+if (!dir.exists(output_dir)) {
+  dir.create(paste0(output_dir))
+} else { # delete all previously saved checkpoints
+  unlink(paste0(output_dir, "/*"))
+}
+# dir.create(paste0("output/", setsf)
+checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 10
+epochs <- 100
 
-input_paths <- lapply(sets, function(x) paste0("./training_data/thickness_velocity_arr_", 
-                                                formatC(x, width=2, flag="0"), "_", data_date, ".rds"))
-output_paths <- lapply(sets, function(x) paste0("./training_data/friction_basis_", 
-                                                formatC(x, width=2, flag="0"), "_", data_date, ".rds"))
-
-# if (rerun_cnn) {
+if (rerun_cnn) {
+  
+  # checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+  # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
   cp_callback <- callback_model_checkpoint(
     filepath = checkpoint_path,
     save_weights_only = TRUE,
-    verbose = 1#,
+    verbose = 1#,m
     # save_freq = 10*batch_size # save every 10 epochs
   )
 
   # Train the model with the new callback
   history <- model %>% fit(
-      # train_input, 
-      # train_output,
-      data_generator(input_paths, output_paths),
+      train_input, 
+      train_output,
       epochs = epochs,
       batch_size = batch_size,
       validation_data = list(val_input, val_output),
@@ -106,12 +111,46 @@ output_paths <- lapply(sets, function(x) paste0("./training_data/friction_basis_
   )
 
   
-  saveRDS(history, file = paste0("./output/", setsf, "/history_", data_date, ".rds"))
+  saveRDS(history, file = paste0(output_dir, "/history_", data_date, ".rds"))
 
   # Save the entire model as a SavedModel.
-  save_model_tf(model, paste0("output/", setsf, "/model_", data_date))
-# } else {
-#   model <- load_model_tf(paste0("output/", setsf, "/model_", data_date))
-#   history <- readRDS(file = paste0("./output/", setsf, "/history_", data_date, ".rds"))
-# }
+  save_model_tf(model, paste0(output_dir, "/model_", data_date))
+} else {
+  model <- load_model_tf(paste0(output_dir, "/model_", data_date))
+  history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
+}
+
+# ## Plot the loss
+
+# history %>%
+#   plot() +
+#   coord_cartesian(xlim = c(1, epochs))
+
+# ## Get rid of first training loss
+# plot(history$metrics$loss[2:60],type = "l")
+# lines(history$metrics$val_loss[2:60], col = "red")
+
+# browser()
+
+# ## Predict friction coefficients on test set
+# pred_coefs_new <- model %>% predict(test_input)
+# saveRDS(pred_coefs_new, file = paste0("./output/pred_coefs_", setf, "_", data_date, ".rds"))
+
+# results <- model %>% evaluate(test_input, test_output, batch_size = batch_size)
+# cat("test loss, test acc:", results)
+
+# # Save the entire model as a SavedModel.
+# save_model_tf(model, "output/my_model")
+
+# restored_model <- load_model_tf('output/my_model')
+
+# # Re-evaluate the model
+# new <- restored_model %>% fit(
+#     train_input, 
+#     train_output,
+#     epochs = 10,
+#     batch_size = 64,
+#     validation_data = list(val_input, val_output),
+#     callbacks = list(cp_callback)
+# )
 

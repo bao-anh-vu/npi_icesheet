@@ -51,7 +51,7 @@ run_sims <- function(nsims) {
 
     thickness_velocity_obs <- array(data = cbind(reference$all_thicknesses[, 2:(years+1)], 
                                 reference$all_velocities[, 2:(years+1)]),
-                    dim = c(length(domain), years, 2))
+                                dim = c(length(domain), years, 2))
     gl <- reference$grounding_line
 
     simulated_data <- list(thickness_velocity_arr = thickness_velocity_obs,

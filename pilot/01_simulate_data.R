@@ -1,6 +1,6 @@
 ## Generate 1000 simulations 
 
-setwd("/home/babv971/SSA_model/CNN/pilot")
+setwd("/home/babv971/SSA_model/CNN/pilot/")
 
 rm(list = ls())
 
@@ -61,14 +61,14 @@ source("./source/obs_operator.R")
 # set.seed(ssa_seed)
 
 ## Some flags
-regenerate_sims <- F
-refit_basis <- F
-save_sims <- F
+regenerate_sims <- T
+refit_basis <- T
+save_sims <- T
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 1000 # number of simulations per set
-sets <- 1:10
+N <- 10000 # number of simulations per set
+sets <- 1:5
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -85,6 +85,7 @@ domain <- ssa_steady$domain
 secpera <- 31556926
 fric_scale <- 1e6 * secpera^(1/3)
 
+t1 <- proc.time()
 if (regenerate_sims) {
 
   for (set in sets) {
@@ -107,6 +108,8 @@ if (regenerate_sims) {
     }
   }
 }
+
+t2 <- proc.time()
 
 ## Basis function representation of the friction coefficients
 if (refit_basis) {
@@ -140,10 +143,6 @@ friction_arr <- readRDS(file = paste0("./training_data/friction_arr_", setf, "_"
 gl_arr <- readRDS(file = paste0("./training_data/gl_arr_", setf, "_", data_date, ".rds"))
 friction_basis <- readRDS(file = paste0("./training_data/friction_basis_", setf, "_", data_date, ".rds"))
 fitted_friction <- friction_basis$fitted_values
-
-test <- friction_basis$basis_mat %*% t(friction_basis$basis_coefs)
-
-
 plots <- list()
 
 nsamples <- 2
@@ -194,7 +193,6 @@ for (s in 1:nsamples) {
 grid.arrange(grobs = plots, nrow = nsamples, ncol = 3)
 
 ## Plot fitted frictions
-png("./plots/fitted_friction.png", width = 1000, height = 2000)
 nsamples <- 10
 par(mfrow = c(nsamples/2, 2))
 
@@ -204,15 +202,13 @@ for (sim in 1:nsamples) {
        type = "l", lwd = 1.5, xlab = "Domain (km)", ylab = "Friction (unit)")
   # lines(domain[plot_domain]/1000, lmfit$fitted.values[plot_domain]/fric_scale, col = "seagreen", lwd = 1.5)
   
-  # lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain], col = "red", lwd = 1.5)
-  lines(domain[plot_domain]/1000, test[plot_domain, sim], col = "red", lwd = 1.5)
-  
+  lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain], col = "red", lwd = 1.5)
   # legend("topright", legend = c("global basis", "local basis"), col = c("seagreen", "red"), lty = 1, lwd = 1.5)
   # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
   
 }
 
-dev.off()
+
 
 
 
