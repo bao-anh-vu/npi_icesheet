@@ -1,6 +1,6 @@
 ## Generate 1000 simulations 
 
-setwd("/home/babv971/SSA_model/CNN/pilot/")
+setwd("~/SSA_model/CNN/pilot/simbed")
 
 rm(list = ls())
 
@@ -64,18 +64,18 @@ source("./source/obs_operator.R")
 regenerate_sims <- F
 refit_basis <- F
 save_sims <- F
-sim_beds <- T
+# sim_beds <- T
 
-if (sim_beds) {
-  train_data_dir <- "./training_data_bed"
-} else {
-  train_data_dir <- "./training_data"
-}
+# if (sim_beds) {
+  train_data_dir <- "~/SSA_model/CNN/pilot/training_data_bed"
+# } else {
+#   train_data_dir <- "./training_data"
+# }
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 1000 # number of simulations per set
-sets <- 1:10
+N <- 10#00 # number of simulations per set
+sets <- 1
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -112,9 +112,9 @@ if (regenerate_sims) {
     friction_arr_s <- generated_data$friction_arr
     gl_arr_s <- generated_data$gl_arr
 
-    if (sim_beds) {
+    # if (sim_beds) {
       bed_arr_s <- generated_data$bed_arr
-    }
+    # }
 
     # ## Basis function representation of the friction coefficients
     # fitted_friction_s <- fit_basis(nbasis = nbasis, domain = domain, friction_arr = friction_arr_s)
@@ -125,10 +125,10 @@ if (regenerate_sims) {
         saveRDS(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
         saveRDS(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
 
-        if (sim_beds) {
+        # if (sim_beds) {
           saveRDS(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
 
-        }
+        # }
         # saveRDS(fitted_friction_s, file = paste0("./training_data/fitted_friction_", setf, "_", data_date))
     }
     
@@ -239,25 +239,26 @@ s <- 1
   
 # }
 
-png(file = paste0("./plots/sim_beds/simulations_", setf, "_", data_date, ".png"), width = 2000, height = 500)
+png(file = paste0("./plots/simulations_", setf, "_", data_date, ".png"), width = 2000, height = 500)
 grid.arrange(grobs = plots, nrow = 1, ncol = 4)
 dev.off()
 
-## Plot fitted frictions
-nsamples <- 10
-par(mfrow = c(nsamples/2, 2))
+# ## Plot fitted frictions
+# nsamples <- 2
+# par(mfrow = c(nsamples/2, 2))
 
-for (sim in 1:nsamples) {
-  plot_domain <- 1:1000
-  plot(domain[plot_domain]/1000, friction_arr[sim, plot_domain,,]/fric_scale,
-       type = "l", lwd = 1.5, xlab = "Domain (km)", ylab = "Friction (unit)")
-  # lines(domain[plot_domain]/1000, lmfit$fitted.values[plot_domain]/fric_scale, col = "seagreen", lwd = 1.5)
+# for (sim in 1:nsamples) {
+#   plot_domain <- 1:1000
+#   plot(domain[plot_domain]/1000, friction_arr[sim, plot_domain,,]/fric_scale,
+#        type = "l", lwd = 1.5, xlab = "Domain (km)", ylab = "Friction (unit)")
+#   # lines(domain[plot_domain]/1000, lmfit$fitted.values[plot_domain]/fric_scale, col = "seagreen", lwd = 1.5)
   
-  lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain], col = "red", lwd = 1.5)
-  # legend("topright", legend = c("global basis", "local basis"), col = c("seagreen", "red"), lty = 1, lwd = 1.5)
-  # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
+#   lines(domain[plot_domain]/1000, fitted_friction[sim, plot_domain], col = "red", lwd = 1.5)
+#   # legend("topright", legend = c("global basis", "local basis"), col = c("seagreen", "red"), lty = 1, lwd = 1.5)
+#   # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
   
-}
+# }
+
 
 
 

@@ -1,6 +1,6 @@
 ## Train a CNN on ice thickness and velocity data
 
-setwd("/home/babv971/SSA_model/CNN/pilot/")
+setwd("~/SSA_model/CNN/pilot/simbed/")
 
 rm(list = ls())
 
@@ -48,24 +48,24 @@ source("./source/create_model.R")
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #arg
+sets <- 1:2 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
-if (sim_beds) {
-  train_data_dir <- "./training_data_bed"
+# if (sim_beds) {
+  train_data_dir <- "~/SSA_model/CNN/pilot/training_data_bed"
   train_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/train_data_", data_date, ".rds"))
   val_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/val_data_", data_date, ".rds"))
   test_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/test_data_", data_date, ".rds"))
 
-} else {
-  train_data_dir <- "./training_data"
-  train_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/train_data_", data_date, ".rds"))
-  val_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/val_data_", data_date, ".rds"))
-  test_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/test_data_", data_date, ".rds"))
+# } else {
+#   train_data_dir <- "./training_data"
+#   train_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/train_data_", data_date, ".rds"))
+#   val_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/val_data_", data_date, ".rds"))
+#   test_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/test_data_", data_date, ".rds"))
 
-}
+# }
 
 train_input <- train_data$input
 val_input <- val_data$input
@@ -112,11 +112,11 @@ if (output_var == "friction") {
 summary(model)
 
 # Create a callback that saves the model's weights
-if (sim_beds) {
-  output_dir <- paste0("./output_bed/", output_var, "/", setsf)
-} else {
+# if (sim_beds) {
   output_dir <- paste0("./output/", output_var, "/", setsf)
-}
+# } else {
+#   output_dir <- paste0("./output/", output_var, "/", setsf)
+# }
 
 if (!dir.exists(output_dir)) {
   dir.create(paste0(output_dir))
@@ -128,7 +128,7 @@ checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 100
+epochs <- 10
 
 if (rerun_cnn) {
   

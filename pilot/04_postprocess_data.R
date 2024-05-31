@@ -9,17 +9,27 @@ library(tensorflow)
 library(ggplot2)
 
 ## Flags
-output_var <- "grounding_line" # "friction" # "grounding_line" # "bed_elevation
+output_var <- "all" # "friction" # "grounding_line" # "bed_elevation
+sim_beds <- T
 save_plots <- T
 
 ## Read data
 data_date <- "20240320"
-sets <- 1:10
+sets <- 1:2
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
+
+if (sim_beds) {
+    data_dir <- paste0("./training_data_bed/", setsf)
+    output_dir <- paste0("./output_bed/", output_var, "/", setsf)
+} else {
+    data_dir <- paste0("./training_data/", output_var, "/", setsf)
+  output_dir <- paste0("./output/", output_var, "/", setsf)
+}
 # train_data <- readRDS(file = paste0("./training_data/", setsf, "/train_data_", data_date, ".rds"))
-test_data <- readRDS(file = paste0("./training_data/", output_var, "/", setsf, "/test_data_", data_date, ".rds"))
+train_data <- readRDS(file = paste0(data_dir, "/train_data_", data_date, ".rds"))
+test_data <- readRDS(file = paste0(data_dir, "/test_data_", data_date, ".rds"))
 ssa_steady <- readRDS(file = paste("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
 domain <- ssa_steady$domain
 
@@ -30,7 +40,32 @@ test_input <- test_data$input
 
 # train_output <- train_data$output
 # val_output <- val_data$output
-test_output <- test_data$output
+# test_output <- test_data$output
+# true_params <- test_data$truth
+
+if (sim_beds) {
+    if (output_var == "friction") {
+  test_output <- test_data$fric_coefs
+  true_params <- test_data$true_fric
+
+  ## Scaling units for friction coefficients
+    secpera <- 31556926
+    fric_scale <- 1e6 * secpera^(1/3)
+
+    true_params <- true_params/fric_scale
+    } else if (output_var == "grounding_line") {
+    test_output <- test_data$grounding_line
+    } else if (output_var == "bed") {
+    test_output <- test_data$bed_coefs
+    true_params <- test_data$true_bed
+    } else if (output_var == "all") {
+    test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs)
+    } else {
+    print("Output variable should be either 'friction', 'bed' or 'grounding_line'.")
+    }
+} else {
+    test_output <- test_data$output
+}
 
 output_dim <- ncol(test_output)
 model <- create_model(output_dim)
@@ -39,27 +74,33 @@ model <- create_model(output_dim)
 summary(model)
 
 ## Plot the loss
-history <- readRDS(file = paste0("./output/", output_var, "/", setsf, "/history_", data_date, ".rds"))
+history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
 # history %>% plot() #+
 # coord_cartesian(xlim = c(1, epochs))
 
-plot(history$metrics$val_loss[2:100], type = "l")
-lines(history$metrics$loss[2:100], col = "red")
+plot(history$metrics$loss[2:100], type = "l")
+lines(history$metrics$val_loss[2:100], col = "red")
 legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
 
-plot_dir <- paste0("./plots/", output_var, "/", setsf)
+if (sim_beds) {
+    plot_dir <- paste0("./plots/sim_beds/", setsf)
+} else {
+    plot_dir <- paste0("./plots/", output_var, "/", setsf)
+}
+
 if (save_plots) {
 
     if (!dir.exists(plot_dir)) {
         dir.create(plot_dir)
     }
 
-    png(paste0(plot_dir, "/loss.png"), width = 1000, height = 500)
-    plot(history$metrics$val_loss[2:100], type = "l")
-    lines(history$metrics$loss[2:100], col = "red")
+    png(paste0(plot_dir, "/loss_", output_var, ".png"), width = 1000, height = 500)
+    plot(history$metrics$loss[2:100], type = "l")
+    lines(history$metrics$val_loss[2:100], col = "red")
     legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
     dev.off()
 }
+
 
 ## Extract the friction coefficients and grounding line
 # test_fric_coefs <- test_output[, 1:150]
@@ -67,23 +108,20 @@ if (save_plots) {
 
 
 ## Then transform them back to original scale
-output_mean <- test_data$output_mean
-output_sd <- test_data$output_sd
+# output_mean <- test_data$output_mean
+# output_sd <- test_data$output_sd
 
-test_output <- test_output * output_sd + output_mean
-# test_fric_coefs <- test_output[, 1:150]
-# test_gl <- test_output[, 151:200]
-
+# test_output <- test_output * output_sd + output_mean
 
 ## Reload model from checkpoint
-checkpoint_path <- paste0("output/", output_var, "/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 checkpt <- which.min(history$metrics$val_loss) # c(69)
 # for (checkpt in checkpts) {
 if (!is.null(checkpt)) {
     ## Load the model from checkpt
-    cp_restart <- paste0("output/", output_var, "/", setsf, "/checkpoints/cp-", formatC(checkpt, width = 4, flag = "0"), ".ckpt")
+    cp_restart <- paste0(output_dir, "/checkpoints/cp-", formatC(checkpt, width = 4, flag = "0"), ".ckpt")
     # latest <- tf$train$latest_checkpoint(checkpoint_dir)
     load_model_weights_tf(model, cp_restart)
 } else {
@@ -93,7 +131,7 @@ if (!is.null(checkpt)) {
 
 ## Predict
 pred_output <- model %>% predict(test_input)
-pred_output <- pred_output * output_sd + output_mean # un-standardise output
+# pred_output <- pred_output * output_sd + output_mean # un-standardise output
 
 # pred_coefs <- pred_output_unstd[, 1:150]
 # pred_gl <- pred_output_unstd[, 151:200]
@@ -104,9 +142,70 @@ samples <- sample(1:nrow(test_output), 6)
 
 par(mfrow = c(length(samples) / 2, 2))
 
-if (output_var == "friction") {
+if (sim_beds) {
+    if (output_var == "bed") {
+        ## Matrix of basis functions
+        # bed_basis <- readRDS(file = paste0("./training_data_bed/bed_basis_01_", data_date, ".rds"))
+        # basis_mat <- bed_basis$basis_mat
+
+        basis_mat <- test_data$bed_basis_mat
+        ## Compute predicted vs original bed elevations
+        pred_bed <- basis_mat %*% t(pred_output)
+        test_bed <- basis_mat %*% t(test_output)
+
+        ## Bed plot
+        for (i in 1:length(samples)) {
+            par(mar = c(6, 8, 4, 2))
+            # gl <- test_data$grounding_line[i] / 800 * 2001
+            plot_domain <- 1:length(domain) # ceiling(gl)
+            plot(domain[plot_domain] / 1000, true_params[i, plot_domain],
+                type = "l", lwd = 2, col = "black",
+                ylab = "Bed (m)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
+            )
+            lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
+            lines(domain[plot_domain] / 1000, pred_bed[plot_domain, i], lwd = 2, col = "red")
+            abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
+        } 
+    } else if (output_var == "friction") {
+        basis_mat <- test_data$fric_basis_mat
+        ## Compute predicted vs original bed elevations
+        pred_fric <- basis_mat %*% t(pred_output)
+        test_fric <- basis_mat %*% t(test_output)
+
+        ## Friction plot
+        for (i in 1:length(samples)) {
+            par(mar = c(6, 8, 4, 2))
+            gl <- test_data$grounding_line[i] / 800 * 2001
+            plot_domain <- 1:length(domain) # ceiling(gl)
+            plot(domain[plot_domain] / 1000, true_params[i, plot_domain],
+                type = "l", lwd = 2, 
+                ylab = "Friction (unit)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
+            )
+            lines(domain[plot_domain] / 1000, test_fric[plot_domain, i], lwd = 2, col = "blue")
+            lines(domain[plot_domain] / 1000, pred_fric[plot_domain, i], lwd = 2, col = "red")
+            
+            abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
+        }
+    } else if (output_var == "all") {
+        fric_basis_mat <- test_data$fric_basis_mat
+        ## Compute predicted vs original friction
+        pred_fric <- fric_basis_mat %*% t(pred_output[, 1:150])
+        test_fric <- fric_basis_mat %*% t(test_output[, 1:150])
+
+        bed_basis_mat <- test_data$bed_basis_mat
+        ## Compute predicted vs original bed elevations
+        pred_bed <- bed_basis_mat %*% t(pred_output[, 151:300])
+        test_bed <- bed_basis_mat %*% t(test_output[, 151:300])
+
+    } else {
+        stop("Output not available.")
+    }
+    
+
+} else { # if using true bed
+    if (output_var == "friction") {
     ## Matrix of basis functions
-    fric_basis <- readRDS(file = paste0("./training_data/friction_basis_01_", data_date, ".rds"))
+    fric_basis <- readRDS(file = paste0(data_dir, "./training_data/friction_basis_01_", data_date, ".rds"))
     basis_mat <- fric_basis$basis_mat
 
     ## Compute predicted vs original friction coefficients
@@ -125,29 +224,89 @@ if (output_var == "friction") {
         lines(domain[plot_domain] / 1000, test_fric[plot_domain, i], lwd = 2)
         abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
     }
-} else if (output_var == "grounding_line") {
+    } else if (output_var == "grounding_line") {
 
-    pred_gl <- pred_output
-    test_gl <- test_output
+        pred_gl <- pred_output
+        test_gl <- test_output
 
-    ## Grounding line plot
-    for (i in 1:length(samples)) {
-        par(mar = c(6, 8, 4, 2))
-        plot_domain <- 1:length(domain) # ceiling(gl)
-        plot(test_gl[i, ], 1:ncol(test_gl),
-            type = "l", lwd = 2,
-            xlab = "Grounding line (km)", ylab = "Time (years)", cex.axis = 3, cex.lab = 4
-        )
-        lines(pred_gl[i, ], 1:ncol(test_gl), col = "red", lwd = 2)
-    } 
-}else {
-    print("Output variable not recognised.")
+        ## Grounding line plot
+        for (i in 1:length(samples)) {
+            par(mar = c(6, 8, 4, 2))
+            plot_domain <- 1:length(domain) # ceiling(gl)
+            plot(test_gl[i, ], 1:ncol(test_gl),
+                type = "l", lwd = 2,
+                xlab = "Grounding line (km)", ylab = "Time (years)", cex.axis = 3, cex.lab = 4
+            )
+            lines(pred_gl[i, ], 1:ncol(test_gl), col = "red", lwd = 2)
+        } 
+    } else {
+        print("Output variable not recognised.")
+    }
 }
 
 
 if (save_plots) {
 
-    if (output_var == "friction") {
+    if (sim_beds) {
+        if (output_var == "bed") {
+            ## Matrix of basis functions
+            # bed_basis <- readRDS(file = paste0("./training_data_bed/bed_basis_01_", data_date, ".rds"))
+            # basis_mat <- bed_basis$basis_mat
+            png(paste0("./plots/sim_beds/", setsf, "/pred_vs_test_bed_", setsf, "_ckpt", checkpt, ".png"), width = 2500, height = 2500)
+
+            par(mfrow = c(length(samples) / 2, 2))
+
+            basis_mat <- test_data$bed_basis_mat
+            ## Compute predicted vs original bed elevations
+            pred_bed <- basis_mat %*% t(pred_output)
+            test_bed <- basis_mat %*% t(test_output)
+
+            ## Bed plot
+            for (i in 1:length(samples)) {
+                par(mar = c(6, 8, 4, 2))
+                # gl <- test_data$grounding_line[i] / 800 * 2001
+                plot_domain <- 1:length(domain) # ceiling(gl)
+                plot(domain[plot_domain] / 1000, true_params[i, plot_domain],
+                    type = "l", lwd = 2, col = "black",
+                    ylab = "Bed (m)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
+                )
+                lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
+                lines(domain[plot_domain] / 1000, pred_bed[plot_domain, i], lwd = 2, col = "red")
+                abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
+            } 
+            dev.off()
+
+        } else if (output_var == "friction") {
+            basis_mat <- test_data$fric_basis_mat
+            ## Compute predicted vs original bed elevations
+            pred_fric <- basis_mat %*% t(pred_output)
+            test_fric <- basis_mat %*% t(test_output)
+
+            png(paste0("./plots/sim_beds/", setsf, "/pred_vs_test_fric_", setsf, "_ckpt", checkpt, ".png"), width = 2500, height = 2500)
+
+            par(mfrow = c(length(samples) / 2, 2))
+
+            ## Friction plot
+            for (i in 1:length(samples)) {
+                par(mar = c(6, 8, 4, 2))
+                gl <- test_data$grounding_line[i] / 800 * 2001
+                plot_domain <- 1:length(domain) # ceiling(gl)
+                plot(domain[plot_domain] / 1000, true_params[i, plot_domain],
+                    type = "l", lwd = 2, 
+                    ylab = "Friction (unit)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
+                )
+                lines(domain[plot_domain] / 1000, test_fric[plot_domain, i], lwd = 2, col = "blue")
+                lines(domain[plot_domain] / 1000, pred_fric[plot_domain, i], lwd = 2, col = "red")
+                
+                abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
+            }
+
+            dev.off()
+        } else {
+            print("Output variable not recognised.")
+        }
+    } else { # if using true bed
+        if (output_var == "friction") {
         png(paste0("./plots/", output_var, "/", setsf, "/pred_vs_test_fric_", setsf, "_ckpt", checkpt, ".png"), width = 2500, height = 2500)
 
         par(mfrow = c(length(samples) / 2, 2))
@@ -164,24 +323,27 @@ if (save_plots) {
             abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
         }
         dev.off()
-    } else if (output_var == "grounding_line") {
-        ## Grounding line plot
-        png(paste0("./plots/", output_var, "/", setsf, "/pred_vs_test_gl_", setsf, "_ckpt", checkpt, ".png"), width = 2500, height = 2500)
-        par(mfrow = c(length(samples) / 2, 2))
+        } else if (output_var == "grounding_line") {
+            ## Grounding line plot
+            png(paste0("./plots/", output_var, "/", setsf, "/pred_vs_test_gl_", setsf, "_ckpt", checkpt, ".png"), width = 2500, height = 2500)
+            par(mfrow = c(length(samples) / 2, 2))
 
-        for (i in 1:length(samples)) {
-            par(mar = c(6, 8, 4, 2))
-            plot_domain <- 1:length(domain) # ceiling(gl)
-            plot(test_gl[i, ], 1:ncol(test_gl),
-                type = "l", lwd = 2,
-                xlab = "Grounding line (km)", ylab = "Time (years)", cex.axis = 3, cex.lab = 4
-            )
-            lines(pred_gl[i, ], 1:ncol(test_gl), col = "red", lwd = 2)
+            for (i in 1:length(samples)) {
+                par(mar = c(6, 8, 4, 2))
+                plot_domain <- 1:length(domain) # ceiling(gl)
+                plot(test_gl[i, ], 1:ncol(test_gl),
+                    type = "l", lwd = 2,
+                    xlab = "Grounding line (km)", ylab = "Time (years)", cex.axis = 3, cex.lab = 4
+                )
+                lines(pred_gl[i, ], 1:ncol(test_gl), col = "red", lwd = 2)
+            }
+            dev.off()
+        } else {
+            print("Output variable not recognised.")
         }
-        dev.off()
-    } else {
-        print("Output variable not recognised.")
     }
+
+    
     
 }
 
@@ -197,12 +359,15 @@ if (output_var == "friction") {
 } else if (output_var == "grounding_line") {
    truth <- test_gl
    pred <- pred_gl
+} else {
+    truth <- test_bed
+    pred <- pred_bed
 }
 
 for (s in 1:ncol(test_output)) {
-    total_rmse <- total_rmse + rmse(test_fric[, s], pred_fric[, s])
+    total_rmse <- total_rmse + rmse(truth[, s], pred[, s])
 }
-cat("RMSE: ", total_rmse / ncol(test_fric), "\n") # normalise by number of simulations in the test set
+cat("RMSE: ", total_rmse / ncol(truth), "\n") # normalise by number of simulations in the test set
 
 # }
 

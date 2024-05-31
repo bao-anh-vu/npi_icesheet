@@ -1,11 +1,11 @@
 ## Pre-process data
 
-setwd("/home/babv971/SSA_model/CNN/pilot/")
+setwd("~/SSA_model/CNN/pilot/simbed/")
 
 rm(list = ls())
 
 ## Flags
-sim_beds <- T
+# sim_beds <- T
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
 save_data <- T
 standardise_output <- T
@@ -20,15 +20,15 @@ source("./source/seq_mean_var.R")
 data_date <- "20240320" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:10
+sets <- 1:2
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[length(sets)])#formatC(sets, width=2, flag="0
 
-if (sim_beds) {
-    train_data_dir <- "./training_data_bed"
-} else {
-    train_data_dir <- "./training_data"
-}
+# if (sim_beds) {
+    train_data_dir <- "~/SSA_model/CNN/pilot/training_data_bed"
+# } else {
+    # train_data_dir <- "./training_data"
+# }
 
 ## Read thickness and velocity data
 print("Reading thickness and velocity data...")
