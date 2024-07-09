@@ -22,10 +22,10 @@ data_date <- "20240320" # "20220329"
 arg <- commandArgs(trailingOnly = TRUE)
 sets <- 1:2
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
-# setsf <- paste0("sets", sets[1], "-", sets[length(sets)])#formatC(sets, width=2, flag="0
+# setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
 # if (sim_beds) {
-    train_data_dir <- "~/SSA_model/CNN/pilot/training_data_bed"
+    train_data_dir <- "./training_data"
 # } else {
     # train_data_dir <- "./training_data"
 # }
@@ -48,7 +48,6 @@ h_sd <- sd(thickness_velocity_list[[1]][, , , 2])
 # u_sd2 <- sd(thickness_velocity_list[[2]][,,,1])
 # h_sd2 <- sd(thickness_velocity_list[[2]][,,,2])
 
-# browser()
 
 rm(thickness_velocity_list)
 
@@ -61,7 +60,7 @@ fric_arr <- abind(fric_list, along = 1)
 rm(fric_list)
 
 ## Read basis coefficients data
-print("Reading basis coefficients data...")
+print("Reading friction basis coefficients data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/friction_basis_", x, "_", data_date, ".rds"))
 fric_basis_coefs_list <- lapply(files, function(x) readRDS(x)$basis_coefs)
 fric_basis_coefs <- abind(fric_basis_coefs_list, along = 1)
@@ -77,12 +76,14 @@ bed_arr <- abind(bed_list, along = 1)
 rm(bed_list)
 
 ## Read basis coefficients data
-print("Reading basis coefficients data...")
+print("Reading bed basis coefficients data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/bed_basis_", x, "_", data_date, ".rds"))
 bed_basis_coefs_list <- lapply(files, function(x) readRDS(x)$basis_coefs)
 bed_basis_coefs <- abind(bed_basis_coefs_list, along = 1)
 bed_basis_mat <- readRDS(files[[1]])$basis_mat
 rm(bed_basis_coefs_list)
+
+browser()
 
 # }
 
@@ -230,7 +231,9 @@ train_data <- list(
     sd_fric_coefs = sd_fric_coefs,
     true_bed = true_bed_train,
     true_fric = true_fric_train,
-    grounding_line = gl_arr[train_ind, ]
+    grounding_line = gl_arr[train_ind, ],
+    mean_gl = mean_gl,
+    sd_gl = sd_gl
 )
 
 if (save_data) {
@@ -253,7 +256,9 @@ val_data <- list(
     sd_fric_coefs = sd_fric_coefs,
     true_bed = true_bed_val,
     true_fric = true_fric_val,
-    grounding_line = drop(gl_arr[val_ind, ])
+    grounding_line = drop(gl_arr[val_ind, ]),
+    mean_gl = mean_gl,
+    sd_gl = sd_gl
 )
 
 if (save_data) {
@@ -278,7 +283,9 @@ test_data <- list(
     true_fric = true_fric_test,
     bed_basis_mat = bed_basis_mat,
     fric_basis_mat = fric_basis_mat,
-    grounding_line = drop(gl_arr[test_ind, ])
+    grounding_line = drop(gl_arr[test_ind, ]),
+    mean_gl = mean_gl,
+    sd_gl = sd_gl
 )
 
 if (save_data) {

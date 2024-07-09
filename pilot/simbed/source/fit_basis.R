@@ -64,9 +64,9 @@ fit_bed_basis <- function(nbasis, domain, sample_arr) {
         fitted_values[sim, ] <- as.vector(lmfit_local$fitted.values)
     }
 
-# plot(sample_arr[1,], type = "l")
-# lines(fitted_values[1, ], col = "red")
-#     browser()
+plot(sample_arr[1,], type = "l")
+lines(fitted_values[1, ], col = "red")
+    browser()
 
     return(list(basis_coefs = basis_coefs, 
                 basis_mat = basis_mat,

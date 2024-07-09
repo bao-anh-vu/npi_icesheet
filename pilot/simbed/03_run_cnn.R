@@ -14,7 +14,7 @@ library(ggplot2)
 
 # if (length(gpus) > 0) {
 #   tryCatch({
-#     # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
+#     # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
 #     tf$config$experimental$set_virtual_device_configuration(
 #       gpus[[1]],
 #       list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
@@ -32,7 +32,7 @@ library(ggplot2)
 ## Flags
 rerun_cnn <- T
 sim_beds <- T
-output_var <- "all" #"bed" # "friction" # "grounding_line" # "bed"
+output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
 # save_output <- T
 
 source("./source/create_model.R")
@@ -48,13 +48,13 @@ source("./source/create_model.R")
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:2 #arg
+sets <- 1:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
 # if (sim_beds) {
-  train_data_dir <- "~/SSA_model/CNN/pilot/training_data_bed"
+  train_data_dir <- "./training_data"
   train_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/train_data_", data_date, ".rds"))
   val_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/val_data_", data_date, ".rds"))
   test_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/test_data_", data_date, ".rds"))
@@ -84,9 +84,9 @@ if (output_var == "friction") {
   val_output <- val_data$bed_coefs
   test_output <- test_data$bed_coefs
 } else if (output_var == "all") {
-  train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs)
-  val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs)
-  test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs)
+  train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$grounding_line)
+  val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
+  test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 }
 
 # train_output <- train_data$output
@@ -96,16 +96,18 @@ if (output_var == "friction") {
 # if (rerun_cnn) {
 print("Training CNN...")
 # Create a basic model instance
+input_dim <- dim(train_data$input)[2:4]
 output_dim <- ncol(train_output)
 
+
 if (output_var == "friction") {
-  model <- create_model(output_dim = output_dim)
+  model <- create_model(input_dim = input_dim, output_dim = output_dim)
 } else if (output_var == "grounding_line") {
-  model <- create_model(output_dim = output_dim)
+  model <- create_model(input_dim = input_dim, output_dim = output_dim)
 } else if (output_var == "bed") { ## bed
-  model <- create_model_bed(output_dim = output_dim)
-} else {
-  model <- create_model(output_dim = output_dim)
+  model <- create_model_bed(input_dim = input_dim, output_dim = output_dim)
+} else { ## all variables
+  model <- create_model(input_dim = input_dim, output_dim = output_dim)
 }
 
 # Display the model's architecture
@@ -128,7 +130,7 @@ checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 10
+epochs <- 100
 
 if (rerun_cnn) {
   
