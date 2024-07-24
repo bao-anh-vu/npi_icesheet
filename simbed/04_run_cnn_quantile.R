@@ -33,10 +33,11 @@ library(ggplot2)
 rerun_cnn <- T
 sim_beds <- T
 output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
+quantile <- 0.05
 # save_output <- T
 
 source("./source/create_model.R")
-
+source("./source/custom_loss_function.R")
 # if (output_var == "friction") {
 #   source("./source/create_model.R")
 # } else if (output_var == "grounding_line") {
@@ -71,23 +72,23 @@ train_input <- train_data$input
 val_input <- val_data$input
 test_input <- test_data$input
 
-if (output_var == "friction") {
-  train_output <- train_data$fric_coefs
-  val_output <- val_data$fric_coefs
-  test_output <- test_data$fric_coefs
-} else if (output_var == "grounding_line") {
-  train_output <- train_data$grounding_line
-  val_output <- val_data$grounding_line
-  test_output <- test_data$grounding_line
-} else if (output_var == "bed") {
-  train_output <- train_data$bed_coefs
-  val_output <- val_data$bed_coefs
-  test_output <- test_data$bed_coefs
-} else if (output_var == "all") {
+# if (output_var == "friction") {
+#   train_output <- train_data$fric_coefs
+#   val_output <- val_data$fric_coefs
+#   test_output <- test_data$fric_coefs
+# } else if (output_var == "grounding_line") {
+#   train_output <- train_data$grounding_line
+#   val_output <- val_data$grounding_line
+#   test_output <- test_data$grounding_line
+# } else if (output_var == "bed") {
+#   train_output <- train_data$bed_coefs
+#   val_output <- val_data$bed_coefs
+#   test_output <- test_data$bed_coefs
+# } else if (output_var == "all") {
   train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$grounding_line)
   val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
   test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
-}
+# }
 
 # train_output <- train_data$output
 # val_output <- val_data$output
@@ -100,22 +101,22 @@ input_dim <- dim(train_data$input)[2:4]
 output_dim <- ncol(train_output)
 
 
-if (output_var == "friction") {
-  model <- create_model(input_dim = input_dim, output_dim = output_dim)
-} else if (output_var == "grounding_line") {
-  model <- create_model(input_dim = input_dim, output_dim = output_dim)
-} else if (output_var == "bed") { ## bed
-  model <- create_model_bed(input_dim = input_dim, output_dim = output_dim)
-} else { ## all variables
-  model <- create_model(input_dim = input_dim, output_dim = output_dim)
-}
+# if (output_var == "friction") {
+#   model <- create_model(input_dim = input_dim, output_dim = output_dim)
+# } else if (output_var == "grounding_line") {
+#   model <- create_model(input_dim = input_dim, output_dim = output_dim)
+# } else if (output_var == "bed") { ## bed
+#   model <- create_model_bed(input_dim = input_dim, output_dim = output_dim)
+# } else { ## all variables
+  model <- create_model_quantile(input_dim = input_dim, output_dim = output_dim, quantile = quantile)
+# }
 
 # Display the model's architecture
 summary(model)
 
 # Create a callback that saves the model's weights
 # if (sim_beds) {
-  output_dir <- paste0("./output/", output_var, "/", setsf)
+  output_dir <- paste0("./output/", output_var, "/", setsf, "/quantile", quantile*100)
 # } else {
 #   output_dir <- paste0("./output/", output_var, "/", setsf)
 # }
@@ -125,12 +126,13 @@ if (!dir.exists(output_dir)) {
 } else { # delete all previously saved checkpoints
   unlink(paste0(output_dir, "/*"))
 }
+
 # dir.create(paste0("output/", setsf)
 checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 20
+epochs <- 20 #100
 
 if (rerun_cnn) {
   

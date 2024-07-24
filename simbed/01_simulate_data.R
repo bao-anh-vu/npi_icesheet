@@ -1,6 +1,10 @@
 ## Generate 1000 simulations 
 
+<<<<<<< HEAD
+setwd("~/SSA_model/CNN/simbed")
+=======
 setwd("~/SSA_model/CNN/pilot/simbed")
+>>>>>>> refs/remotes/origin/main
 
 rm(list = ls())
 
@@ -16,12 +20,20 @@ library("fields")
 library("dplyr")
 library("matrixStats") # for the rowMaxs() function
 library("mvtnorm")
+<<<<<<< HEAD
+library(abind)
+library("ggplot2")
+# library("plotly")
+library("gridExtra")
+library("FRK")
+=======
 library("parallel")
 
 library("ggplot2")
 # library("plotly")
 library("gridExtra")
 library(FRK)
+>>>>>>> refs/remotes/origin/main
 
 # library(gstat)
 # library(sp)
@@ -29,6 +41,10 @@ library(FRK)
 # library("splines")
 
 source("./source/run_sims.R")
+<<<<<<< HEAD
+source("./source/process_sim_results.R")
+=======
+>>>>>>> refs/remotes/origin/main
 source("./source/fit_basis.R")
 source("./source/surface_elev.R")
 source("./source/create_params.R")
@@ -39,7 +55,12 @@ source("./source/solve_ssa_nl.R")
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
 source("./source/mvnorm_sample.R")
+<<<<<<< HEAD
+# source("./source/get_obs.R")
+source("./source/get_surface_obs.R")
+=======
 source("./source/get_obs.R")
+>>>>>>> refs/remotes/origin/main
 source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
@@ -58,6 +79,18 @@ source("./source/obs_operator.R")
 
 # ## Seed for generating bed
 # ssa_seed <- 123
+<<<<<<< HEAD
+# set.seed(ssa_see
+
+## Some flags
+regenerate_sims <- T
+refit_basis <- T
+save_sims <- T
+# sim_beds <- T
+
+# if (sim_beds) {
+  train_data_dir <- "./training_data"
+=======
 # set.seed(ssa_seed)
 
 ## Some flags
@@ -68,14 +101,20 @@ save_sims <- F
 
 # if (sim_beds) {
   train_data_dir <- "~/SSA_model/CNN/pilot/training_data_bed"
+>>>>>>> refs/remotes/origin/main
 # } else {
 #   train_data_dir <- "./training_data"
 # }
 
 ## Presets
 data_date <- "20240320" #"20220329" 
+<<<<<<< HEAD
+N <- 10000 # number of simulations per set
+sets <- 6:10
+=======
 N <- 10#00 # number of simulations per set
 sets <- 1
+>>>>>>> refs/remotes/origin/main
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -83,18 +122,36 @@ setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 nbasis <- 150
 
 # 0. Load ice sheet at steady state
+<<<<<<< HEAD
+ssa_steady <- readRDS(file = paste0("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
+=======
 ssa_steady <- readRDS(file = paste0(train_data_dir, "/initial_conds/ssa_steady_20220329.rds", sep = ""))
+>>>>>>> refs/remotes/origin/main
 
 # 0. Simulate bed observations
 set.seed(2024)
 ref_bed <- ssa_steady$bedrock
+<<<<<<< HEAD
+
+=======
+>>>>>>> refs/remotes/origin/main
 ## Randomly select 50 locations between x = 0 and x = 800 km
 n_bed_obs <- 50
 obs_ind <- sort(sample(length(ref_bed), n_bed_obs))
 obs_bed <- ref_bed[obs_ind] + rnorm(n_bed_obs, mean = 0, sd = 20) ## add noise
+<<<<<<< HEAD
+bed_obs <- list(locations = obs_ind, obs = obs_bed)
+
+if (save_sims) {
+  saveRDS(bed_obs, file = paste0(train_data_dir, "/bed_obs_", data_date, ".rds"))
+}
+
+years <- 20
+=======
 bed_obs <- list(locations = obs_ind,obs = obs_bed)
 
 years <- 50
+>>>>>>> refs/remotes/origin/main
 domain <- ssa_steady$domain
 
 ## Scaling units for friction coefficients
@@ -106,6 +163,38 @@ if (regenerate_sims) {
 
   for (set in sets) {
     cat("Generating set", set, "\n")
+<<<<<<< HEAD
+    try(
+      sim_results <- run_sims(nsims = N, years = years, sim_beds = T, 
+                              bed_obs = bed_obs, steady_state = ssa_steady)
+    )
+
+    if (save_sims) {
+      saveRDS(sim_results, file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".rds"))
+    }
+    
+    ## Need to get rid of the simulations that failed here
+    bad_sims <- sim_results$bad_sims
+    # sim_results$errors[[1]]
+    # ind <- bad_sims[1]
+    # bad_bed <- sim_results$params[[ind]]$bedrock
+    # bad_fric <- sim_results$params[[ind]]$friction
+    if (length(bad_sims) > 0) {
+      cat("Some simulations failed in set", set, "\n")
+      good_sims <- sim_results$results[-bad_sims]
+    } else {
+      good_sims <- sim_results$results
+    }
+    
+    generated_data <- process_sim_results(sims = good_sims, sim_beds = T)  
+
+    # thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
+    surface_obs_arr_s <- generated_data$surface_obs
+    friction_arr_s <- generated_data$friction_arr
+    gl_arr_s <- generated_data$gl_arr
+    bed_arr_s <- generated_data$bed_arr
+    
+=======
     try(generated_data <- run_sims(nsims = N, sim_beds = T, bed_obs = bed_obs)) 
 
     thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
@@ -116,11 +205,19 @@ if (regenerate_sims) {
       bed_arr_s <- generated_data$bed_arr
     # }
 
+>>>>>>> refs/remotes/origin/main
     # ## Basis function representation of the friction coefficients
     # fitted_friction_s <- fit_basis(nbasis = nbasis, domain = domain, friction_arr = friction_arr_s)
 
     if (save_sims) {
         setf <- formatC(set, width=2, flag="0")
+<<<<<<< HEAD
+        # saveRDS(thickness_velocity_arr_s, file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(surface_obs_arr_s, file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
+=======
         saveRDS(thickness_velocity_arr_s, file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
         saveRDS(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
         saveRDS(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
@@ -130,6 +227,7 @@ if (regenerate_sims) {
 
         # }
         # saveRDS(fitted_friction_s, file = paste0("./training_data/fitted_friction_", setf, "_", data_date))
+>>>>>>> refs/remotes/origin/main
     }
     
   }
@@ -146,6 +244,29 @@ if (refit_basis) {
     friction_arr_s <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
     bed_arr_s <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
     
+<<<<<<< HEAD
+    ## Should scale the friction values here
+    friction_arr_s <- friction_arr_s/fric_scale
+    
+    friction_basis <- fit_friction_basis(nbasis = nbasis, domain = domain, sample_arr = friction_arr_s)
+    
+    ## De-trend the bedrock
+    df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$obs)
+    bed.fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.25, 
+                    control = loess.control(surface = "direct")) 
+    bed_mean <- predict(bed.fit, newdata = data.frame(obs_locations = domain))
+    
+    mean_mat <- matrix(rep(bed_mean, nrow(bed_arr_s)), nrow = nrow(bed_arr_s), ncol = length(bed_mean), byrow = T)
+    bed_arr_demean <- bed_arr_s - mean_mat
+
+    ## Fit basis to bedrock
+    bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, sample_arr = bed_arr_demean)
+    bed_fit <- list(mean = bed_mean, basis = bed_basis)
+
+    if (save_sims) {
+      saveRDS(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
+      saveRDS(bed_fit, file = paste0(train_data_dir, "/bed_fit_", setf, "_", data_date, ".rds"))
+=======
     ## Should maybe scale the friction values here?
     friction_arr_s <- friction_arr_s/fric_scale
     
@@ -156,6 +277,7 @@ if (refit_basis) {
       saveRDS(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
       saveRDS(bed_basis, file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
       
+>>>>>>> refs/remotes/origin/main
     }
   }
 }
@@ -166,6 +288,31 @@ if (refit_basis) {
 # f12 <- abind(f1, f2, along = 1)
 ## Now re-scale friction and plot it with the original friction
 
+<<<<<<< HEAD
+
+## Plot some simulations to check 
+set <- sets[1]
+setf <- formatC(set, width=2, flag="0")
+
+### True thickness, friction, bed, grounding line
+# thickness_velocity_arr <- readRDS(file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+surface_obs_arr <- readRDS(file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".rds"))
+friction_arr <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
+bed_arr <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
+gl_arr <- readRDS(file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
+
+## Fitted friction and bed
+friction_basis <- readRDS(file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
+# bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
+
+bed_fit <- readRDS(file = paste0(train_data_dir, "/bed_fit_", setf, "_", data_date, ".rds"))
+# bed_arr <- bed_data$basis$fitted_values
+# bed_basis <- bed_data$basis
+
+fitted_friction <- friction_basis$fitted_values
+fitted_bed <- bed_fit$basis$fitted_values
+bed_mean <- bed_fit$mean
+=======
 ## Plot some simulations to check 
 set <- 1
 setf <- formatC(set, width=2, flag="0")
@@ -178,6 +325,7 @@ bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", dat
 
 fitted_friction <- friction_basis$fitted_values
 fitted_bed <- bed_basis$fitted_values
+>>>>>>> refs/remotes/origin/main
 
 plots <- list()
 
@@ -200,6 +348,25 @@ s <- 1
   ind <- inds[s, ]
   # print(ind)
   # thickness_velocity_arr <- sim_results[[s]]$thickness_velocity_arr
+<<<<<<< HEAD
+  # thickness <- thickness_velocity_arr[sim,,,1]
+  # velocity <- thickness_velocity_arr[sim,,,2]
+  surface_elev <- surface_obs_arr[sim,,,1]
+  velocity <- surface_obs_arr[sim,,,2]
+  # grid_test$thickness <- as.vector(thickness)
+  grid_test$surface_elev <- as.vector(surface_elev)
+  grid_test$velocity <- as.vector(velocity)
+
+  # thickness_plot <- ggplot(grid_test) + 
+    # geom_tile(aes(space, time, fill = thickness)) +
+  surface_elev_plot <- ggplot(grid_test) + 
+    geom_tile(aes(space, time, fill = surface_elev)) +
+    scale_fill_distiller(palette = "Blues", direction = 1) + 
+    theme_bw() +
+    # labs(fill="Thickness (m)")
+    labs(fill = "Surface elevation (m)")
+    
+=======
   thickness <- thickness_velocity_arr[sim,,,1]
   velocity <- thickness_velocity_arr[sim,,,2]
   grid_test$thickness <- as.vector(thickness)
@@ -210,6 +377,7 @@ s <- 1
     scale_fill_distiller(palette = "Blues", direction = 1) + 
     theme_bw() +
     labs(fill="Thickness (m)")
+>>>>>>> refs/remotes/origin/main
   velocity_plot <- ggplot(grid_test) + 
     geom_tile(aes(space, time, fill = velocity)) +
     theme_bw() +
@@ -218,6 +386,10 @@ s <- 1
   
   friction_sim <- friction_arr[sim, 1:gl]
   fitted_fric_sim <- fitted_friction[sim, 1:gl]
+<<<<<<< HEAD
+
+=======
+>>>>>>> refs/remotes/origin/main
   df <- data.frame(domain = ssa_steady$domain[1:gl]/1000, friction = friction_sim/fric_scale,
                   fitted_fric = fitted_fric_sim)
   friction_plot <- ggplot(df, aes(x = domain, y = friction)) + geom_line() + 
@@ -226,13 +398,22 @@ s <- 1
                     xlab("Domain (km)") + ylab(bquote('Friction (M Pa m'^'-1/3'~'a'^'1/3'~')'))
   
   bed_sim <- bed_arr[sim, ]
+<<<<<<< HEAD
+  fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
+=======
   fitted_bed_sim <- fitted_bed[sim, ]
+>>>>>>> refs/remotes/origin/main
   bed_df <- data.frame(domain = ssa_steady$domain/1000, bed = bed_sim)
   bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) + geom_line() + 
               geom_line(aes(x = domain, y = fitted_bed_sim), col = "red") +
               theme_bw() + xlab("Domain (km)") + ylab(bquote('Bed (m)'))
 
+<<<<<<< HEAD
+  # plots[[ind[1]]] <- thickness_plot
+  plots[[ind[1]]] <- surface_elev_plot
+=======
   plots[[ind[1]]] <- thickness_plot
+>>>>>>> refs/remotes/origin/main
   plots[[ind[2]]] <- velocity_plot
   plots[[ind[3]]] <- friction_plot
   plots[[ind[4]]] <- bed_plot
@@ -276,3 +457,8 @@ dev.off()
 
 
 
+<<<<<<< HEAD
+
+
+=======
+>>>>>>> refs/remotes/origin/main
