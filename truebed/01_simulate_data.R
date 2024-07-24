@@ -40,7 +40,7 @@ source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
 source("./source/mvnorm_sample.R")
 source("./source/get_obs.R")
-# source("simulate_bed.R")
+source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 # source("initialise_ens.R")
@@ -61,14 +61,21 @@ source("./source/obs_operator.R")
 # set.seed(ssa_seed)
 
 ## Some flags
-regenerate_sims <- T
-refit_basis <- T
-save_sims <- T
+regenerate_sims <- F
+refit_basis <- F
+save_sims <- F
+sim_beds <- T
+
+if (sim_beds) {
+  train_data_dir <- "./training_data_bed"
+} else {
+  train_data_dir <- "./training_data"
+}
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 10000 # number of simulations per set
-sets <- 1:5
+N <- 1000 # number of simulations per set
+sets <- 1:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -76,7 +83,16 @@ setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 nbasis <- 150
 
 # 0. Load ice sheet at steady state
-ssa_steady <- readRDS(file = paste("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
+ssa_steady <- readRDS(file = paste0(train_data_dir, "/initial_conds/ssa_steady_20220329.rds", sep = ""))
+
+# 0. Simulate bed observations
+set.seed(2024)
+ref_bed <- ssa_steady$bedrock
+## Randomly select 50 locations between x = 0 and x = 800 km
+n_bed_obs <- 50
+obs_ind <- sort(sample(length(ref_bed), n_bed_obs))
+obs_bed <- ref_bed[obs_ind] + rnorm(n_bed_obs, mean = 0, sd = 20) ## add noise
+bed_obs <- list(locations = obs_ind,obs = obs_bed)
 
 years <- 50
 domain <- ssa_steady$domain
@@ -90,24 +106,35 @@ if (regenerate_sims) {
 
   for (set in sets) {
     cat("Generating set", set, "\n")
-    try(generated_data <- run_sims(nsims = N)) 
+    try(generated_data <- run_sims(nsims = N, sim_beds = T, bed_obs = bed_obs)) 
 
     thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
     friction_arr_s <- generated_data$friction_arr
     gl_arr_s <- generated_data$gl_arr
+
+    if (sim_beds) {
+      bed_arr_s <- generated_data$bed_arr
+    }
 
     # ## Basis function representation of the friction coefficients
     # fitted_friction_s <- fit_basis(nbasis = nbasis, domain = domain, friction_arr = friction_arr_s)
 
     if (save_sims) {
         setf <- formatC(set, width=2, flag="0")
-        saveRDS(thickness_velocity_arr_s, file = paste0("./training_data/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
-        saveRDS(friction_arr_s, file = paste0("./training_data/friction_arr_", setf, "_", data_date, ".rds"))
-        saveRDS(gl_arr_s, file = paste0("./training_data/gl_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(thickness_velocity_arr_s, file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
+
+        if (sim_beds) {
+          saveRDS(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
+
+        }
         # saveRDS(fitted_friction_s, file = paste0("./training_data/fitted_friction_", setf, "_", data_date))
     }
+    
   }
 }
+
 
 t2 <- proc.time()
 
@@ -116,15 +143,19 @@ if (refit_basis) {
   for (set in sets) {
     cat("Fitting basis functions for set", set, "\n")
     setf <- formatC(set, width=2, flag="0")
-    friction_arr_s <- readRDS(file = paste0("./training_data/friction_arr_", setf, "_", data_date, ".rds"))
+    friction_arr_s <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
+    bed_arr_s <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
     
     ## Should maybe scale the friction values here?
     friction_arr_s <- friction_arr_s/fric_scale
     
-    friction_basis <- fit_basis(nbasis = nbasis, domain = domain, sample_arr = friction_arr_s)
+    friction_basis <- fit_friction_basis(nbasis = nbasis, domain = domain, sample_arr = friction_arr_s)
+    bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, sample_arr = bed_arr_s)
 
     if (save_sims) {
-      saveRDS(friction_basis, file = paste0("./training_data/friction_basis_", setf, "_", data_date, ".rds"))
+      saveRDS(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
+      saveRDS(bed_basis, file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
+      
     }
   }
 }
@@ -138,14 +169,19 @@ if (refit_basis) {
 ## Plot some simulations to check 
 set <- 1
 setf <- formatC(set, width=2, flag="0")
-thickness_velocity_arr <- readRDS(file = paste0("./training_data/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
-friction_arr <- readRDS(file = paste0("./training_data/friction_arr_", setf, "_", data_date, ".rds"))
-gl_arr <- readRDS(file = paste0("./training_data/gl_arr_", setf, "_", data_date, ".rds"))
-friction_basis <- readRDS(file = paste0("./training_data/friction_basis_", setf, "_", data_date, ".rds"))
+thickness_velocity_arr <- readRDS(file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+friction_arr <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
+bed_arr <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
+gl_arr <- readRDS(file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
+friction_basis <- readRDS(file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
+bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
+
 fitted_friction <- friction_basis$fitted_values
+fitted_bed <- bed_basis$fitted_values
+
 plots <- list()
 
-nsamples <- 2
+nsamples <- 1
 sims <- sample(1:N, size = nsamples)
 
 space <- domain/1000
@@ -154,11 +190,12 @@ grid_test <- expand.grid(space, time)
 head(grid_test)
 names(grid_test) <- c("space", "time")
 
-inds <- matrix(1:(nsamples*3), nsamples, 3, byrow = T)
+inds <- matrix(1:(nsamples*4), nsamples, 4, byrow = T)
 
-gl <- ceiling(gl_arr[1,,1,]/(domain[length(domain)]/1000)*length(domain))
+gl <- ceiling(gl_arr[1,1]/(domain[length(domain)]/1000)*length(domain))
 
-for (s in 1:nsamples) {
+s <- 1
+# for (s in 1:nsamples) {
   sim <- sims[[s]]
   ind <- inds[s, ]
   # print(ind)
@@ -179,18 +216,32 @@ for (s in 1:nsamples) {
     scale_fill_distiller(palette = "Reds", direction = 1) + 
     labs(fill=bquote('Velocity (m'~a^-1~')'))
   
-  friction_sim <- friction_arr[sim, 1:gl, , ]
-  df <- data.frame(domain = ssa_steady$domain[1:gl]/1000, friction = friction_sim/fric_scale)
+  friction_sim <- friction_arr[sim, 1:gl]
+  fitted_fric_sim <- fitted_friction[sim, 1:gl]
+  df <- data.frame(domain = ssa_steady$domain[1:gl]/1000, friction = friction_sim/fric_scale,
+                  fitted_fric = fitted_fric_sim)
   friction_plot <- ggplot(df, aes(x = domain, y = friction)) + geom_line() + 
-    theme_bw() + xlab("Domain (km)") + ylab(bquote('Friction (M Pa m'^'-1/3'~'a'^'1/3'~')'))
+                    geom_line(aes(x = domain, y = fitted_fric), col = "red") +
+                    theme_bw() + 
+                    xlab("Domain (km)") + ylab(bquote('Friction (M Pa m'^'-1/3'~'a'^'1/3'~')'))
   
+  bed_sim <- bed_arr[sim, ]
+  fitted_bed_sim <- fitted_bed[sim, ]
+  bed_df <- data.frame(domain = ssa_steady$domain/1000, bed = bed_sim)
+  bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) + geom_line() + 
+              geom_line(aes(x = domain, y = fitted_bed_sim), col = "red") +
+              theme_bw() + xlab("Domain (km)") + ylab(bquote('Bed (m)'))
+
   plots[[ind[1]]] <- thickness_plot
   plots[[ind[2]]] <- velocity_plot
   plots[[ind[3]]] <- friction_plot
+  plots[[ind[4]]] <- bed_plot
   
-}
+# }
 
-grid.arrange(grobs = plots, nrow = nsamples, ncol = 3)
+png(file = paste0("./plots/sim_beds/simulations_", setf, "_", data_date, ".png"), width = 2000, height = 500)
+grid.arrange(grobs = plots, nrow = 1, ncol = 4)
+dev.off()
 
 ## Plot fitted frictions
 nsamples <- 10

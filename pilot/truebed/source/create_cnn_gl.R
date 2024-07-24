@@ -21,7 +21,7 @@ create_model <- function(output_dim) {
     #                 padding = "same", activation = "relu") %>%
     # layer_max_pooling_2d(pool_size = c(2, 2)) %>%
     layer_flatten() %>%
-    layer_dropout(rate = 0.5) %>%
+    layer_dropout(rate = 0.25) %>%
     # layer_dense(units = 256, activation = "relu") %>%
     layer_dense(units = output_dim)
 

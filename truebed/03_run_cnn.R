@@ -33,9 +33,23 @@ source("./source/create_model.R")
 
 ## Flags
 rerun_cnn <- T
-output_var <- "grounding_line" # "friction" # "grounding_line" # "bed_elevation
+sim_beds <- T
+output_var <- "all" #"bed" # "friction" # "grounding_line" # "bed"
 # save_output <- T
 
+<<<<<<< HEAD:truebed/03_run_cnn.R
+=======
+source("./source/create_model.R")
+
+# if (output_var == "friction") {
+#   source("./source/create_model.R")
+# } else if (output_var == "grounding_line") {
+#   source("./source/create_cnn_gl.R")
+# } else if (output_var == "bed") {
+#   source("./source/create_model.R")
+# }
+
+>>>>>>> refs/remotes/origin/main:pilot/03_run_cnn.R
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
@@ -44,32 +58,85 @@ sets <- 7 #arg
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
+<<<<<<< HEAD:truebed/03_run_cnn.R
 train_data <- readRDS(file = paste0("./training_data/", setsf, "/train_data_", data_date, ".rds"))
 val_data <- readRDS(file = paste0("./training_data/", setsf, "/val_data_", data_date, ".rds"))
 test_data <- readRDS(file = paste0("./training_data/", setsf, "/test_data_", data_date, ".rds"))
+=======
+if (sim_beds) {
+  train_data_dir <- "./training_data_bed"
+  train_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/train_data_", data_date, ".rds"))
+  val_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/val_data_", data_date, ".rds"))
+  test_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/test_data_", data_date, ".rds"))
+
+} else {
+  train_data_dir <- "./training_data"
+  train_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/train_data_", data_date, ".rds"))
+  val_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/val_data_", data_date, ".rds"))
+  test_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/test_data_", data_date, ".rds"))
+
+}
+>>>>>>> refs/remotes/origin/main:pilot/03_run_cnn.R
 
 train_input <- train_data$input
 val_input <- val_data$input
 test_input <- test_data$input
 
-train_output <- train_data$output
-val_output <- val_data$output
-test_output <- test_data$output
+if (output_var == "friction") {
+  train_output <- train_data$fric_coefs
+  val_output <- val_data$fric_coefs
+  test_output <- test_data$fric_coefs
+} else if (output_var == "grounding_line") {
+  train_output <- train_data$grounding_line
+  val_output <- val_data$grounding_line
+  test_output <- test_data$grounding_line
+} else if (output_var == "bed") {
+  train_output <- train_data$bed_coefs
+  val_output <- val_data$bed_coefs
+  test_output <- test_data$bed_coefs
+} else if (output_var == "all") {
+  train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs)
+  val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs)
+  test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs)
+}
+
+# train_output <- train_data$output
+# val_output <- val_data$output
+# test_output <- test_data$output
 
 # if (rerun_cnn) {
 print("Training CNN...")
 # Create a basic model instance
 output_dim <- ncol(train_output)
-model <- create_model(output_dim = output_dim)
+
+if (output_var == "friction") {
+  model <- create_model(output_dim = output_dim)
+} else if (output_var == "grounding_line") {
+  model <- create_model(output_dim = output_dim)
+} else if (output_var == "bed") { ## bed
+  model <- create_model_bed(output_dim = output_dim)
+} else {
+  model <- create_model(output_dim = output_dim)
+}
 
 # Display the model's architecture
 summary(model)
 
 # Create a callback that saves the model's weights
+if (sim_beds) {
+  output_dir <- paste0("./output_bed/", output_var, "/", setsf)
+} else {
+  output_dir <- paste0("./output/", output_var, "/", setsf)
+}
 
+<<<<<<< HEAD:truebed/03_run_cnn.R
 checkpoint_dir <- paste0("output/", setsf, "/checkpoints")
 if (!dir.exists(checkpoint_dir)) {
   dir.create(paste0("output/", setsf))
+=======
+if (!dir.exists(output_dir)) {
+  dir.create(paste0(output_dir))
+>>>>>>> refs/remotes/origin/main:pilot/03_run_cnn.R
 } else { # delete all previously saved checkpoints
   unlink(paste0(checkpoint_dir, "/*"))
 }
@@ -114,9 +181,9 @@ if (rerun_cnn) {
 
 # ## Plot the loss
 
-# history %>%
-#   plot() +
-#   coord_cartesian(xlim = c(1, epochs))
+history %>%
+  plot() +
+  coord_cartesian(xlim = c(1, epochs))
 
 # ## Get rid of first training loss
 # plot(history$metrics$loss[2:60],type = "l")
