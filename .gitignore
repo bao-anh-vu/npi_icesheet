@@ -1,22 +1,12 @@
-<<<<<<< HEAD
 /truebed/training_data/
 /truebed/output/
 /truebed/archived/
 /simbed/training_data/
 /simbed/output/
+/simbed/archived/
 /pilot/simbed/training_data/
 /pilot/simbed/output/
 /pilot/truebed/training_data/
 /pilot/truebed/output/
 archived/
-=======
-/training_data/
-/output/
-/simbed/output/
-/pilot/training_data/
-/pilot/training_data_bed/
-/pilot/output/
-/pilot/simbed/output/
-archived
->>>>>>> refs/remotes/origin/main
 .RData
