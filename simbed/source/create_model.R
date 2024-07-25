@@ -1,18 +1,10 @@
 # Define a simple sequential model
-<<<<<<< HEAD
 create_model <- function(input_dim, output_dim) {
-=======
-create_model <- function(output_dim) {
->>>>>>> refs/remotes/origin/main
   model <- keras_model_sequential() %>%
     layer_conv_2d(
         filters = 32, kernel_size = c(5, 5),
         padding = "same", activation = "relu",
-<<<<<<< HEAD
         input_shape = input_dim #c(2001, 2, 2)
-=======
-        input_shape = c(2001, 50, 2)
->>>>>>> refs/remotes/origin/main
     ) %>%
     layer_max_pooling_2d(pool_size = c(2, 2)) %>%
     layer_conv_2d(
@@ -41,7 +33,6 @@ create_model <- function(output_dim) {
     model
 }
 
-<<<<<<< HEAD
 create_model_quantile <- function(input_dim, output_dim, quantile) {
   model <- keras_model_sequential() %>%
     layer_conv_2d(
@@ -92,19 +83,11 @@ create_model_quantile <- function(input_dim, output_dim, quantile) {
 
 # Define a simple sequential model
 create_model_bed <- function(input_dim, output_dim) {
-=======
-# Define a simple sequential model
-create_model_bed <- function(output_dim) {
->>>>>>> refs/remotes/origin/main
   model <- keras_model_sequential() %>%
     layer_conv_2d(
         filters = 32, kernel_size = c(5, 5),
         padding = "same", activation = "relu",
-<<<<<<< HEAD
         input_shape = input_dim #c(2001, 50, 2)
-=======
-        input_shape = c(2001, 50, 2)
->>>>>>> refs/remotes/origin/main
     ) %>%
     layer_max_pooling_2d(pool_size = c(2, 2)) %>%
     layer_conv_2d(

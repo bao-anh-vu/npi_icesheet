@@ -183,7 +183,7 @@ if (standardise_output) {
 
     fric_basis_coefs <- (fric_basis_coefs - mean_fric_coefs) / sd_fric_coefs
     bed_basis_coefs <- (bed_basis_coefs - mean_bed_coefs) / sd_bed_coefs
-    gl_arr <- (gl_arr - mean_gl) / sd_gl
+    gl_arr_std <- (gl_arr - mean_gl) / sd_gl
 
 } else {
     mean_fric_coefs <- 0
@@ -215,6 +215,10 @@ true_bed_val <- bed_arr[val_ind, ]
 true_bed_test <- bed_arr[test_ind, ]
 # }
 
+true_gl_train <- drop(gl_arr[train_ind, ])
+true_gl_val <- drop(gl_arr[val_ind, ])
+true_gl_test <- drop(gl_arr[test_ind, ])
+
 train_data <- list(
     input = train_input,
     input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
@@ -227,11 +231,12 @@ train_data <- list(
     fric_coefs = fric_basis_coefs[train_ind, ],
     mean_fric_coefs = mean_fric_coefs,
     sd_fric_coefs = sd_fric_coefs,
+    grounding_line = drop(gl_arr_std[train_ind, ]),
+    mean_gl = mean_gl,
+    sd_gl = sd_gl,
     true_bed = true_bed_train,
     true_fric = true_fric_train,
-    grounding_line = gl_arr[train_ind, ],
-    mean_gl = mean_gl,
-    sd_gl = sd_gl
+    true_gl = true_gl_train
 )
 
 if (save_data) {
@@ -252,11 +257,12 @@ val_data <- list(
     fric_coefs = fric_basis_coefs[val_ind, ],
     mean_fric_coefs = mean_fric_coefs,
     sd_fric_coefs = sd_fric_coefs,
+    grounding_line = drop(gl_arr_std[val_ind, ]),
+    mean_gl = mean_gl,
+    sd_gl = sd_gl,
     true_bed = true_bed_val,
     true_fric = true_fric_val,
-    grounding_line = drop(gl_arr[val_ind, ]),
-    mean_gl = mean_gl,
-    sd_gl = sd_gl
+    true_gl = true_gl_val
 )
 
 if (save_data) {
@@ -277,13 +283,15 @@ test_data <- list(
     fric_coefs = fric_basis_coefs[test_ind, ],
     mean_fric_coefs = mean_fric_coefs,
     sd_fric_coefs = sd_fric_coefs,
-    true_bed = true_bed_test,
-    true_fric = true_fric_test,
+    
     bed_basis_mat = bed_basis_mat,
     fric_basis_mat = fric_basis_mat,
-    grounding_line = drop(gl_arr[test_ind, ]),
+    grounding_line = drop(gl_arr_std[test_ind, ]),
     mean_gl = mean_gl,
-    sd_gl = sd_gl
+    sd_gl = sd_gl,
+    true_bed = true_bed_test,
+    true_fric = true_fric_test,
+    true_gl = true_gl_test
 )
 
 if (save_data) {

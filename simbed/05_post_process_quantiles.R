@@ -5,6 +5,7 @@ rm(list = ls())
 source("./source/create_model.R")
 source("./source/custom_loss_function.R")
 
+library(mvtnorm) 
 library(keras)
 reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
@@ -136,7 +137,7 @@ if (output_var == "all") {
     test_bed_coefs <- test_output[, (n_fric_basis+1):(n_fric_basis+n_bed_basis)] * test_data$sd_bed_coefs + test_data$mean_bed_coefs
     test_gl <- test_output[, (n_fric_basis+n_bed_basis+1):ncol(pred_output)] * test_data$sd_gl + test_data$mean_gl
 
-    ## Compute predicted vs original friction
+    ## Compute predicted vs original friction -- this needs more work!!
     pred_fric <- fric_basis_mat %*% t(pred_fric_coefs)
     test_fric <- fric_basis_mat %*% t(test_fric_coefs)
 
@@ -200,18 +201,57 @@ for (q in 1:length(quantiles)) {
     # test_bed_coefs_quantile <- test_output[, (n_fric_basis+1):(n_fric_basis+n_bed_basis)] * test_data$sd_bed_coefs + test_data$mean_bed_coefs
     # test_gl_quantile <- test_output[, (n_fric_basis+n_bed_basis+1):ncol(pred_output)] * test_data$sd_gl + test_data$mean_gl
 
-    ## Compute predicted vs original friction
-    pred_fric_quantile <- fric_basis_mat %*% t(pred_fric_coefs_quantile)
-    # test_fric <- fric_basis_mat %*% t(test_fric_coefs)
+    # ## Compute predicted vs original friction -- this also needs more work
+    # pred_fric_quantile <- fric_basis_mat %*% t(pred_fric_coefs_quantile)
 
-    ## Compute predicted vs original bed elevations
-    pred_bed_quantile <- bed_basis_mat %*% t(pred_bed_coefs_quantile)
-    # test_bed_demean <- bed_basis_mat %*% t(test_bed_coefs)
+    # ## Compute predicted vs original bed elevations
+    # pred_bed_quantile <- bed_basis_mat %*% t(pred_bed_coefs_quantile)
 
-    pred_quantiles[[q]] <- list(fric = pred_fric_quantile, bed = pred_bed_quantile, gl = pred_gl_quantile)
+    # pred_quantiles[[q]] <- list(fric = pred_fric_quantile, bed = pred_bed_quantile, gl = pred_gl_quantile)
+    pred_quantiles[[q]] <- list(fric = pred_fric_coefs_quantile, 
+                                bed = pred_bed_coefs_quantile, 
+                                gl = pred_gl_quantile)
+    
 }
 
 ########### end quantile ################
+
+## Need to fit a Gaussian distribution to the predicted basis function coefficients
+# pred_fric_coefs # use this as mean
+# pred_quantiles[[1]]$fric # use this as lower quantile
+# pred_quantiles[[2]]$fric # use this as upper quantile
+
+z_val <- qnorm(0.95)
+fric_sd1 <- (pred_fric_coefs - pred_quantiles[[1]]$fric) / z_val # distance from mean to lower quantile
+fric_sd2 <- (pred_quantiles[[2]]$fric - pred_fric_coefs) / z_val # distance from mean to upper quantile
+fric_avg_sd <- (fric_sd1 + fric_sd2)/2 # this is the "point-wise" standard deviation 
+
+## Now sample lots of basis coefficients from this distribution
+## Maybe for each test output sample, we can sample 1000 basis coefficients
+n_fric_basis <- ncol(fric_basis_mat)
+fric_coef_samples <- list()
+fric_lq <- list()
+fric_uq <- list()
+
+S <- 1000
+
+for (r in 1:nrow(test_output)) { ## need to parallelise this so that it's faster
+    # fric_coef_samples[[s]] <- rnorm(n_fric_basis, mean = pred_fric_coefs[s, ], sd = avg_sd[s, ]) # might need to sample more than 1 later
+    # system.time(fric_coef_samples <- rmvnorm(1000, 
+    #                                         mean = pred_fric_coefs[r, ], 
+    #                                         sigma = diag(fric_avg_sd[r, ]^2))) # might need to sample more than 1 later
+    
+    system.time(fric_coef_samples_list <- lapply(1:S, function(i) rnorm(n_fric_basis, 
+                                                                    mean = pred_fric_coefs[r, ], 
+                                                                    sd = fric_avg_sd[r, ])))
+    fric_coef_samples <- t(matrix(unlist(fric_coef_samples_list), nrow = n_fric_basis, ncol = S))
+    fric_samples <- fric_basis_mat %*% t(fric_coef_samples)
+
+    ## Now take the pointwise quantiles
+    fric_lq[[r]] <- apply(fric_samples, 1, quantile, probs = 0.05)
+    fric_uq[[r]] <- apply(fric_samples, 1, quantile, probs = 0.95)
+    
+}
 
 ## True parameters
 true_fric <- test_data$true_fric
@@ -221,8 +261,8 @@ secpera <- 31556926
 fric_scale <- 1e6 * secpera^(1/3)
 
 true_fric <- true_fric/fric_scale
-true_bed <- test_data$true_bed
-true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
+
+## Predicted bed oscillations
 
 ## Add bed trend to the predicted oscillations
 bed_obs <- readRDS(file = paste0("./training_data/bed_obs_", data_date, ".rds"))
@@ -230,64 +270,46 @@ df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$o
 bed.fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.25, 
                     control = loess.control(surface = "direct")) 
 bed_mean <- predict(bed.fit, newdata = data.frame(obs_locations = domain))
-mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = ncol(pred_bed_demean))
+bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = ncol(pred_bed_demean))
 
-pred_bed <- pred_bed_demean + mean_mat
-test_bed <- test_bed_demean + mean_mat
+pred_bed <- pred_bed_demean + bed_mean_mat
+test_bed <- test_bed_demean + bed_mean_mat
 
-pred_bed_lq <- pred_quantiles[[1]]$bed + mean_mat
-pred_bed_uq <- pred_quantiles[[2]]$bed + mean_mat
+## Quantiles for bed
+z_val <- qnorm(0.95)
+bed_sd1 <- (pred_bed_coefs - pred_quantiles[[1]]$bed) / z_val # distance from mean to lower quantile
+bed_sd2 <- (pred_quantiles[[2]]$bed - pred_bed_coefs) / z_val # distance from mean to upper quantile
+bed_avg_sd <- (bed_sd1 + bed_sd2)/2 # this is the "point-wise" standard deviation 
 
-pred_fric_lq <- pred_quantiles[[1]]$fric
-pred_fric_uq <- pred_quantiles[[2]]$fric
+## Now sample lots of basis coefficients from this distribution
+## Maybe for each test output sample, we can sample 1000 basis coefficients
+n_bed_basis <- ncol(bed_basis_mat)
+bed_coef_samples <- list()
+bed_lq <- list()
+bed_uq <- list()
 
+bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = S)
+for (r in 1:nrow(test_output)) {
+    system.time(bed_coef_samples_list <- lapply(1:S, function(i) rnorm(n_bed_basis, 
+                                                                    mean = pred_bed_coefs[r, ], 
+                                                                    sd = bed_avg_sd[r, ])))
+    bed_coef_samples <- t(matrix(unlist(bed_coef_samples_list), nrow = n_bed_basis, ncol = S))
+    bed_samples_demean <- bed_basis_mat %*% t(bed_coef_samples)
+    bed_samples <- bed_samples_demean + bed_mean_mat
+
+    ## Now take the pointwise quantiles
+    bed_lq[[r]] <- apply(bed_samples, 1, quantile, probs = 0.05)
+    bed_uq[[r]] <- apply(bed_samples, 1, quantile, probs = 0.95)
+    
+}
+
+true_bed <- test_data$true_bed
+
+
+## Now the grounding line
+true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
 pred_gl_lq <- pred_quantiles[[1]]$gl
 pred_gl_uq <- pred_quantiles[[2]]$gl
-
-## Plots
-
-samples <- sample(1:nrow(test_output), 6)
-
-par(mfrow = c(length(samples) / 2, 2))
-
-# if (output_var == "bed" | output_var == "all") {
-    ## Bed plot
-    for (i in 1:length(samples)) {
-        par(mar = c(6, 8, 4, 2))
-        # gl <- test_data$grounding_line[i] / 800 * 2001
-        plot_domain <- 1:length(domain) # ceiling(gl)
-        plot(domain[plot_domain] / 1000, true_bed[i, plot_domain],
-            type = "l", lwd = 2, col = "black",
-            ylab = "Bed (m)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
-        )
-        # lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
-        lines(domain[plot_domain] / 1000, pred_bed[plot_domain, i], lwd = 3, col = "red")
-        lines(domain[plot_domain] / 1000, pred_bed_lq[plot_domain, i], lty = 3, lwd = 3, col = "salmon")
-        lines(domain[plot_domain] / 1000, pred_bed_uq[plot_domain, i], lty = 3, lwd = 3, col = "salmon")
-        
-        abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
-    }
-# }
- 
-# if (output_var == "friction" | output_var == "all") {
-    ## Friction plot
-    for (i in 1:length(samples)) {
-        par(mar = c(6, 8, 4, 2))
-        gl <- test_data$grounding_line[i] / 800 * 2001
-        plot_domain <- 1:length(domain) # ceiling(gl)
-        plot(domain[plot_domain] / 1000, true_fric[i, plot_domain],
-            type = "l", lwd = 2, 
-            ylab = "Friction (unit)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
-        )
-        # lines(domain[plot_domain] / 1000, test_fric[plot_domain, i], lwd = 2, col = "blue")
-        lines(domain[plot_domain] / 1000, pred_fric[plot_domain, i], lwd = 2, col = "red")
-        lines(domain[plot_domain] / 1000, pred_fric_lq[plot_domain, i], lty = 3, lwd = 2, col = "salmon")
-        lines(domain[plot_domain] / 1000, pred_fric_uq[plot_domain, i], lty = 3, lwd = 2, col = "salmon")
-        
-        abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
-    }
-
-# }
 
 # if (output_var == "grounding_line" | output_var == "all") {
     ## Grounding line plot
@@ -301,8 +323,8 @@ par(mfrow = c(length(samples) / 2, 2))
         )
         # lines(domain[plot_domain] / 1000, test_fric[i, ], lwd = 2, col = "blue")
         lines(pred_gl[i, ], 1:20, lwd = 2, col = "red")
-        lines(pred_gl_lq[i, ], 1:20, lty = 3, lwd = 2, col = "salmon")
-        lines(pred_gl_uq[i, ], 1:20, lty = 3, lwd = 2, col = "salmon")
+        lines(pred_gl_lq[i, ], 1:20, lty = 3, lwd = 2, col = "lightblue")
+        lines(pred_gl_uq[i, ], 1:20, lty = 3, lwd = 2, col = "lightblue")
         
         # abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
     }
@@ -311,9 +333,23 @@ par(mfrow = c(length(samples) / 2, 2))
 
 if (save_plots) {
     
+    ## Plots
+    samples <- sample(1:nrow(test_output), 6)
+
+    ## Friction plots
+    
+
     ## Bed plot
     png(paste0(plot_dir, "/pred_vs_true_bed", checkpt, ".png"), width = 2000, height = 2000)
     par(mfrow = c(length(samples) / 2, 2))
+
+    # par(mfrow = c(length(samples) / 2, 2))
+    # for (i in 1:length(samples)) {
+    #     plot(domain/1000, true_bed[i, ], type = "l", ylab = "Friction")
+    #     lines(domain/1000, pred_bed[, i], col = "red")
+    #     lines(domain/1000, bed_lq[[i]], lty = 1, col = "lightblue")
+    #     lines(domain/1000, bed_uq[[i]], lty = 1, col = "lightblue")
+    # }
 
     # if (output_var == "bed" | output_var == "all") {
         for (i in 1:length(samples)) {
@@ -326,8 +362,8 @@ if (save_plots) {
             )
             # lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
             lines(domain[plot_domain] / 1000, pred_bed[plot_domain, i], lwd = 3, col = "red")
-            lines(domain[plot_domain] / 1000, pred_bed_lq[plot_domain, i], lty = 2, lwd = 3, col = "salmon")
-            lines(domain[plot_domain] / 1000, pred_bed_uq[plot_domain, i], lty = 2, lwd = 3, col = "salmon")
+            lines(domain[plot_domain] / 1000, bed_lq[[i]], lty = 1, lwd = 3, col = "lightblue")
+            lines(domain[plot_domain] / 1000, bed_uq[[i]], lty = 1, lwd = 3, col = "lightblue")
             
             abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
         }
@@ -335,27 +371,43 @@ if (save_plots) {
     dev.off()
 
     png(paste0(plot_dir, "/pred_vs_true_fric", checkpt, ".png"), width = 2000, height = 1200)
-    par(mfrow = c(length(samples) / 2, 2))
 
-    # if (output_var == "friction" | output_var == "all") {
-        ## Friction plot
-        for (i in 1:length(samples)) {
-            par(mar = c(6, 8, 4, 2))
-            gl <- test_data$grounding_line[i] / 800 * 2001
-            plot_domain <- 1:length(domain) # ceiling(gl)
-            plot(domain[plot_domain] / 1000, true_fric[i, plot_domain],
-                type = "l", lwd = 2, 
-                ylab = "Friction (unit)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
-            )
-            # lines(domain[plot_domain] / 1000, test_fric[plot_domain, i], lwd = 2, col = "blue")
-            lines(domain[plot_domain] / 1000, pred_fric[plot_domain, i], lwd = 2, col = "red")
-            lines(domain[plot_domain] / 1000, pred_fric_lq[plot_domain, i], lty = 2, lwd = 2, col = "salmon")
-            lines(domain[plot_domain] / 1000, pred_fric_uq[plot_domain, i], lty = 2, lwd = 2, col = "salmon")
-            
-            abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
-        }
-    # }
+    par(mfrow = c(length(samples) / 2, 2))
+    for (i in 1:length(samples)) {
+        par(mar = c(6, 8, 4, 2))
+        gl <- test_data$grounding_line[i] / 800 * 2001
+        plot_domain <- 1:length(domain) # ceiling(gl)
+
+        plot(domain[plot_domain]/1000, true_fric[i, ], type = "l", 
+            ylab = "Friction (unit)", xlab = "Domain (km)", 
+            cex.axis = 3, cex.lab = 4)
+        lines(domain[plot_domain]/1000, pred_fric[, i], col = "red")
+        lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "lightblue")
+        lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "lightblue")
+        abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
+    }
+
     dev.off()
+
+    # # if (output_var == "friction" | output_var == "all") {
+    #     ## Friction plot
+    #     for (i in 1:length(samples)) {
+    #         par(mar = c(6, 8, 4, 2))
+    #         gl <- test_data$grounding_line[i] / 800 * 2001
+    #         plot_domain <- 1:length(domain) # ceiling(gl)
+    #         plot(domain[plot_domain] / 1000, true_fric[i, plot_domain],
+    #             type = "l", lwd = 2, 
+    #             ylab = "Friction (unit)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
+    #         )
+    #         # lines(domain[plot_domain] / 1000, test_fric[plot_domain, i], lwd = 2, col = "blue")
+    #         lines(domain[plot_domain] / 1000, pred_fric[plot_domain, i], lwd = 2, col = "red")
+    #         lines(domain[plot_domain] / 1000, pred_fric_lq[plot_domain, i], lty = 2, lwd = 2, col = "lightblue")
+    #         lines(domain[plot_domain] / 1000, pred_fric_uq[plot_domain, i], lty = 2, lwd = 2, col = "lightblue")
+            
+    #         abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
+    #     }
+    # # }
+    # dev.off()
 
     ## Grounding line plot
     
@@ -372,8 +424,8 @@ if (save_plots) {
         )
         # lines(domain[plot_domain] / 1000, test_fric[i, ], lwd = 2, col = "blue")
         lines(pred_gl[i, ], 1:20, lwd = 2, col = "red")
-        lines(pred_gl_lq[i, ], 1:20, lty = 2, lwd = 3, col = "salmon")
-        lines(pred_gl_uq[i, ], 1:20, lty = 2, lwd = 3, col = "salmon")
+        lines(pred_gl_lq[i, ], 1:20, lty = 1, lwd = 3, col = "lightblue")
+        lines(pred_gl_uq[i, ], 1:20, lty = 1, lwd = 3, col = "lightblue")
         
         # abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
     }

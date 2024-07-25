@@ -213,6 +213,10 @@ true_fric_test <- fric_arr[test_ind, ]
 true_bed_train <- bed_arr[train_ind, ]
 true_bed_val <- bed_arr[val_ind, ]
 true_bed_test <- bed_arr[test_ind, ]
+
+true_gl_train <- drop(gl_arr[train_ind, ])
+true_gl_val <- drop(gl_arr[val_ind, ])
+true_gl_test <- drop(gl_arr[test_ind, ])
 # }
 
 train_data <- list(
@@ -229,7 +233,7 @@ train_data <- list(
     sd_fric_coefs = sd_fric_coefs,
     true_bed = true_bed_train,
     true_fric = true_fric_train,
-    grounding_line = gl_arr[train_ind, ],
+    true_gl = true_gl_train,
     mean_gl = mean_gl,
     sd_gl = sd_gl
 )
@@ -254,7 +258,7 @@ val_data <- list(
     sd_fric_coefs = sd_fric_coefs,
     true_bed = true_bed_val,
     true_fric = true_fric_val,
-    grounding_line = drop(gl_arr[val_ind, ]),
+    true_gl = drop(gl_arr[val_ind, ]),
     mean_gl = mean_gl,
     sd_gl = sd_gl
 )
@@ -281,7 +285,7 @@ test_data <- list(
     true_fric = true_fric_test,
     bed_basis_mat = bed_basis_mat,
     fric_basis_mat = fric_basis_mat,
-    grounding_line = drop(gl_arr[test_ind, ]),
+    true_gl = drop(gl_arr[test_ind, ]),
     mean_gl = mean_gl,
     sd_gl = sd_gl
 )
