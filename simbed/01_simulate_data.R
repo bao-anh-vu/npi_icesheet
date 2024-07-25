@@ -1,10 +1,6 @@
 ## Generate 1000 simulations 
 
-<<<<<<< HEAD
 setwd("~/SSA_model/CNN/simbed")
-=======
-setwd("~/SSA_model/CNN/pilot/simbed")
->>>>>>> refs/remotes/origin/main
 
 rm(list = ls())
 
@@ -26,7 +22,7 @@ library("ggplot2")
 library("gridExtra")
 library("FRK")
 
-# library(gstat)
+# library(gstat)j
 # library(sp)
 # library("mvnfast")
 # library("splines")
@@ -66,9 +62,9 @@ source("./source/obs_operator.R")
 # set.seed(ssa_see
 
 ## Some flags
-regenerate_sims <- T
-refit_basis <- T
-save_sims <- T
+regenerate_sims <- F
+refit_basis <- F
+save_sims <- F
 # sim_beds <- T
 
 # if (sim_beds) {
@@ -79,8 +75,8 @@ save_sims <- T
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 10000 # number of simulations per set
-sets <- 6:10
+N <- 1000#0 # number of simulations per set
+sets <- 6:7
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -142,6 +138,7 @@ if (regenerate_sims) {
     # thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
     surface_obs_arr_s <- generated_data$surface_obs
     friction_arr_s <- generated_data$friction_arr
+    
     ## Should scale the friction values here
     friction_arr_s <- friction_arr_s/fric_scale
     
@@ -272,7 +269,7 @@ s <- 1
   
   friction_sim <- friction_arr[sim, 1:gl]
   fitted_fric_sim <- fitted_friction[sim, 1:gl]
-  df <- data.frame(domain = ssa_steady$domain[1:gl]/1000, friction = friction_sim/fric_scale,
+  df <- data.frame(domain = ssa_steady$domain[1:gl]/1000, friction = friction_sim,
                   fitted_fric = fitted_fric_sim)
   friction_plot <- ggplot(df, aes(x = domain, y = friction)) + geom_line() + 
                     geom_line(aes(x = domain, y = fitted_fric), col = "red") +
@@ -331,8 +328,5 @@ dev.off()
 
 
 
-<<<<<<< HEAD
 
 
-=======
->>>>>>> refs/remotes/origin/main

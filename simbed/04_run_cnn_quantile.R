@@ -33,7 +33,7 @@ library(ggplot2)
 rerun_cnn <- T
 sim_beds <- T
 output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
-quantile <- 0.05
+quantile <- 0.95
 # save_output <- T
 
 source("./source/create_model.R")
@@ -49,7 +49,7 @@ source("./source/custom_loss_function.R")
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:5 #arg
+sets <- 6:7 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

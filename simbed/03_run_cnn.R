@@ -48,7 +48,7 @@ source("./source/create_model.R")
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:5 #arg
+sets <- 6:7 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

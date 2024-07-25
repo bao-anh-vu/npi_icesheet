@@ -1,14 +1,8 @@
-<<<<<<< HEAD
 run_sims <- function(nsims, years = 20, sim_beds = F, 
                     steady_state, bed_obs) {
     N <- nsims
     # years <- 20
     ssa_steady <- steady_state
-=======
-run_sims <- function(nsims, sim_beds = F, bed_obs) {
-    N <- nsims
-    years <- 50
->>>>>>> refs/remotes/origin/main
     domain <- ssa_steady$domain
 
     secpera <- 31556926
@@ -44,14 +38,11 @@ run_sims <- function(nsims, sim_beds = F, bed_obs) {
                 bedrock = bed_sims[, c]
             )
         })
-<<<<<<< HEAD
 
         ## DELETE LATER: (just creating an artificial error for debugging purposes)
         # sim_param_list[[2]] <- 0
         # sim_param_list[[3]] <- 0
 
-=======
->>>>>>> refs/remotes/origin/main
     } else {
         sim_param_list <- lapply(1:N, function(c) list(friction = simulated_friction[, c]))
     }
@@ -65,20 +56,15 @@ run_sims <- function(nsims, sim_beds = F, bed_obs) {
     ones <- rep(1, length(domain))
     D <- rdist(domain)
     l <- 50e3
-<<<<<<< HEAD
     R <- exp_cov(D, l)
 
     # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
-=======
-    R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
->>>>>>> refs/remotes/origin/main
     L <- t(chol(R))
     L <- as(L, "dgCMatrix")
     process_noise_info <- list(corrmat_chol = L, length_scale = l)
 
     t1 <- proc.time()
 
-<<<<<<< HEAD
     # if (sim_beds) {
 
         # sim_results <- lapply(sim_param_list, function(sim_param) {
@@ -116,44 +102,12 @@ run_sims <- function(nsims, sim_beds = F, bed_obs) {
             simulated_data <- list(
                 # thickness_velocity_arr = thickness_velocity_obs,
                 surface_obs = surface_obs,
-=======
-    if (sim_beds) {
-        sim_results <- mclapply(sim_param_list, function(sim_param) {
-            # cat("sim =", sim, "\n")
-            # steady_state = ssa_steady
-
-            reference <- solve_ssa_nl(
-                domain = ssa_steady$domain,
-                bedrock = sim_param$bedrock, # use true bed
-                friction_coef = sim_param$friction,
-                ini_velocity = ssa_steady$current_velocity,
-                ini_thickness = ssa_steady$current_thickness,
-                years = years, steps_per_yr = 52,
-                save_model_output = TRUE,
-                perturb_hardness = TRUE,
-                add_process_noise = T,
-                process_noise_info = process_noise_info
-            )
-
-            thickness_velocity_obs <- array(
-                data = cbind(
-                    reference$all_thicknesses[, 2:(years + 1)],
-                    reference$all_velocities[, 2:(years + 1)]
-                ),
-                dim = c(length(domain), years, 2)
-            )
-            gl <- reference$grounding_line
-
-            simulated_data <- list(
-                thickness_velocity_arr = thickness_velocity_obs,
->>>>>>> refs/remotes/origin/main
                 friction_arr = sim_param$friction,
                 bed_arr = sim_param$bedrock,
                 grounding_line = gl
             )
             # simulated_data <- obs
             return(simulated_data)
-<<<<<<< HEAD
             
         },
         mc.cores = 50L,
@@ -257,90 +211,3 @@ run_sims <- function(nsims, sim_beds = F, bed_obs) {
 exp_cov <- function(d, l) {
     return(exp(-3*d / l))
 }
-=======
-        },
-        # steady_state = ssa_steady,
-        mc.cores = 50L
-        )
-    } else {
-        sim_results <- mclapply(sim_param_list, function(sim_param) {
-            # cat("sim =", sim, "\n")
-            # steady_state = ssa_steady
-
-            reference <- solve_ssa_nl(
-                domain = ssa_steady$domain,
-                bedrock = ssa_steady$bedrock, # use true bed
-                friction_coef = sim_param$friction,
-                ini_velocity = ssa_steady$current_velocity,
-                ini_thickness = ssa_steady$current_thickness,
-                years = years, steps_per_yr = 52,
-                save_model_output = TRUE,
-                perturb_hardness = TRUE,
-                add_process_noise = T,
-                process_noise_info = process_noise_info
-            )
-
-            thickness_velocity_obs <- array(
-                data = cbind(
-                    reference$all_thicknesses[, 2:(years + 1)],
-                    reference$all_velocities[, 2:(years + 1)]
-                ),
-                dim = c(length(domain), years, 2)
-            )
-            gl <- reference$grounding_line
-
-            simulated_data <- list(
-                thickness_velocity_arr = thickness_velocity_obs,
-                friction_arr = sim_param$friction,
-                grounding_line = gl
-            )
-            # simulated_data <- obs
-            return(simulated_data)
-        },
-        # steady_state = ssa_steady,
-        mc.cores = 50L
-        )
-    }
-
-
-    t2 <- proc.time()
-
-    ## Note to self: should save a version with the "true" friction coef as well
-    thickness_velocity_list <- lapply(1:N, function(i) sim_results[[i]]$thickness_velocity_arr)
-    friction_list <- lapply(1:N, function(i) sim_results[[i]]$friction_arr)
-    bed_list <- lapply(1:N, function(i) sim_results[[i]]$bed_arr)
-    gl_list <- lapply(1:N, function(i) sim_results[[i]]$grounding_line)
-
-    concat_input <- do.call("rbind", thickness_velocity_list)
-    thickness_velocity_arr <- array(concat_input, dim = c(N, dim(thickness_velocity_list[[1]])))
-
-    concat_output <- do.call("rbind", friction_list)
-    friction_arr <- array(concat_output, dim = c(N, length(friction_list[[1]])))
-
-    if (sim_beds) {
-        concat_output <- do.call("rbind", bed_list)
-        bed_arr <- array(concat_output, dim = c(N, length(bed_list[[1]])))
-    }
-
-    concat_gl <- do.call("rbind", gl_list)
-    gl_arr <- array(concat_gl, dim = c(N, length(gl_list[[1]])))
-
-    if (sim_beds) {
-        return_obj <- list(
-            thickness_velocity_arr = thickness_velocity_arr,
-            friction_arr = friction_arr,
-            bed_arr = bed_arr,
-            gl_arr = gl_arr
-        )
-    } else {
-        return_obj <- list(
-            thickness_velocity_arr = thickness_velocity_arr,
-            friction_arr = friction_arr,
-            gl_arr = gl_arr
-        )
-    
-    }
-
-    return(return_obj)
-}
->>>>>>> refs/remotes/origin/main

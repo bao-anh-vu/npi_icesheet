@@ -52,7 +52,6 @@ fit_bed_basis <- function(nbasis, domain, sample_arr) {
     # matplot(domain/1000, basis_mat, type = "l", col= "salmon", lty = 1, lwd = 1.5,
     #         xlab = "Domain (km)", xlim = c(0, 200))
 
-<<<<<<< HEAD
     N <- dim(sample_arr)[1]
 
     # test1 <- system.time({
@@ -85,20 +84,6 @@ fit_bed_basis <- function(nbasis, domain, sample_arr) {
     fitted_values <- do.call(rbind, lapply(basis_fit, function(x) x$fitted_values))
     # })
    
-=======
-
-    N <- dim(sample_arr)[1]
-    basis_coefs <- matrix(NA, N, nbasis) 
-    fitted_values <- matrix(NA, N, length(domain))
-    for (sim in 1:N) { # parallelise
-        df_local <- as.data.frame(cbind(sample_arr[sim, ], basis_mat))
-        colnames(df_local) <- c("fric", sapply(1:nbasis, function(x) paste0("eof", x)))
-        lmfit_local <- lm(fric ~ . - 1, data = df_local) # no intercept for now so -1
-        basis_coefs[sim, ] <- as.vector(lmfit_local$coefficients)
-        fitted_values[sim, ] <- as.vector(lmfit_local$fitted.values)
-    }
-
->>>>>>> refs/remotes/origin/main
 # plot(sample_arr[1,], type = "l")
 # lines(fitted_values[1, ], col = "red")
 #     browser()
