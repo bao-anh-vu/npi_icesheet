@@ -200,6 +200,8 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   ##################### Initial conditions ########################
 
+browser()
+
   H_ini <- NULL
   # For the ice thickness
   if (!is.null(ini_thickness)) {
@@ -411,7 +413,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   u_mat[, 1] <- as.vector(u_ini)
   H_mat[, 1] <- as.vector(H_ini)
   zs_mat[, 1] <- surface_elev(H_ini, b)
-  
+
   ## Years to save output
   obs_ind <- seq(0, years * steps_per_yr, steps_per_yr) # measure_freq = # times to measure per year
 

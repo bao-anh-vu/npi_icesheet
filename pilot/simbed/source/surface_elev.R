@@ -1,7 +1,7 @@
 surface_elev <- function(H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
   include_GL <- TRUE
   GL <- gl_migrate(H, b, z0, rho, rho_w)
-  
+ 
   z <- c()
   if (include_GL) {
     z[1:GL] <- H[1:GL] + b[1:GL]

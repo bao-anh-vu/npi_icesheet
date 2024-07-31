@@ -29,9 +29,13 @@ create_ref <- function(use_stored_steady_state = TRUE,
                        rewrite_reference = FALSE,
                        use_basis_functions = FALSE,
                        data_date,
-                       add_process_noise_in_ref = FALSE) {
+                       add_process_noise_in_ref = FALSE,
+                       friction_coef,
+                       bedrock) {
 
   if (!use_stored_steady_state) {
+
+t1 <- proc.time()    
     ## Parameters
     secpera <- 31556926 #seconds per annum
     n <- 3.0 # exponent in Glen's flow law
@@ -50,13 +54,15 @@ create_ref <- function(use_stored_steady_state = TRUE,
     dx <- L / J # increments
     x <- seq(x0, L, dx)
     
-    C <- create_fric_coef(x, L) * 1e6 * (secpera)^m
-     
-    if (use_basis_functions) {
-      b <- readRDS(file = paste("/home/babv971/SSA_model/EnKF/Output/true_bed_spline_", data_date, ".rds"))
-    } else {
-      b <- create_bed(x)
-    }
+    C <- friction_coef #create_fric_coef(x, L) * 1e6 * (secpera)^m
+    b <- bedrock 
+
+    browser()
+    # if (use_basis_functions) {
+    #   b <- readRDS(file = paste("/home/babv971/SSA_model/EnKF/Output/true_bed_spline_", data_date, ".rds"))
+    # } else {
+    #   b <- create_bed(x)
+    # }
     
     ## Run model to steady state
     print("Running model to steady state...")
@@ -67,7 +73,9 @@ create_ref <- function(use_stored_steady_state = TRUE,
                             tol = 1e-03, steps_per_yr = 26, 
                             seed = ssa_seed, save_model_output = TRUE, 
                             perturb_hardness = FALSE, 
-                            add_process_noise = FALSE)
+                            add_process_noise = T,
+                            process_noise_info = process_noise_info)
+
     
     ssa_steady <- ssa_out
     
@@ -83,7 +91,11 @@ create_ref <- function(use_stored_steady_state = TRUE,
     ssa_steady <- readRDS(file = paste("./output/ssa_steady_", data_date, ".rds", sep = ""))
     # ssa_steady <- readRDS(file = "/home/babv971/SSA_model/EnKF/Output/ssa_steady_20220318.rds")
   }
+
+t2 <- proc.time()  
   
+  browser()
+
   ## Extract individual components
   steady_velocity <- ssa_steady$current_velocity
   ini_velocity <- ssa_steady$ini_velocity

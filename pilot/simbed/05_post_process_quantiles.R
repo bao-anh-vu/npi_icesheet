@@ -19,7 +19,7 @@ save_plots <- T
 
 ## Read data
 data_date <- "20240320"
-sets <- 1:10
+sets <- 3
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

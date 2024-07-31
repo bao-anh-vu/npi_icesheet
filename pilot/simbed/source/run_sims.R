@@ -65,7 +65,17 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
     L <- as(L, "dgCMatrix")
     process_noise_info <- list(corrmat_chol = L, length_scale = l)
 
-    t1 <- proc.time()
+    # print("Simulating ground truth...")
+    # reference <- create_ref(use_stored_steady_state = F,
+    #                         use_stored_reference = F,
+    #                         add_process_noise_in_ref = T,
+    #                         rewrite_steady_state = F, 
+    #                         rewrite_reference = F,
+    #                         data_date = data_date,
+    #                         friction_coef = simulated_friction[, 1],
+    #                         bedrock = bed_sims[, 1] 
+    #                         )
+
 
     # if (sim_beds) {
 

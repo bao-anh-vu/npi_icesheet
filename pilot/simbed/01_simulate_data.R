@@ -75,8 +75,8 @@ save_sims <- T
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 10000 # number of simulations per set
-sets <- 1:2 #6:10 #2:10
+N <- 1#0000 # number of simulations per set
+sets <- 1 #6:10 #2:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -181,8 +181,6 @@ if (refit_basis) {
     
     friction_basis <- fit_friction_basis(nbasis = nbasis, domain = domain, sample_arr = friction_arr_s)
     
-browser()
-
     ## De-trend the bedrock
     df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$obs)
     bed.fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.25, 
