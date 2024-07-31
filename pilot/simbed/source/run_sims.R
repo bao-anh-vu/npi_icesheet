@@ -26,6 +26,7 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
     ## 1.5. Simulate beds
     if (sim_beds) {
         print("Simulating beds...")
+        
         bed_sims <- simulate_bed(
             nsim = N, domain = domain,
             obs_location = bed_obs$locations, obs = bed_obs$obs
@@ -47,6 +48,7 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
         sim_param_list <- lapply(1:N, function(c) list(friction = simulated_friction[, c]))
     }
 
+
     ## 2. Simulate ice thickness and velocity observations
     print("Simulating observations...")
 
@@ -56,7 +58,9 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
     ones <- rep(1, length(domain))
     D <- rdist(domain)
     l <- 50e3
-    R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
+    R <- exp_cov(D, l)
+
+    # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
     L <- t(chol(R))
     L <- as(L, "dgCMatrix")
     process_noise_info <- list(corrmat_chol = L, length_scale = l)
@@ -81,19 +85,33 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
                         process_noise_info = process_noise_info
                         )
         
-    
-            thickness_velocity_obs <- array(
-                data = cbind(
-                    reference$all_thicknesses[, 2:(years + 1)],
-                    reference$all_velocities[, 2:(years + 1)]
-                ),
-                dim = c(length(domain), years, 2)
-            )
+            ## Get surface observations (with noise added)
+            surface_obs <- get_obs(reference)
+            
+            ## Save true thickness and velocity for comparison
+            true_surface_elevs <- reference$all_top_surface
+            true_thicknesses <- reference$all_thicknesses
+            true_velocities <- reference$all_velocities
+
+            # thickness_velocity_obs <- array(
+            # surface_obs <- array(
+            #     data = cbind(
+            #         # reference$all_thicknesses[, 2:(years + 1)],
+            #         reference$all_top_surface[, 2:(years + 1)],
+            #         reference$all_velocities[, 2:(years + 1)]
+            #     ),
+            #     dim = c(length(domain), years, 2)
+            # )
+
             gl <- reference$grounding_line
         # )    
 
             simulated_data <- list(
-                thickness_velocity_arr = thickness_velocity_obs,
+                # thickness_velocity_arr = thickness_velocity_obs,
+                true_surface_elevs = true_surface_elevs,
+                true_thicknesses = true_thicknesses,
+                true_velocities = true_velocities,
+                surface_obs = surface_obs,
                 friction_arr = sim_param$friction,
                 bed_arr = sim_param$bedrock,
                 grounding_line = gl
@@ -102,10 +120,10 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
             return(simulated_data)
             
         },
-        
-        mc.cores = 20L,
+        mc.cores = 50L,
         mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
         )
+
     # } else {
     #     sim_results <- mclapply(sim_param_list, function(sim_param) {
     #         # cat("sim =", sim, "\n")
@@ -198,4 +216,8 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
 
     # return(list(input_data = return_obj,
     #             errors = errors))
+}
+
+exp_cov <- function(d, l) {
+    return(exp(-3*d / l))
 }

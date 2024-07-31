@@ -20,9 +20,14 @@ simulate_bed <- function(nsim, domain, obs_locations, obs,
   # Unconditional simulation
   bed_sims <- matrix(0, nrow = length(domain), ncol = nsim) #matrix to store simulations
   
+  L <- t(chol(bed_sigma)) 
+
+  #  t2 <- system.time(
   for (k in 1:nsim) { #vectorise!!!
-    bed_sims[, k] <- bed_mean + t(chol(bed_sigma)) %*% rnorm(length(domain))
+    bed_sims[, k] <- bed_mean + L %*% rnorm(length(domain))
   }
+  #  )
+
   bmean <- rowMeans(bed_sims)
   
   ## Plot unconditional bed simulations
@@ -47,11 +52,13 @@ simulate_bed <- function(nsim, domain, obs_locations, obs,
   
   bed.sims <- matrix(0, nrow = length(domain), ncol = nsim) # empty matrix to store simulations
   
-  for (i in 1:nsim) {
+  # t3 <- system.time(
+    for (i in 1:nsim) { ## vectorise!!!
     Zns <- bed_sims[, i] 
     Zcs <- Zns + c %*% sigma.inv %*% (obs - Zns[obs_locations])
     bed.sims[, i] <- Zcs
   }
+  # )
   
   bed.sims.mean <- rowMeans(bed.sims) # mean of all simulated beds
   

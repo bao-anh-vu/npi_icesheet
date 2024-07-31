@@ -36,10 +36,6 @@
 #' @param variable_bed set to TRUE for a non-constant but piecewise linear bed topography
 #' @param random_bed set to TRUE to add random noise to the bed topography
 #' @param perturb_hardness TRUE if instantaneously reducing the ice hardness at t = 0 as in Gillet-Chaulet (2020)
-<<<<<<< HEAD
-#' @param process_noise_info list containing the process noise correlation matrix, its Cholesky factor, and the length scale
-=======
->>>>>>> refs/remotes/origin/main
 #' @return \code{solve_ssa_nl} returns an object with the following items
 #' \describe{
 #'  \item{"current_velocity"}{Velocity (m/a) at the final timestep }
@@ -83,14 +79,8 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          fixed_H0 = FALSE, fixed_u0 = TRUE,
                          variable_bed = TRUE, random_bed = TRUE,
                          perturb_hardness =  FALSE,
-<<<<<<< HEAD
-                         add_process_noise = TRUE,
-                         process_noise_info = NULL) {
-
-=======
                          add_process_noise = TRUE) {
-  
->>>>>>> refs/remotes/origin/main
+
   t1 <- proc.time()
   
   # ## Flags
@@ -107,11 +97,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   # fixed_u0 <- TRUE
   # variable_bed <- TRUE
   # random_bed <- TRUE
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   ## Define physical parameters
   secpera <- 31556926 #seconds per annum
   n <- 3.0 # exponent in Glen's flow law
@@ -122,11 +108,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   g <- 9.81 #gravity constant
   A <- 1.4579e-25 #ice hardness
   z0 <- 0 # ocean surface elevation
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   ############################### Domain ###############################
   x <- domain
   L <- x[length(x)]
@@ -134,35 +116,20 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   J <- L / dx
   ## Ice shelf specifications
   # L = 800e3 # length of domain
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   ## Boundary conditions at the ice divide (x = 0)
   # x0 <- 0
   # u0 <- velocity_bc / secpera # (m/s)
   # H0 <- thickness_bc # (m)
-<<<<<<< HEAD
 
   ## Boundary conditions at the calving front
   # xc <- L #390e3
 
-=======
-  
-  ## Boundary conditions at the calving front
-  # xc <- L #390e3
-  
->>>>>>> refs/remotes/origin/main
   # Discretise domain
   # J <- 2000 # number of steps
   # dx <- L / J # increments
   # x <- seq(x0, L, dx)
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   if (M_bueler) {
     Mg <- - 4.290 / secpera #(m/s) # SMB at GL
   } else {
@@ -170,46 +137,28 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     ab <- 0 # melt rate (m/a)
     Mg <- as - ab # surface mass balance
   }
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   if (B_bueler) {
     Bg <- 4.614e8 # ice hardness at GL
   } else {
     Bg <- 0.4 * 1e6 * secpera ^ m #(2*A)^(-1/n) # Gillet-Chaulet
   }
-<<<<<<< HEAD
 
   ## Basal friction coefficient
 
-=======
-  
-  ## Basal friction coefficient
-  
->>>>>>> refs/remotes/origin/main
   if (!is.null(friction_coef)) {
     C <- friction_coef
   } else {
     C <- 0.020 + 0.015 * sin(5 * 2 * pi * x / L) * sin(100 * 2 * pi * x / L) #757.366 # Basal friction coefficient
     C <- C * 1e6 * (secpera)^m
   }
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   ## Bed topography
   b <- rep(0, length(x))
   if (!is.null(bedrock)) {
     b <- bedrock
   } else {
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> refs/remotes/origin/main
     if (variable_bed) {
       left <- (x <= 450e3)
       right <- (x > 450e3)
@@ -219,17 +168,10 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     } else {
       b <- rep(-650, length(x))
     }
-<<<<<<< HEAD
 
     if (random_bed) { # Use random midpoint displacement to generate bed roughness
       set.seed(seed)
 
-=======
-    
-    if (random_bed) { # Use random midpoint displacement to generate bed roughness
-      set.seed(seed)
-      
->>>>>>> refs/remotes/origin/main
       # Parameters for random midpoint displacement
       K <- 2
       br <- rep(0, K)
@@ -237,11 +179,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       sigma <- 500
       h <- 0.7
       reps <- 12
-<<<<<<< HEAD
 
-=======
-      
->>>>>>> refs/remotes/origin/main
       for (i in 1:reps) {
         midpoints <- 0.5 * (br[2:length(br)] + br[1:(length(br) - 1)])
         midpoints <- midpoints + rnorm(length(midpoints), mu, sigma)
@@ -252,7 +190,6 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       b <- b + br[1:length(b)]
     }
   }
-<<<<<<< HEAD
 
   ##################### Boundary conditions ########################
 
@@ -261,16 +198,6 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   ##################### Initial conditions ########################
 
-=======
-  
-  ##################### Boundary conditions ########################
-  
-  u0 <- velocity_bc #ini_velocity[1] #velocity_bc # Boundary condition for the velocity at x = 0 (m/s)
-  H0 <- thickness_bc #thickness_bc # BC for the ice thickness at x = 0 (m)
-  
-  ##################### Initial conditions ########################
-  
->>>>>>> refs/remotes/origin/main
   H_ini <- NULL
   # For the ice thickness
   if (!is.null(ini_thickness)) {
@@ -287,20 +214,13 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   } else {
     u_ini <- u0 + 0.001 / secpera * x
   }
-<<<<<<< HEAD
 
   ###################### Finite difference ########################
 
-=======
-  
-  ###################### Finite difference ########################
-  
->>>>>>> refs/remotes/origin/main
   ## Predefine B(x), M(x), z(x)
   B <- c() #rep(Bg, length(x))
   M <- rep(Mg, length(x))
   z <- c()
-<<<<<<< HEAD
 
   ## The equation we're trying to solve is of the form
   ## W(x) du/dx + alpha(x) u = beta(x)
@@ -472,143 +392,68 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   ## Implement fixed point iteration
 
-=======
-  
-  ## The equation we're trying to solve is of the form
-  ## W(x) du/dx + alpha(x) u = beta(x)
-  ## Set up some vectors for alpha, beta, W
-  
-  alpha <- rep(0, length(x))
-  W <- rep(0, length(x))
-  beta <- rep(0, length(x))
-  
-  ## Define a strain rate for regularisation of du/dx
-  eps_reg <- (1.0 / secpera) / L # strain rate of 1 m/a over length of shelf
-  
-  ##### Solve for velocity #####
-  
-  
-  ## Implement fixed point iteration
-  
->>>>>>> refs/remotes/origin/main
   i <- 1
   u_curr <- u_ini # initial guess for horizontal velocity
   H_curr <- H_ini
   GL_position <- c()
-<<<<<<< HEAD
 
   # Set tolerance for fixed point iteration
   u_diff <- 999999
   H_diff <- 999999
 
-=======
-  
-  # Set tolerance for fixed point iteration
-  u_diff <- 999999
-  H_diff <- 999999
-  
->>>>>>> refs/remotes/origin/main
   ## Set up output matrices
   u_mat <- matrix(0, nrow = length(u_curr), ncol = years + 1)
   H_mat <- matrix(0, nrow = length(H_curr), ncol = years + 1)
   zs_mat <- matrix(0, nrow = length(H_curr), ncol = years + 1)
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   u_mat[, 1] <- as.vector(u_ini)
   H_mat[, 1] <- as.vector(H_ini)
   zs_mat[, 1] <- surface_elev(H_ini, b)
   
   ## Years to save output
   obs_ind <- seq(0, years * steps_per_yr, steps_per_yr) # measure_freq = # times to measure per year
-<<<<<<< HEAD
 
   while (i <= (years * steps_per_yr) && H_diff > tol) {
     
-    # if (i %% 1000 == 0) {
-    #   cat("i: ", i, "\t")
-    # }
+    if (i %% 1000 == 0) {
+      cat("i: ", i, "\t")
+    }
      
     if (include_GL) {
       GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
-      # GL_position <- c(GL_position, GL) #/ J * L / 1000
+      GL_position <- c(GL_position, GL) #/ J * L / 1000
       
       # cat("GL position: ", GL / J * L / 1000,  "\t")
       
-=======
-  
-  while (i <= (years * steps_per_yr) && H_diff > tol) {
-
-    # if (i %% 1000 == 0) {
-    #   cat("i: ", i, "\t")
-    # }
-
-    if (include_GL) {
-      GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
-      # GL_position <- c(GL_position, GL) #/ J * L / 1000
-
-      # cat("GL position: ", GL / J * L / 1000,  "\t")
-
->>>>>>> refs/remotes/origin/main
       if (GL <= 1) {
         cat("Ice sheet is no longer grounded. \n")
         break
       }
     }
-<<<<<<< HEAD
     
-=======
-
->>>>>>> refs/remotes/origin/main
     # Now use this velocity to solve the mass balance equation
     if (evolve_thickness) {
       # H_new <- solve_thickness_og(u_curr, H_curr)
       H_new <- solve_thickness(u_curr, H_curr, x, b, steps_per_yr = steps_per_yr)
-<<<<<<< HEAD
       
-=======
-
->>>>>>> refs/remotes/origin/main
       if (add_process_noise && i %in% obs_ind) {
         # H_sd <- c(rep(20, GL), rep(10, length(H_new) - GL))
         H_sd <- pmin(0.02 * H_new, 20)
         # H_sd <- seq(10, 1, length.out = length(H_new))
-<<<<<<< HEAD
       
-        # H_noise <- cond_sim(mu = rep(0, J+1), sd = H_sd,
-        #                     taxis = domain, l = 50e3, nsims = 1)
-        
-        H_noise <- H_sd * (process_noise_info$corrmat_chol %*% rnorm(length(x), 0, 1))
-        # H_noise <- H_sd #cond_sim2(mu = rep(0, J+1), sd = H_sd, 
-                              #L = process_noise_info$corrmat_chol)
-        
-        H_new <- H_new + H_noise#$Sim1
-        
-      }
-      
-=======
-
         H_noise <- cond_sim(mu = rep(0, J+1), sd = H_sd,
                             domain, l = 50e3, nsims = 1)
-        # H_noise <- rmvnorm()
         
-        H_new <- H_new + as.vector(H_noise)#$Sim1
-
+        H_new <- H_new + H_noise$Sim1
+        
       }
-
->>>>>>> refs/remotes/origin/main
+      
       H_diff <- max(abs(H_new - H_curr))
       # cat("Iter", i, ": ")
-      # if (i %% 1000 == 0) {
-      #   cat("Change in H (m): ", H_diff, "\n")
-      # }
-<<<<<<< HEAD
+      if (i %% 1000 == 0) {
+        cat("Change in H (m): ", H_diff, "\n")
+      }
       
-=======
-
->>>>>>> refs/remotes/origin/main
       H_curr <- H_new
     }
 
@@ -616,11 +461,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       # Use current velocity to solve the linear system and get a new velocity
       # u_new <- solve_velocity_og(u_curr, H_curr)
       u_new <- solve_velocity(u_curr, H_curr, x, b, C, perturb_hardness)
-<<<<<<< HEAD
       
-=======
-
->>>>>>> refs/remotes/origin/main
       # Calculate difference between new u and old u
       u_diff <- max(abs(u_new - u_curr))
       # cat("Change in u (m/a): ", u_diff * secpera, "\n")
@@ -629,37 +470,20 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       u_curr <- u_new
 
     }
-<<<<<<< HEAD
     
-=======
-
->>>>>>> refs/remotes/origin/main
     ## Store surface velocity, ice thickness and surface elevation
     if (save_model_output && i %in% obs_ind) {
       # u_mat[, ceiling(i / steps_per_yr)] <- as.vector(u_curr)
       # H_mat[, ceiling(i / steps_per_yr)] <- as.vector(H_curr)
-<<<<<<< HEAD
       
       u_mat[, i / steps_per_yr + 1] <- as.vector(u_curr)
       H_mat[, i / steps_per_yr + 1] <- as.vector(H_curr)
-      GL_position <- c(GL_position, GL) #/ J * L / 1000
       
-=======
-
-      u_mat[, i / steps_per_yr + 1] <- as.vector(u_curr)
-      H_mat[, i / steps_per_yr + 1] <- as.vector(H_curr)
-      GL_position <- c(GL_position, GL) #/ J * L / 1000
-
->>>>>>> refs/remotes/origin/main
       z <- surface_elev(H_curr, b, z0, rho, rho_w)
       # zs_mat[, ceiling(i / steps_per_yr)] <- as.vector(z)
       zs_mat[, i / steps_per_yr + 1] <- as.vector(z)
     }
-<<<<<<< HEAD
     
-=======
-
->>>>>>> refs/remotes/origin/main
     # Count number of iterations
     i <- i + 1
 
@@ -669,8 +493,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     #   stop_condition <- u_diff > tol
     # }
   }
-  # cat("Number of iterations: ", i - 1, "\n")
-<<<<<<< HEAD
+  cat("Number of iterations: ", i - 1, "\n")
   
   ## Calculate time taken
   t2 <- proc.time()
@@ -682,19 +505,6 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   z <- surface_elev(H_curr, b, z0, rho, rho_w)
   z_b <- z - H_curr
 
-=======
-
-  ## Calculate time taken
-  t2 <- proc.time()
-  
-  ## GL position
-  GL_position <- GL_position / J * L / 1000
-  
-  ## Top and bottom surface elevation
-  z <- surface_elev(H_curr, b, z0, rho, rho_w)
-  z_b <- z - H_curr
-  
->>>>>>> refs/remotes/origin/main
   ## Return list of output
   ssa.out <- list(current_velocity = as.vector(u_curr), ## current velocity (m/yr) # * secpera,
                   ini_velocity = u_ini, # * secpera,
@@ -710,11 +520,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                   grounding_line = GL_position,
                   domain = x,
                   elapsed = t2 - t1) ## might want to output some of the input as well, e.g. initial height
-<<<<<<< HEAD
 
-=======
-  
->>>>>>> refs/remotes/origin/main
   ssa.out
 }
 

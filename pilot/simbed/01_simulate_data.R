@@ -16,14 +16,13 @@ library("fields")
 library("dplyr")
 library("matrixStats") # for the rowMaxs() function
 library("mvtnorm")
-library("parallel")
-
+library(abind)
 library("ggplot2")
 # library("plotly")
 library("gridExtra")
 library("FRK")
 
-# library(gstat)
+# library(gstat)j
 # library(sp)
 # library("mvnfast")
 # library("splines")
@@ -40,7 +39,8 @@ source("./source/solve_ssa_nl.R")
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
 source("./source/mvnorm_sample.R")
-source("./source/get_obs.R")
+# source("./source/get_obs.R")
+source("./source/get_surface_obs.R")
 source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
@@ -59,12 +59,12 @@ source("./source/obs_operator.R")
 
 # ## Seed for generating bed
 # ssa_seed <- 123
-# set.seed(ssa_seed)
+# set.seed(ssa_see
 
 ## Some flags
 regenerate_sims <- T
 refit_basis <- T
-save_sims <- F
+save_sims <- T
 # sim_beds <- T
 
 # if (sim_beds) {
@@ -75,8 +75,8 @@ save_sims <- F
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 10 # number of simulations per set
-sets <- 1
+N <- 10000 # number of simulations per set
+sets <- 1:2 #6:10 #2:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -89,7 +89,6 @@ ssa_steady <- readRDS(file = paste0("./training_data/initial_conds/ssa_steady_20
 # 0. Simulate bed observations
 set.seed(2024)
 ref_bed <- ssa_steady$bedrock
-
 ## Randomly select 50 locations between x = 0 and x = 800 km
 n_bed_obs <- 50
 obs_ind <- sort(sample(length(ref_bed), n_bed_obs))
@@ -134,10 +133,19 @@ if (regenerate_sims) {
       good_sims <- sim_results$results
     }
     
-    generated_data <- process_sim_results(sims = good_sims, sim_beds = T)  
-      
-    thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
+    generated_data <- process_sim_results(sims = good_sims)  
+
+    # thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
+    surface_obs_arr_s <- generated_data$surface_obs
     friction_arr_s <- generated_data$friction_arr
+    
+    ## Should scale the friction values here
+    friction_arr_s <- friction_arr_s/fric_scale
+    
+    true_surface_elevs <- generated_data$true_surface_elevs
+    true_thicknesses <- generated_data$true_thicknesses
+    true_velocities <- generated_data$true_velocities
+
     gl_arr_s <- generated_data$gl_arr
     bed_arr_s <- generated_data$bed_arr
     
@@ -146,15 +154,14 @@ if (regenerate_sims) {
 
     if (save_sims) {
         setf <- formatC(set, width=2, flag="0")
-        saveRDS(thickness_velocity_arr_s, file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+        # saveRDS(thickness_velocity_arr_s, file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(surface_obs_arr_s, file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".rds"))
         saveRDS(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
         saveRDS(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
-
-        # if (sim_beds) {
-          saveRDS(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
-
-        # }
-        # saveRDS(fitted_friction_s, file = paste0("./training_data/fitted_friction_", setf, "_", data_date))
+        saveRDS(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".rds"))
+        saveRDS(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".rds"))
+        saveRDS(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".rds"))
     }
     
   }
@@ -165,33 +172,33 @@ t2 <- proc.time()
 
 ## Basis function representation of the friction coefficients
 if (refit_basis) {
+
   for (set in sets) {
     cat("Fitting basis functions for set", set, "\n")
     setf <- formatC(set, width=2, flag="0")
     friction_arr_s <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
     bed_arr_s <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
     
-    ## Should scale the friction values here
-    friction_arr_s <- friction_arr_s/fric_scale
-    
     friction_basis <- fit_friction_basis(nbasis = nbasis, domain = domain, sample_arr = friction_arr_s)
     
+browser()
+
     ## De-trend the bedrock
     df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$obs)
     bed.fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.25, 
                     control = loess.control(surface = "direct")) 
     bed_mean <- predict(bed.fit, newdata = data.frame(obs_locations = domain))
     
-    mean_mat <- matrix(rep(bed_mean), nrow = N, ncol = length(bed_mean), byrow = T)
+    mean_mat <- matrix(rep(bed_mean, nrow(bed_arr_s)), nrow = nrow(bed_arr_s), ncol = length(bed_mean), byrow = T)
     bed_arr_demean <- bed_arr_s - mean_mat
 
     ## Fit basis to bedrock
     bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, sample_arr = bed_arr_demean)
-  
+    bed_fit <- list(mean = bed_mean, basis = bed_basis)
+
     if (save_sims) {
       saveRDS(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
-      saveRDS(bed_basis, file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
-      
+      saveRDS(bed_fit, file = paste0(train_data_dir, "/bed_fit_", setf, "_", data_date, ".rds"))
     }
   }
 }
@@ -202,18 +209,29 @@ if (refit_basis) {
 # f12 <- abind(f1, f2, along = 1)
 ## Now re-scale friction and plot it with the original friction
 
+
 ## Plot some simulations to check 
-set <- 1
+set <- sets[1]
 setf <- formatC(set, width=2, flag="0")
-thickness_velocity_arr <- readRDS(file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+
+### True thickness, friction, bed, grounding line
+# thickness_velocity_arr <- readRDS(file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
+surface_obs_arr <- readRDS(file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".rds"))
 friction_arr <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
 bed_arr <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
 gl_arr <- readRDS(file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
+
+## Fitted friction and bed
 friction_basis <- readRDS(file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
-bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
+# bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
+
+bed_fit <- readRDS(file = paste0(train_data_dir, "/bed_fit_", setf, "_", data_date, ".rds"))
+# bed_arr <- bed_data$basis$fitted_values
+# bed_basis <- bed_data$basis
 
 fitted_friction <- friction_basis$fitted_values
-fitted_bed <- bed_basis$fitted_values
+fitted_bed <- bed_fit$basis$fitted_values
+bed_mean <- bed_fit$mean
 
 plots <- list()
 
@@ -221,7 +239,7 @@ nsamples <- 1
 sims <- sample(1:N, size = nsamples)
 
 space <- domain/1000
-time <- 1:years #1:dim(thickness_velocity_arr)[3]
+time <- 1:(years+1) #1:dim(thickness_velocity_arr)[3]
 grid_test <- expand.grid(space, time)
 head(grid_test)
 names(grid_test) <- c("space", "time")
@@ -236,16 +254,23 @@ s <- 1
   ind <- inds[s, ]
   # print(ind)
   # thickness_velocity_arr <- sim_results[[s]]$thickness_velocity_arr
-  thickness <- thickness_velocity_arr[sim,,,1]
-  velocity <- thickness_velocity_arr[sim,,,2]
-  grid_test$thickness <- as.vector(thickness)
+  # thickness <- thickness_velocity_arr[sim,,,1]
+  # velocity <- thickness_velocity_arr[sim,,,2]
+  surface_elev <- surface_obs_arr[sim,,,1]
+  velocity <- surface_obs_arr[sim,,,2]
+  # grid_test$thickness <- as.vector(thickness)
+  grid_test$surface_elev <- as.vector(surface_elev)
   grid_test$velocity <- as.vector(velocity)
 
-  thickness_plot <- ggplot(grid_test) + 
-    geom_tile(aes(space, time, fill = thickness)) +
+  # thickness_plot <- ggplot(grid_test) + 
+    # geom_tile(aes(space, time, fill = thickness)) +
+  surface_elev_plot <- ggplot(grid_test) + 
+    geom_tile(aes(space, time, fill = surface_elev)) +
     scale_fill_distiller(palette = "Blues", direction = 1) + 
     theme_bw() +
-    labs(fill="Thickness (m)")
+    # labs(fill="Thickness (m)")
+    labs(fill = "Surface elevation (m)")
+    
   velocity_plot <- ggplot(grid_test) + 
     geom_tile(aes(space, time, fill = velocity)) +
     theme_bw() +
@@ -254,8 +279,7 @@ s <- 1
   
   friction_sim <- friction_arr[sim, 1:gl]
   fitted_fric_sim <- fitted_friction[sim, 1:gl]
-
-  df <- data.frame(domain = ssa_steady$domain[1:gl]/1000, friction = friction_sim/fric_scale,
+  df <- data.frame(domain = ssa_steady$domain[1:gl]/1000, friction = friction_sim,
                   fitted_fric = fitted_fric_sim)
   friction_plot <- ggplot(df, aes(x = domain, y = friction)) + geom_line() + 
                     geom_line(aes(x = domain, y = fitted_fric), col = "red") +
@@ -263,13 +287,14 @@ s <- 1
                     xlab("Domain (km)") + ylab(bquote('Friction (M Pa m'^'-1/3'~'a'^'1/3'~')'))
   
   bed_sim <- bed_arr[sim, ]
-  fitted_bed_sim <- fitted_bed[sim, ]
+  fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
   bed_df <- data.frame(domain = ssa_steady$domain/1000, bed = bed_sim)
   bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) + geom_line() + 
               geom_line(aes(x = domain, y = fitted_bed_sim), col = "red") +
               theme_bw() + xlab("Domain (km)") + ylab(bquote('Bed (m)'))
 
-  plots[[ind[1]]] <- thickness_plot
+  # plots[[ind[1]]] <- thickness_plot
+  plots[[ind[1]]] <- surface_elev_plot
   plots[[ind[2]]] <- velocity_plot
   plots[[ind[3]]] <- friction_plot
   plots[[ind[4]]] <- bed_plot
@@ -295,6 +320,8 @@ dev.off()
 #   # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
   
 # }
+
+
 
 
 
