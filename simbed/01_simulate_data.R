@@ -62,9 +62,9 @@ source("./source/obs_operator.R")
 # set.seed(ssa_see
 
 ## Some flags
-regenerate_sims <- F
-refit_basis <- F
-save_sims <- F
+regenerate_sims <- T
+refit_basis <- T
+save_sims <- T
 # sim_beds <- T
 
 # if (sim_beds) {
@@ -75,8 +75,8 @@ save_sims <- F
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 1000#0 # number of simulations per set
-sets <- 6:7
+N <- 10000 # number of simulations per set
+sets <- 1:10 #2:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -98,6 +98,7 @@ bed_obs <- list(locations = obs_ind, obs = obs_bed)
 if (save_sims) {
   saveRDS(bed_obs, file = paste0(train_data_dir, "/bed_obs_", data_date, ".rds"))
 }
+rm(.Random.seed, envir=globalenv())
 
 years <- 20
 domain <- ssa_steady$domain
@@ -133,7 +134,7 @@ if (regenerate_sims) {
       good_sims <- sim_results$results
     }
     
-    generated_data <- process_sim_results(sims = good_sims, sim_beds = T)  
+    generated_data <- process_sim_results(sims = good_sims)  
 
     # thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
     surface_obs_arr_s <- generated_data$surface_obs
@@ -142,6 +143,10 @@ if (regenerate_sims) {
     ## Should scale the friction values here
     friction_arr_s <- friction_arr_s/fric_scale
     
+    true_surface_elevs <- generated_data$true_surface_elevs
+    true_thicknesses <- generated_data$true_thicknesses
+    true_velocities <- generated_data$true_velocities
+
     gl_arr_s <- generated_data$gl_arr
     bed_arr_s <- generated_data$bed_arr
     
@@ -155,6 +160,9 @@ if (regenerate_sims) {
         saveRDS(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
         saveRDS(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
         saveRDS(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
+        saveRDS(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".rds"))
+        saveRDS(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".rds"))
+        saveRDS(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".rds"))
     }
     
   }
@@ -165,6 +173,7 @@ t2 <- proc.time()
 
 ## Basis function representation of the friction coefficients
 if (refit_basis) {
+
   for (set in sets) {
     cat("Fitting basis functions for set", set, "\n")
     setf <- formatC(set, width=2, flag="0")
@@ -229,7 +238,7 @@ nsamples <- 1
 sims <- sample(1:N, size = nsamples)
 
 space <- domain/1000
-time <- 1:years #1:dim(thickness_velocity_arr)[3]
+time <- 1:(years+1) #1:dim(thickness_velocity_arr)[3]
 grid_test <- expand.grid(space, time)
 head(grid_test)
 names(grid_test) <- c("space", "time")

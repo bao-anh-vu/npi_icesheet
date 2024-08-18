@@ -67,8 +67,8 @@ get_obs <- function(reference) {
     ## Store all observations in a list
     obs_list <- list(#  bed_obs = obs_bed,
                     #  bed_obs_locations = obs_ind,
-                     surface_elev = obs_surface[, 2:ncol(obs_surface)],
-                     velocity = obs_velocities[, 2:ncol(obs_velocities)])
+                     surface_elev = obs_surface,#[, 2:ncol(obs_surface)],
+                     velocity = obs_velocities) #[, 2:ncol(obs_velocities)])
     
     obs_arr <- abind(obs_list, along = 3)
     # if (rewrite_obs) {

@@ -9,25 +9,25 @@ reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
 library(ggplot2)
 
-# List physical devices
-# gpus <- tf$config$experimental$list_physical_devices('GPU')
+#List physical devices
+gpus <- tf$config$experimental$list_physical_devices('GPU')
 
-# if (length(gpus) > 0) {
-#   tryCatch({
-#     # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
-#     tf$config$experimental$set_virtual_device_configuration(
-#       gpus[[1]],
-#       list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
-#     )
+if (length(gpus) > 0) {
+  tryCatch({
+    # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
+    tf$config$experimental$set_virtual_device_configuration(
+      gpus[[1]],
+      list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
+    )
     
-#     logical_gpus <- tf$config$experimental$list_logical_devices('GPU')
+    logical_gpus <- tf$config$experimental$list_logical_devices('GPU')
     
-#     print(paste0(length(gpus), " Physical GPUs,", length(logical_gpus), " Logical GPUs"))
-#   }, error = function(e) {
-#     # Virtual devices must be set before GPUs have been initialized
-#     print(e)
-#   })
-# }
+    print(paste0(length(gpus), " Physical GPUs,", length(logical_gpus), " Logical GPUs"))
+  }, error = function(e) {
+    # Virtual devices must be set before GPUs have been initialized
+    print(e)
+  })
+}
 
 ## Flags
 rerun_cnn <- T
@@ -48,7 +48,7 @@ source("./source/create_model.R")
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 6:7 #arg
+sets <- 1:5 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

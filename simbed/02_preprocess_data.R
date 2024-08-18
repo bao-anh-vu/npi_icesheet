@@ -20,7 +20,7 @@ source("./source/seq_mean_var.R")
 data_date <- "20240320" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 6:7
+sets <- 1#:2
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -32,24 +32,44 @@ setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 
 ## Read thickness and velocity data
 print("Reading surface data...")
-t1 <- proc.time()
 files <- lapply(setf, function(x) paste0(train_data_dir, "/surface_obs_arr_", x, "_", data_date, ".rds"))
 surface_obs_list <- lapply(files, readRDS)
 surface_obs_arr <- abind(surface_obs_list, along = 1)
-t2 <- proc.time()
 
-velocity_mean <- mean(surface_obs_list[[1]][, , , 1]) # just use the mean from the first set
-surf_elev_mean <- mean(surface_obs_list[[1]][, , , 2])
-velocity_sd <- sd(surface_obs_list[[1]][, , , 1])
-surf_elev_sd <- sd(surface_obs_list[[1]][, , , 2])
+# first year is the initial condition, so we don't use it as part of the training data
+years <- dim(surface_obs_arr)[3] - 1 
+surface_obs_arr <- surface_obs_arr[, , 2:(years+1), ] 
+
+# compute mean and sd of surface elevation and velocity
+surf_elev_mean <- mean(surface_obs_list[[1]][, , 2:(years+1), 1]) # just use the mean from the first set
+velocity_mean <- mean(surface_obs_list[[1]][, , 2:(years+1), 2])
+surf_elev_sd <- sd(surface_obs_list[[1]][, , 2:(years+1), 1])
+velocity_sd <- sd(surface_obs_list[[1]][, , 2:(years+1), 2])
 
 # velocity_mean2 <- mean(surface_obs_list[[2]][,,,1])
 # surf_elev_mean2 <- mean(surface_obs_list[[2]][,,,2])
 # velocity_sd2 <- sd(surface_obs_list[[2]][,,,1])
 # surf_elev_sd2 <- sd(surface_obs_list[[2]][,,,2])
 
-
 rm(surface_obs_list)
+
+## Read true surface elevation data
+files <- lapply(setf, function(x) paste0(train_data_dir, "/true_surface_elevs_", x, "_", data_date, ".rds"))
+true_surface_list <- lapply(files, readRDS)
+true_surface_arr <- abind(true_surface_list, along = 1)
+rm(true_surface_list)
+
+## Read true thiyckness data
+files <- lapply(setf, function(x) paste0(train_data_dir, "/true_thicknesses_", x, "_", data_date, ".rds"))
+true_thickness_list <- lapply(files, readRDS)
+true_thickness_arr <- abind(true_thickness_list, along = 1)
+rm(true_thickness_list)
+
+## Read true velocity data
+files <- lapply(setf, function(x) paste0(train_data_dir, "/true_velocities_", x, "_", data_date, ".rds"))
+true_velocity_list <- lapply(files, readRDS)
+true_velocity_arr <- abind(true_velocity_list, along = 1)
+rm(true_velocity_list)
 
 # if (output_var == "friction") {
 ## Read friction data
@@ -103,15 +123,15 @@ print("Standardising input...")
 
 # velocity_mean <- compute_mean_seq(surface_obs_arr[,,,1])
 # velocity_sd <- sqrt(compute_var_seq(surface_obs_arr[,,,1]))
-std_u <- (surface_obs_arr[, , , 1] - velocity_mean) / velocity_sd
+std_z <- (surface_obs_arr[, , , 1] - surf_elev_mean) / surf_elev_sd
 
 # surf_elev_mean <- compute_mean_seq(surface_obs_arr[,,,2])
 # surf_elev_sd <- sqrt(compute_var_seq(surface_obs_arr[,,,2]))
-std_h <- (surface_obs_arr[, , , 2] - surf_elev_mean) / surf_elev_sd
+std_u <- (surface_obs_arr[, , , 2] - velocity_mean) / velocity_sd 
 
-std_input <- abind(std_u, std_h, along = 4)
+std_input <- abind(std_z, std_u, along = 4)
 
-rm(std_u, std_h)
+rm(std_z, std_u)
 
 ## Standardise output
 # print("Standardising output...")
@@ -221,7 +241,8 @@ true_gl_test <- drop(gl_arr[test_ind, ])
 
 train_data <- list(
     input = train_input,
-    input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
+    # input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
+    input_mean = c(surf_elev_mean, velocity_mean), input_sd = c(surf_elev_sd, velocity_sd),
     # output = train_output,
     # output_mean = output_mean, output_sd = output_sd,
     # truth = train_truth,
@@ -236,7 +257,10 @@ train_data <- list(
     sd_gl = sd_gl,
     true_bed = true_bed_train,
     true_fric = true_fric_train,
-    true_gl = true_gl_train
+    true_gl = true_gl_train,
+    true_surface_elev = true_surface_arr[train_ind, , ,],
+    true_thickness_train =  true_thickness_arr[train_ind, , ,],
+    true_velocity_train = true_velocity_arr[train_ind, , ,]
 )
 
 if (save_data) {
@@ -247,7 +271,7 @@ if (save_data) {
 
 val_data <- list(
     input = val_input,
-    input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
+    input_mean = c(surf_elev_mean, velocity_mean), input_sd = c(surf_elev_sd, velocity_sd),
     # output = val_output,
     # output_mean = output_mean, output_sd = output_sd,
     # truth = val_truth,
@@ -262,7 +286,10 @@ val_data <- list(
     sd_gl = sd_gl,
     true_bed = true_bed_val,
     true_fric = true_fric_val,
-    true_gl = true_gl_val
+    true_gl = true_gl_val,
+    true_surface_elev = true_surface_arr[val_ind, , ,],
+    true_thickness_val =  true_thickness_arr[val_ind, , ,],
+    true_velocity_val = true_velocity_arr[val_ind, , ,]
 )
 
 if (save_data) {
@@ -273,7 +300,8 @@ if (save_data) {
 
 test_data <- list(
     input = test_input,
-    input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
+    # input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
+    input_mean = c(surf_elev_mean, velocity_mean), input_sd = c(surf_elev_sd, velocity_sd),
     # output = test_output,
     # output_mean = output_mean, output_sd = output_sd,
     # truth = test_truth,
@@ -291,7 +319,10 @@ test_data <- list(
     sd_gl = sd_gl,
     true_bed = true_bed_test,
     true_fric = true_fric_test,
-    true_gl = true_gl_test
+    true_gl = true_gl_test,
+    true_surface_elev = true_surface_arr[test_ind, , ,],
+    true_thickness_test =  true_thickness_arr[test_ind, , ,],
+    true_velocity_test = true_velocity_arr[test_ind, , ,]
 )
 
 if (save_data) {

@@ -26,6 +26,7 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
     ## 1.5. Simulate beds
     if (sim_beds) {
         print("Simulating beds...")
+        
         bed_sims <- simulate_bed(
             nsim = N, domain = domain,
             obs_location = bed_obs$locations, obs = bed_obs$obs
@@ -47,6 +48,7 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
         sim_param_list <- lapply(1:N, function(c) list(friction = simulated_friction[, c]))
     }
 
+
     ## 2. Simulate ice thickness and velocity observations
     print("Simulating observations...")
 
@@ -63,7 +65,17 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
     L <- as(L, "dgCMatrix")
     process_noise_info <- list(corrmat_chol = L, length_scale = l)
 
-    t1 <- proc.time()
+    # print("Simulating ground truth...")
+    # reference <- create_ref(use_stored_steady_state = F,
+    #                         use_stored_reference = F,
+    #                         add_process_noise_in_ref = T,
+    #                         rewrite_steady_state = F, 
+    #                         rewrite_reference = F,
+    #                         data_date = data_date,
+    #                         friction_coef = simulated_friction[, 1],
+    #                         bedrock = bed_sims[, 1] 
+    #                         )
+
 
     # if (sim_beds) {
 
@@ -86,6 +98,11 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
             ## Get surface observations (with noise added)
             surface_obs <- get_obs(reference)
             
+            ## Save true thickness and velocity for comparison
+            true_surface_elevs <- reference$all_top_surface
+            true_thicknesses <- reference$all_thicknesses
+            true_velocities <- reference$all_velocities
+
             # thickness_velocity_obs <- array(
             # surface_obs <- array(
             #     data = cbind(
@@ -101,6 +118,9 @@ run_sims <- function(nsims, years = 20, sim_beds = F,
 
             simulated_data <- list(
                 # thickness_velocity_arr = thickness_velocity_obs,
+                true_surface_elevs = true_surface_elevs,
+                true_thicknesses = true_thicknesses,
+                true_velocities = true_velocities,
                 surface_obs = surface_obs,
                 friction_arr = sim_param$friction,
                 bed_arr = sim_param$bedrock,
