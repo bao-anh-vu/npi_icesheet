@@ -34,11 +34,10 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
   ## Likelihood ##
   llh <- c()
   
-browser()
-
   mc.t1 <- proc.time()
   
   for (year in 2:(years+1)) {
+    
     cat("Forecast step", year - 1, "\n")
     
     ##### II. Propagation #####
@@ -52,7 +51,7 @@ browser()
     # ens.list <- mclapply(ens.list, propagate, mc.cores = 6L, 
     #                      domain = domain, steps_per_yr = steps_per_yr)
     
-ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
+    ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
                          domain = domain, steps_per_yr = steps_per_yr)
     
 
@@ -62,8 +61,6 @@ ens.list <- lapply(ens.list, propagate, #mc.cores = 6L,
     ## Extract forecast ens and velocity ens
     ens <- ens_all[1:J, ]
     prev_velocity <- ens_all[(3*J+1):(4*J), ]
-    
-browser()
 
     # Save the mean velocity
     # mean_prev_velocity <- rowMeans(prev_velocity)

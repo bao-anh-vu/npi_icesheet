@@ -1,4 +1,4 @@
-surface_elev <- function(H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
+get_surface_elev <- function(H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
   include_GL <- TRUE
   GL <- gl_migrate(H, b, z0, rho, rho_w)
   

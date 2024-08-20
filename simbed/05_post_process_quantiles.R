@@ -19,7 +19,7 @@ save_plots <- T
 
 ## Read data
 data_date <- "20240320"
-sets <- 1:10
+sets <- 1:5#:10
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -380,8 +380,8 @@ if (save_plots) {
             ylab = "Friction (unit)", xlab = "Domain (km)", 
             cex.axis = 3, cex.lab = 4)
         lines(domain[plot_domain]/1000, pred_fric[, i], col = "red")
-        # lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "skyblue")
-        # lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "skyblue")
+        lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "skyblue")
+        lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "skyblue")
         abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
     }
 
@@ -410,8 +410,8 @@ if (save_plots) {
             )
             # lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
             lines(domain[plot_domain] / 1000, pred_bed[plot_domain, i], lwd = 3, col = "red")
-            # lines(domain[plot_domain] / 1000, bed_lq[[i]], lty = 1, lwd = 3, col = "skyblue")
-            # lines(domain[plot_domain] / 1000, bed_uq[[i]], lty = 1, lwd = 3, col = "skyblue")
+            lines(domain[plot_domain] / 1000, bed_lq[[i]], lty = 1, lwd = 3, col = "skyblue")
+            lines(domain[plot_domain] / 1000, bed_uq[[i]], lty = 1, lwd = 3, col = "skyblue")
             
             abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
         }

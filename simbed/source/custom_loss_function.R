@@ -15,13 +15,13 @@ MSLAE <- function( y_true, y_pred ) {
 }
 
 ## Quantile loss
-# quantile_loss <- function(y_true, y_pred, tau) {
-#   K <- backend() ## this calls tensorflow
+quantile_loss <- function(y_true, y_pred, tau) {
+  K <- backend() ## this calls tensorflow
 
-#     K$maximum(tau * (y_true - y_pred), (tau - 1) * (y_true - y_pred))
-# #   K$mean( K$abs( K$log( K$relu(y_true *1000 ) + 1 ) - 
-# #       K$log( K$relu(y_pred*1000 ) + 1)))
-# }
+    K$maximum(tau * (y_true - y_pred), (tau - 1) * (y_true - y_pred))
+#   K$mean( K$abs( K$log( K$relu(y_true *1000 ) + 1 ) - 
+#       K$log( K$relu(y_pred*1000 ) + 1)))
+}
 
 # quantile_loss_wrap <- function(tau) {
 #   quantile_loss <- function(y_true, y_pred) {

@@ -66,7 +66,7 @@
 #' \dontrun{ssa_out <- solve_ssa_nl(bedrock = b, friction_coef = C, years = 5, steps_per_yr = 26)}
 
 ################################################################################
-# source("/home/babv971/SSA_model/EnKF/surface_elev.R")
+# source("/home/babv971/SSA_model/EnKF/get_surface_elev.R")
 
 solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          velocity_bc = 0, thickness_bc = 2000,
@@ -410,7 +410,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   u_mat[, 1] <- as.vector(u_ini)
   H_mat[, 1] <- as.vector(H_ini)
-  zs_mat[, 1] <- surface_elev(H_ini, b)
+  zs_mat[, 1] <- get_surface_elev(H_ini, b)
 
   ## Years to save output
   obs_ind <- seq(0, years * steps_per_yr, steps_per_yr) # measure_freq = # times to measure per year
@@ -486,7 +486,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       H_mat[, i / steps_per_yr + 1] <- as.vector(H_curr)
       GL_position <- c(GL_position, GL) #/ J * L / 1000
       
-      z <- surface_elev(H_curr, b, z0, rho, rho_w)
+      z <- get_surface_elev(H_curr, b, z0, rho, rho_w)
       # zs_mat[, ceiling(i / steps_per_yr)] <- as.vector(z)
       zs_mat[, i / steps_per_yr + 1] <- as.vector(z)
     }
@@ -509,7 +509,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   GL_position <- GL_position / J * L / 1000
 
   ## Top and bottom surface elevation
-  z <- surface_elev(H_curr, b, z0, rho, rho_w)
+  z <- get_surface_elev(H_curr, b, z0, rho, rho_w)
   z_b <- z - H_curr
 
   ## Return list of output

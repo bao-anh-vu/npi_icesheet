@@ -125,16 +125,16 @@ if (!dir.exists(output_dir)) {
 } else { # delete all previously saved checkpoints
   unlink(paste0(output_dir, "/*"))
 }
-# dir.create(paste0("output/", setsf)
+# dir.create(paste0g("output/", setsf)
 checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 20
+epochs <- 50
 
 if (rerun_cnn) {
   
-  # checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+  # checkpoint_path <- paste0("output/", setsvf, "/checkpoints/cp-{epoch:04d}.ckpt")
   # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
   cp_callback <- callback_model_checkpoint(

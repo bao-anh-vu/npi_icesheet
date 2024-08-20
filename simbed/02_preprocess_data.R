@@ -4,7 +4,7 @@ setwd("~/SSA_model/CNN/simbed/")
 
 rm(list = ls())
 
-## Flags
+## Flagsrh
 # sim_beds <- T
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
 save_data <- T
@@ -20,7 +20,7 @@ source("./source/seq_mean_var.R")
 data_date <- "20240320" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1#:2
+sets <- 1#:5
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -37,14 +37,14 @@ surface_obs_list <- lapply(files, readRDS)
 surface_obs_arr <- abind(surface_obs_list, along = 1)
 
 # first year is the initial condition, so we don't use it as part of the training data
-years <- dim(surface_obs_arr)[3] - 1 
-surface_obs_arr <- surface_obs_arr[, , 2:(years+1), ] 
+# years <- dim(surface_obs_arr)[3] - 1 
+# surface_obs_arr <- surface_obs_arr[, , 2:(years+1), ] 
 
 # compute mean and sd of surface elevation and velocity
-surf_elev_mean <- mean(surface_obs_list[[1]][, , 2:(years+1), 1]) # just use the mean from the first set
-velocity_mean <- mean(surface_obs_list[[1]][, , 2:(years+1), 2])
-surf_elev_sd <- sd(surface_obs_list[[1]][, , 2:(years+1), 1])
-velocity_sd <- sd(surface_obs_list[[1]][, , 2:(years+1), 2])
+surf_elev_mean <- mean(surface_obs_list[[1]][, , , 1]) # just use the mean from the first set
+velocity_mean <- mean(surface_obs_list[[1]][, , , 2])
+surf_elev_sd <- sd(surface_obs_list[[1]][, , , 1])
+velocity_sd <- sd(surface_obs_list[[1]][, , , 2])
 
 # velocity_mean2 <- mean(surface_obs_list[[2]][,,,1])
 # surf_elev_mean2 <- mean(surface_obs_list[[2]][,,,2])
@@ -59,7 +59,8 @@ true_surface_list <- lapply(files, readRDS)
 true_surface_arr <- abind(true_surface_list, along = 1)
 rm(true_surface_list)
 
-## Read true thiyckness data
+
+## Read true thickness data
 files <- lapply(setf, function(x) paste0(train_data_dir, "/true_thicknesses_", x, "_", data_date, ".rds"))
 true_thickness_list <- lapply(files, readRDS)
 true_thickness_arr <- abind(true_thickness_list, along = 1)

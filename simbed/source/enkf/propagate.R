@@ -15,7 +15,7 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log10") {
     friction <- 10^alpha
   }
   
-  prev_velocity <- c()
+  # prev_velocity <- c()
   
   # for (i in 1:steps_per_yr) {
   #   prev_velocity <- velocity
@@ -33,8 +33,8 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log10") {
   #                                        perturb_hardness = TRUE))
     
   # }
-
-  ## Why not just call solve_ssa_nl() here instead?
+  
+## Why not just call solve_ssa_nl() here instead?
   test <- solve_ssa_nl(domain = domain, bedrock = bed, friction_coef = friction, 
                         ini_velocity = velocity, ini_thickness = thickness, 
                         years = 1, steps_per_yr = steps_per_yr,

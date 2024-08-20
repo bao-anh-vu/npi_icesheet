@@ -33,7 +33,7 @@ if (length(gpus) > 0) {
 rerun_cnn <- T
 sim_beds <- T
 output_var <- "all" # "all", #"bed"  # "grounding_line" # "bed"
-quantile <- 0.5
+quantiles <- c(0.95)
 # save_output <- T
 
 source("./source/create_model.R")
@@ -100,8 +100,8 @@ print("Training CNN...")
 input_dim <- dim(train_data$input)[2:4]
 output_dim <- ncol(train_output)
 
-
-# if (output_var == "friction") {
+for (quantile in quantiles) {
+  # if (output_var == "friction") {
 #   model <- create_model(input_dim = input_dim, output_dim = output_dim)
 # } else if (output_var == "grounding_line") {
 #   model <- create_model(input_dim = input_dim, output_dim = output_dim)
@@ -171,6 +171,8 @@ if (rerun_cnn) {
 history %>%
   plot() +
   coord_cartesian(xlim = c(1, epochs))
+}
+
 
 # ## Get rid of first training loss
 # plot(history$metrics$loss[2:60],type = "l")
