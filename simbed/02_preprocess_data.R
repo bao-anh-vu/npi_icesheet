@@ -20,7 +20,7 @@ source("./source/seq_mean_var.R")
 data_date <- "20240320" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1#:5
+sets <- 1:50 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -58,7 +58,6 @@ files <- lapply(setf, function(x) paste0(train_data_dir, "/true_surface_elevs_",
 true_surface_list <- lapply(files, readRDS)
 true_surface_arr <- abind(true_surface_list, along = 1)
 rm(true_surface_list)
-
 
 ## Read true thickness data
 files <- lapply(setf, function(x) paste0(train_data_dir, "/true_thicknesses_", x, "_", data_date, ".rds"))
@@ -98,10 +97,10 @@ rm(bed_list)
 
 ## Read basis coefficients data
 print("Reading bed basis coefficients data...")
-files <- lapply(setf, function(x) paste0(train_data_dir, "/bed_fit_", x, "_", data_date, ".rds"))
-bed_basis_coefs_list <- lapply(files, function(x) readRDS(x)$basis$basis_coefs)
+files <- lapply(setf, function(x) paste0(train_data_dir, "/bed_basis_", x, "_", data_date, ".rds"))
+bed_basis_coefs_list <- lapply(files, function(x) readRDS(x)$basis_coefs)
 bed_basis_coefs <- abind(bed_basis_coefs_list, along = 1)
-bed_basis_mat <- readRDS(files[[1]])$basis$basis_mat
+bed_basis_mat <- readRDS(files[[1]])$basis_mat
 rm(bed_basis_coefs_list)
 
 # }
@@ -173,7 +172,7 @@ test_input <- std_input[test_ind, , , ]
 
 # train_fric <- fric_basis_coefs[train_ind, ]
 # val_fric <- fric_basis_coefs[val_ind, ]
-# test_fric <- fric_basis_coefs[test_ind, ]
+# test_fric <- fric_basis_cofefs[test_ind, ]
 
 # train_bed <- bed_basis_coefs[train_ind, ]
 # val_bed <- bed_basis_coefs[val_ind, ]
@@ -225,16 +224,13 @@ if (!dir.exists(data_dir)) {
 }
 
 ## True friction/bed for each set
-# if (output_var == "friction") {
 true_fric_train <- fric_arr[train_ind, ]
 true_fric_val <- fric_arr[val_ind, ]
 true_fric_test <- fric_arr[test_ind, ]
 
-# } else if (output_var == "bed") {
 true_bed_train <- bed_arr[train_ind, ]
 true_bed_val <- bed_arr[val_ind, ]
 true_bed_test <- bed_arr[test_ind, ]
-# }
 
 true_gl_train <- drop(gl_arr[train_ind, ])
 true_gl_val <- drop(gl_arr[val_ind, ])

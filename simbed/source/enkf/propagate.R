@@ -1,5 +1,5 @@
 ## Function to propagate
-propagate <- function(state, domain, steps_per_yr, transformation = "log10") {
+propagate <- function(state, domain, steps_per_yr, transformation = "log") {
   
   thickness <- state[1:J]
   bed <- state[(J+1):(2*J)] 
@@ -15,34 +15,38 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log10") {
     friction <- 10^alpha
   }
   
+  secpera <- 31556926
+  fric_scale <- 1e6 * secpera^(1 / 3)
+  friction <- friction * fric_scale
+
   # prev_velocity <- c()
   
-  # for (i in 1:steps_per_yr) {
-  #   prev_velocity <- velocity
+  for (i in 1:steps_per_yr) {
+    prev_velocity <- velocity
     
-  #   thickness <- solve_thickness(velocity = prev_velocity,
-  #                                thickness = thickness, domain = domain,
-  #                                bed = bed, steps_per_yr = steps_per_yr)
+    thickness <- solve_thickness(velocity = prev_velocity,
+                                 thickness = thickness, domain = domain,
+                                 bed = bed, steps_per_yr = steps_per_yr)
     
-  #   ## need to somehow save both the previous and the current velocity
-  #   velocity <- as.vector(solve_velocity(prev_velocity = prev_velocity, 
-  #                                        thickness = thickness, # should use the mean of the ice thickness as well?
-  #                                        domain = domain,
-  #                                        bed = bed,
-  #                                        friction = friction,
-  #                                        perturb_hardness = TRUE))
+    ## need to somehow save both the previous and the current velocity
+    velocity <- as.vector(solve_velocity(prev_velocity = prev_velocity, 
+                                         thickness = thickness, # should use the mean of the ice thickness as well?
+                                         domain = domain,
+                                         bed = bed,
+                                         friction = friction,
+                                         perturb_hardness = TRUE))
     
-  # }
+  }
   
-## Why not just call solve_ssa_nl() here instead?
-  test <- solve_ssa_nl(domain = domain, bedrock = bed, friction_coef = friction, 
-                        ini_velocity = velocity, ini_thickness = thickness, 
-                        years = 1, steps_per_yr = steps_per_yr,
-                        perturb_hardness = TRUE, 
-                        add_process_noise = F)
+# Why not just call solve_ssa_nl() here instead? // because we need the previous velocity at the (k-1)th step not k-th!!
+  # test <- solve_ssa_nl(domain = domain, bedrock = bed, friction_coef = friction, 
+  #                       ini_velocity = velocity, ini_thickness = thickness, 
+  #                       years = 1, steps_per_yr = steps_per_yr,
+  #                       perturb_hardness = TRUE, 
+  #                       add_process_noise = F)
 
-  thickness <- test$current_thickness
-  prev_velocity <- test$current_velocity
+  # thickness <- test$current_thickness
+  # prev_velocity <- test$current_velocity
 
   out <- c(thickness, bed, alpha, prev_velocity)
   # out <- c(thickness, bed, friction, velocity)

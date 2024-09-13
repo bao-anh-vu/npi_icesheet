@@ -18,7 +18,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
   # Parameters
   beds <- ini_bed
   friction_coefs <- ini_friction_coef
-  
+
   ## Velocity
   enkf_velocity_means <- matrix(0, J, years + 1)
   enkf_velocity_means[, 1] <- rowMeans(ini_velocity)
@@ -50,11 +50,11 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
     # Apply the propagate function to every ensemble member
     # ens.list <- mclapply(ens.list, propagate, mc.cores = 6L, 
     #                      domain = domain, steps_per_yr = steps_per_yr)
-    
-    ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
-                         domain = domain, steps_per_yr = steps_per_yr)
-    
 
+    ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
+                         domain = domain, steps_per_yr = steps_per_yr,
+                         transformation = "log")
+    
     # Convert ensemble from list back to matrix
     ens_all <- matrix(unlist(ens.list), nrow = 4*J, ncol = Ne)
     
@@ -83,9 +83,9 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
       ens_all <- rbind(ens, beds, friction_coefs, prev_velocity)
       ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i]) 
     }
-    
+
     # ens <- forecast_ens
-    # if (run_analysis) {
+    if (run_analysis) {
       ##### III. Analysis #####
       print("Running analysis...")
       
@@ -97,7 +97,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
     
       ## Apply observation operator to every ensemble member
       HX <- mclapply(ens.list, obs_operator,
-                     domain = domain, mc.cores = 6L)
+                     domain = domain, transformation = "log", mc.cores = 6L)
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
       
@@ -109,11 +109,19 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
       # vel_std <- pmin(0.25 * rowMeans(HX)[(J+1):(2*J)], 20)
       # vel_std[vel_std == 0] <- 1e-05
       # R <- diag(c(rep(10^2, J), vel_std^2)) # measurement noise for top surface and velocity
-      R <- diag(c(rep(10^2, J), rep(20^2, J)))
+      # R <- diag(c(rep(10^2, J), rep(20^2, J))) ## NEED TO FIX THE MEASUREMENT NOISE FOR VELOCITY
       
       ## Extract yearly observations
-      y <- c(observations$surface_elev[, year], observations$velocity[, year])
+      surf_elev_obs <- observations$surface_elev[, year]
+      vel_obs <- observations$velocity[, year]
       
+      y <- c(surf_elev_obs, vel_obs)
+      
+      surf_elev_noise_sd  <- rep(10, J)
+      vel_noise_sd <- pmin(0.25 * rowMeans(HX)[(J+1):(2*J)], 20) #pmin(0.25 * vel_obs, 20)
+      vel_noise_sd[vel_noise_sd <= 0] <- 1e-05
+      R <- diag(c(surf_elev_noise_sd^2, vel_noise_sd^2))
+
       ## Generate "observation ensemble" Y = (y, y, ..., y)
       Y <- matrix(rep(y, Ne), 2*J, Ne) 
       
@@ -121,10 +129,13 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
       # test <- dmvn(y - HX[, 1], mu = rep(0, 2*J), 
       #              sigma = HPH + R, log = TRUE)
       noise <- matrix(rnorm(2*J*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
-      
+      test <- rnorm(2*J, mean = 0, sd = sqrt(diag(R)))
+
       forecast_mean <- c(rowMeans(ens), beds[, 1], friction_coefs[, 1], rowMeans(prev_velocity))
-      HX_mean <- obs_operator(state = forecast_mean, domain = domain)
+      # HX_mean <- obs_operator(state = forecast_mean, domain = domain, transformation = "log")
       
+      HX_mean <- rowMeans(HX)
+
       llh[year] <- dmvnorm(y - HX_mean, mean = rep(0, 2*J), 
                       sigma = HPH + R, log = TRUE)
        #CHECK VELOCITY HERE!!!!
@@ -166,7 +177,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
       }
       
       analysis.t2 <- proc.time() 
-    # }
+    }
     
     # Store analysis ensemble and ensemble mean
     enkf_means[, year] <- rowMeans(ens)
@@ -181,12 +192,15 @@ run_enkf <- function(domain, years, steps_per_yr, ini_ens, ini_bed,
     # Propagate velocity
     velocity.list <- mclapply(ens.list, 
                               function(v) { 
+                                # secpera <- 31556926
+                                # fric_scale <- 1e6 * secpera^(1 / 3)  
+
                                 # evolve the velocity
                                 u <- as.vector(solve_velocity(prev_velocity = v[(3*J+1):(4*J)], #mean_prev_velocity,
                                                               thickness = v[1:J], 
                                                               domain = domain,
                                                               bed = v[(J+1):(2*J)],
-                                                              friction = 10^v[(2*J+1):(3*J)],
+                                                              friction = exp(v[(2*J+1):(3*J)]) * 1e6 * 31556926^(1 / 3),
                                                               perturb_hardness = TRUE))
                                 
                                 return(u)

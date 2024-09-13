@@ -21,6 +21,8 @@ sim_params <- function(nsims, domain, bed_obs) {
         sill = fric.sill, nugget = fric.nugget,
         range = fric.range
     ) 
+
+    simulated_friction <- simulated_friction / fric_scale
     # sim_fric_list <- lapply(1:N, function(c) simulated_friction[, c])
 
     ## Simulate beds
@@ -31,13 +33,18 @@ sim_params <- function(nsims, domain, bed_obs) {
         obs_location = bed_obs$locations, obs = bed_obs$obs
     )
 
-    # sim_bed_list <- lapply(1:N, function(c) bed_sims[, c])
-    sim_param_list <- lapply(1:nsims, function(c) {
-        list(
-            friction = simulated_friction[, c],
-            bedrock = bed_sims[, c]
-        )
-    })
+    # sim_param_list <- lapply(1:nsims, function(c) {
+    #     list(
+    #         friction = simulated_friction[, c],
+    #         bedrock = bed_sims[, c]
+    #     )
+    # })
+
+    sim_param_list <- list(
+        friction = t(simulated_friction),
+        bedrock = t(bed_sims)
+    )
+
 
     ## DELETE LATER: (just creating an artificial error for debugging purposes)
     # sim_param_list[[2]] <- 0

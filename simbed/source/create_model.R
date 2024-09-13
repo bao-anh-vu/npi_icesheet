@@ -68,8 +68,9 @@ create_model_quantile <- function(input_dim, output_dim, quantile) {
 
     # metrics <- c("mae", "mse", "msle", "mlae", "mslae")    
     model %>% compile(
-        optimizer = "rmsprop",
+        # optimizer = "rmsprop",
         loss = quantile_loss_wrap(quantile), #losses[1],
+        optimizer = optimizer_adam(learning_rate = 0.0005),
         metrics = quantile_loss_wrap(quantile) #c("mae") # is this the right thing to do?
     )
 
