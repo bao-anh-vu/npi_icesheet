@@ -36,7 +36,8 @@ output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
 # save_output <- T
 
 source("./source/create_model.R")
-source("./source/custom_loss_function.R")
+# source("./source/custom_loss_function.R")
+source("./source/posterior_loss.R")
 
 # if (output_var == "friction") {
 #   source("./source/create_model.R")
@@ -49,7 +50,7 @@ source("./source/custom_loss_function.R")
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1#:10 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -110,7 +111,7 @@ summary(model)
 
 # Create a callback that saves the model's weights
 # if (sim_beds) {
-  output_dir <- paste0("./output/", output_var, "/", setsf)
+  output_dir <- paste0("./output/posterior/", setsf)
 # } else {
 #   output_dir <- paste0("./output/", output_var, "/", setsf)
 # }
@@ -125,7 +126,7 @@ checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 50
+epochs <- 20
 
 if (rerun_cnn) {
   print("Training CNN...")
@@ -159,12 +160,13 @@ if (rerun_cnn) {
   history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
 }
 
-# ## Plot the loss
-
-history %>%
-  plot() +
-  coord_cartesian(xlim = c(1, epochs))
-
+# loss_plot <- history %>%
+#   plot() +
+#   coord_cartesian(xlim = c(1, epochs))
+# # ## Plot the loss
+# png(paste0("plots/posterior/loss_", data_date, ".png"))
+# print(loss_plot)
+# dev.off()
 # ## Get rid of first training loss
 # plot(history$metrics$loss[2:60],type = "l")
 # lines(history$metrics$val_loss[2:60], col = "red")

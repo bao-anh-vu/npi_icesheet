@@ -50,19 +50,18 @@ rm(gl_list)
 
 J <- dim(surface_obs_arr)[2]
 gl_points <- floor(gl_arr / 800 * J) # convert from km to grid points
+min_gl <- min(gl_points)
+
 ## Then subset the surface data up to the grounding line
-test <- surface_obs_arr[1, , , ]
-gl_test <- gl_points[1, ]
-gl_test <- c(gl_test[1], gl_test) ## need to add initial gl position as well, will fix this in the data generating script later
-surf_obs_grounded <- list()
-for (year in 1:length(gl_test)) {
-    surf_obs_grounded[[year]] <- test[1:gl_test[year], year, ] 
-}
+surface_obs_gr <- surface_obs_arr[, 1:min_gl, , ] # only need the first set of grounding line positions
 
 ## might just have to truncate to minimum GL position, otherwise input data has uneven dimensions
 ## which is not ideal, and might be better to use a mask to ignore the data beyond the grounding line
 
 # compute mean and sd of surface elevation and velocity
+if (dim(surface_obs_gr)[1] >= 10000) {
+    surf_elev_mean <- mean(surface_obs_gr[1:10000, , , 1]
+}
 surf_elev_mean <- mean(surface_obs_list[[1]][, , , 1]) # just use the mean from the first set
 velocity_mean <- mean(surface_obs_list[[1]][, , , 2])
 surf_elev_sd <- sd(surface_obs_list[[1]][, , , 1])
