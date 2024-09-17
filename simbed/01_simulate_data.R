@@ -408,3 +408,18 @@ dev.off()
 #   # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
 
 # }
+
+# train_samples <- 10
+# png(paste0(output_dir, "/true_fric_log.png"), width = 2000, height = 1200)
+# par(mfrow = c(5,2))
+# for (i in 1:train_samples) {
+#     plot(train_data$true_fric[i, ], type = "l")
+# }
+# dev.off()
+
+# png(paste0(output_dir, "/true_fric.png"), width = 2000, height = 1200)
+# par(mfrow = c(5,2))
+# for (i in 1:train_samples) {
+#     plot(exp(train_data$true_fric[i, ]), type = "l")
+# }
+# dev.off()

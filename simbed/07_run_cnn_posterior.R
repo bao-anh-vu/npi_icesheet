@@ -126,7 +126,7 @@ checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 20
+epochs <- 50
 
 if (rerun_cnn) {
   print("Training CNN...")
