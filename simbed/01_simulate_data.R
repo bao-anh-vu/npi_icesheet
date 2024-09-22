@@ -39,8 +39,8 @@ source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 
 ## Some flagsn,
-regenerate_sims <- F
-refit_basis <- F
+regenerate_sims <- T
+refit_basis <- T
 save_sims <- T
 log_transform <- T
 # sim_beds <- T
@@ -49,8 +49,8 @@ train_data_dir <- "./training_data"
 
 ## Presets
 data_date <- "20240320" # "20220329"
-N <- 1000 # number of simulations per set
-sets <- 1:50 #2:5 #1:5h
+N <- 10 # number of simulations per set
+sets <- 51 #2:5 #1:5h
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -109,6 +109,10 @@ if (regenerate_sims) {
       fric_arr = sim_param_list$friction,
       log_transform = log_transform
     )
+
+    plot_domain <- 1:1000
+    plot(friction_basis$true_vals[1, plot_domain], type = "l")
+    lines(friction_basis$fitted_values[1, plot_domain], col  = "red")
 
     ## De-trend the bedrock
     # df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$obs)
@@ -409,17 +413,3 @@ dev.off()
 
 # }
 
-# train_samples <- 10
-# png(paste0(output_dir, "/true_fric_log.png"), width = 2000, height = 1200)
-# par(mfrow = c(5,2))
-# for (i in 1:train_samples) {
-#     plot(train_data$true_fric[i, ], type = "l")
-# }
-# dev.off()
-
-# png(paste0(output_dir, "/true_fric.png"), width = 2000, height = 1200)
-# par(mfrow = c(5,2))
-# for (i in 1:train_samples) {
-#     plot(exp(train_data$true_fric[i, ]), type = "l")
-# }
-# dev.off()

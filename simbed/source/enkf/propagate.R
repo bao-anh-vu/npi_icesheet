@@ -20,7 +20,6 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
   friction <- friction * fric_scale
 
   # prev_velocity <- c()
-  
   for (i in 1:steps_per_yr) {
     prev_velocity <- velocity
     

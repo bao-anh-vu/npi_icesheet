@@ -21,7 +21,7 @@ test_on_train <- F
 
 ## Read data
 data_date <- "20240320"
-sets <- 1:10 #6:20
+sets <- 1:50 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -214,9 +214,7 @@ for (s in 1:nrow(pred_chol)) {
 # ## Need to sample from the posterior distribution of the coefs
 # ## then transform them to actual friction, bed, gl
 
-# ## Choose random samples from test set for comparison
-samples <- sample(1:nrow(test_output), 6)
-S <- 1000
+S <- 1000 ## number of posterior samples
 
 fric_samples_ls <- list()
 bed_samples_ls <- list()
@@ -231,8 +229,9 @@ gl_uq <- list()
 
 bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = S)
 
-for (i in 1:length(samples)) {
-    s <- samples[i]
+for (s in 1:nrow(test_output)) {
+
+    cat("Sample: ", s, "\n")
     L <- Lmats[[s]]
 
     ### Sample from the posterior distribution
@@ -256,22 +255,22 @@ for (i in 1:length(samples)) {
 
     ## Compute friction samples  
     if (log_transform) {
-        fric_samples_ls[[i]] <- exp(fric_basis_mat %*% fric_coef_samples_ustd)
+        fric_samples_ls[[s]] <- exp(fric_basis_mat %*% fric_coef_samples_ustd)
     } else {
-        fric_samples_ls[[i]] <- fric_basis_mat %*% fric_coef_samples_ustd
+        fric_samples_ls[[s]] <- fric_basis_mat %*% fric_coef_samples_ustd
     }
 
-    bed_samples_ls[[i]] <- bed_basis_mat %*% bed_coef_samples_ustd + bed_mean_mat
-    gl_samples_ls[[i]] <- gl_samples_ustd
+    bed_samples_ls[[s]] <- bed_basis_mat %*% bed_coef_samples_ustd + bed_mean_mat
+    gl_samples_ls[[s]] <- gl_samples_ustd
 
-    fric_lq[[i]] <- apply(fric_samples_ls[[i]], 1, quantile, probs = 0.05)
-    fric_uq[[i]] <- apply(fric_samples_ls[[i]], 1, quantile, probs = 0.95)
+    fric_lq[[s]] <- apply(fric_samples_ls[[s]], 1, quantile, probs = 0.05)
+    fric_uq[[s]] <- apply(fric_samples_ls[[s]], 1, quantile, probs = 0.95)
     
-    bed_lq[[i]] <- apply(bed_samples_ls[[i]], 1, quantile, probs = 0.05)
-    bed_uq[[i]] <- apply(bed_samples_ls[[i]], 1, quantile, probs = 0.95)
+    bed_lq[[s]] <- apply(bed_samples_ls[[s]], 1, quantile, probs = 0.05)
+    bed_uq[[s]] <- apply(bed_samples_ls[[s]], 1, quantile, probs = 0.95)
 
-    gl_lq[[i]] <- apply(gl_samples_ls[[i]], 1, quantile, probs = 0.05)
-    gl_uq[[i]] <- apply(gl_samples_ls[[i]], 1, quantile, probs = 0.95)
+    gl_lq[[s]] <- apply(gl_samples_ls[[s]], 1, quantile, probs = 0.05)
+    gl_uq[[s]] <- apply(gl_samples_ls[[s]], 1, quantile, probs = 0.95)
 }
 
 
@@ -289,8 +288,11 @@ if (save_pred) {
     saveRDS(pred_fric, file = paste0(output_dir, "/pred_fric_", data_date, ".rds"))
     saveRDS(pred_bed, file = paste0(output_dir, "/pred_bed_", data_date, ".rds"))
     saveRDS(pred_gl, file = paste0(output_dir, "/pred_gl_", data_date, ".rds"))
+    saveRDS(Lmats, file = paste0(output_dir, "/Lmats_", data_date, ".rds"))
+    saveRDS(fric_samples_ls, file = paste0(output_dir, "/fric_post_samples_", data_date, ".rds"))
+    saveRDS(bed_samples_ls, file = paste0(output_dir, "/bed_post_samples_", data_date, ".rds"))
+    saveRDS(gl_samples_ls, file = paste0(output_dir, "/gl_post_samples_", data_date, ".rds"))
 }
-
 
 ######################################
 ##      Comparison with truth       ##
@@ -306,6 +308,9 @@ true_gl <- test_data$true_gl #* test_data$sd_gl + test_data$mean_gl
 # fric_scale <- 1e6 * secpera^(1/3)
 # true_fric <- true_fric/fric_scale
 
+## Choose random samples from test set for comparison
+samples <- sample(1:nrow(test_output), 6)
+
 if (save_plots) {
     
     ## Friction plots
@@ -314,20 +319,21 @@ if (save_plots) {
     plot_domain <- 1:1200 #length(domain) # ceiling(gl)
 
     par(mfrow = c(length(samples) / 2, 2))
-    for (i in 1:length(samples)) {
-        s <- samples[i]
+    # for (i in 1:length(samples)) {
+    for (s in samples) {
+        # s <- samples[i]
         par(mar = c(6, 8, 4, 2))
         gl <- test_data$grounding_line[s] / 800 * 2001
 
         plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", 
             ylab = "Friction (unit)", xlab = "Domain (km)", 
             cex.axis = 3, cex.lab = 4)
-        matlines(domain[plot_domain]/1000, fric_samples_ls[[i]][plot_domain, 1:3], 
+        matlines(domain[plot_domain]/1000, fric_samples_ls[[s]][plot_domain, 1:3], 
                     lty = 1, lwd = 3, col = adjustcolor("mediumpurple", alpha = 0.5))
         # lines(domain[plot_domain]/1000, true_fric[i, ], col = "red")
         lines(domain[plot_domain]/1000, pred_fric[plot_domain, s], col = "red")
-        lines(domain[plot_domain]/1000, fric_lq[[i]][plot_domain], lty = 1, lwd = 3, col = "grey")
-        lines(domain[plot_domain]/1000, fric_uq[[i]][plot_domain], lty = 1, lwd = 3, col = "grey")
+        lines(domain[plot_domain]/1000, fric_lq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
+        lines(domain[plot_domain]/1000, fric_uq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
         
         
         abline(v = test_data$true_gl[s, 1], lty = 2, lwd = 3)
@@ -340,8 +346,9 @@ if (save_plots) {
     png(paste0(plot_dir, "/pred_vs_true_bed", checkpt, ".png"), width = 2000, height = 2000)
     par(mfrow = c(length(samples) / 2, 2))
 
-    for (i in 1:length(samples)) {
-        s <- samples[i]
+    # for (i in 1:length(samples)) {
+    for (s in samples) {
+        # s <- samples[i]
         par(mar = c(6, 8, 4, 2))
         # gl <- test_data$grounding_line[i] / 800 * 2001
         plot(domain[plot_domain] / 1000, test_bed[plot_domain, s],
@@ -349,11 +356,11 @@ if (save_plots) {
             ylab = "Bed (m)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
         )
         # lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
-        matlines(domain[plot_domain]/1000, bed_samples_ls[[i]][plot_domain, 1:3], 
+        matlines(domain[plot_domain]/1000, bed_samples_ls[[s]][plot_domain, 1:3], 
                 lty = 1, lwd = 3, col = adjustcolor("mediumpurple", alpha = 0.5))
         lines(domain[plot_domain] / 1000, pred_bed[plot_domain, s], lwd = 3, col = "red")
-        lines(domain[plot_domain] / 1000, bed_lq[[i]][plot_domain], lty = 1, lwd = 3, col = "grey")
-        lines(domain[plot_domain] / 1000, bed_uq[[i]][plot_domain], lty = 1, lwd = 3, col = "grey")
+        lines(domain[plot_domain] / 1000, bed_lq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
+        lines(domain[plot_domain] / 1000, bed_uq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
         
         abline(v = test_data$true_gl[s, 1], lty = 2, lwd = 3)
     }
@@ -364,8 +371,9 @@ if (save_plots) {
     png(paste0(plot_dir, "/pred_vs_true_gl", checkpt, ".png"), width = 2000, height = 2000)
     par(mfrow = c(length(samples) / 2, 2))
     
-    for (i in 1:length(samples)) {
-        s <- samples[i]
+    # for (i in 1:length(samples)) {
+    for (s in samples) {
+        # s <- samples[i]
         par(mar = c(6, 8, 4, 2))
         # gl <- test_data$grounding_line[i] / 800 * 2001
         plot_domain <- 1:length(domain) # ceiling(gl)
@@ -373,11 +381,11 @@ if (save_plots) {
             type = "l", lwd = 2, 
             xlab = "Grounding line (km)", ylab = "Time (year)", cex.axis = 3, cex.lab = 4
         )
-        matlines(gl_samples_ls[[i]][, 1:3], 1:20, lty = 1, lwd = 3, col = adjustcolor("mediumpurple", alpha = 0.5))
+        matlines(gl_samples_ls[[s]][, 1:3], 1:20, lty = 1, lwd = 3, col = adjustcolor("mediumpurple", alpha = 0.5))
         # lines(domain[plot_domain] / 1000, test_fric[i, ], lwd = 2, col = "blue")
         lines(pred_gl[s, ], 1:20, lwd = 2, col = "red")
-        lines(gl_lq[[i]], 1:20, lty = 1, lwd = 3, col = "grey")
-        lines(gl_uq[[i]], 1:20, lty = 1, lwd = 3, col = "grey")
+        lines(gl_lq[[s]], 1:20, lty = 1, lwd = 3, col = "grey")
+        lines(gl_uq[[s]], 1:20, lty = 1, lwd = 3, col = "grey")
         
         # abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
     }

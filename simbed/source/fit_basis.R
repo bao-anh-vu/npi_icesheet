@@ -1,4 +1,5 @@
-fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F) {
+fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F,
+                                lengthscale = 10e3) {
     ## Place basis function centres along domain
     # basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis+2)
     # basis_centres <- basis_centres[2:(length(basis_centres)-1)] 
@@ -7,8 +8,11 @@ fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F) {
     testbasis <- local_basis(manifold = real_line(), 
                             loc = matrix(basis_centres),
                             type = "bisquare",
-                            scale = rep(5e3, nbasis))
-    # show_basis(testbasis)
+                            # scale = rep(5e3, nbasis))
+                            scale = rep(lengthscale, nbasis))
+                           
+    show_basis(testbasis)
+
     basis_fns <- lapply(testbasis@fn, function(f) f(domain))
     # plot(domain, basis_fns[[10]])
     basis_mat <- do.call(cbind, basis_fns)
@@ -50,7 +54,8 @@ fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F) {
     basis_coefs <- do.call(rbind, lapply(basis_fit, function(x) x$coefs))
     fitted_values <- do.call(rbind, lapply(basis_fit, function(x) x$fitted_values))
 
-    return(list(#true_vals = fric_arr,
+
+    return(list(true_vals = fric_arr,
                 basis_coefs = basis_coefs, 
                 basis_mat = basis_mat,
                 fitted_values = fitted_values))
