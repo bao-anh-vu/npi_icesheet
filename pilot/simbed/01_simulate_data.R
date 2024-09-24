@@ -38,7 +38,7 @@ source("./source/solve_ssa_nl.R")
 
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
-source("./source/mvnorm_sample.R")
+# source("./source/mvnorm_sample.R")
 # source("./source/get_obs.R")
 source("./source/get_surface_obs.R")
 source("./source/simulate_bed.R")
@@ -46,8 +46,8 @@ source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 # source("initialise_ens.R")
 # source("ssa_plot_ini_ens.R")
-source("./source/propagate.R")
-source("./source/obs_operator.R")
+# source("./source/propagate.R")
+# source("./source/obs_operator.R")
 # source("run_enkf.R")
 # source("run_bg_ens.R")
 # source("run_pf.R")
@@ -75,8 +75,8 @@ save_sims <- T
 
 ## Presets
 data_date <- "20240320" #"20220329" 
-N <- 1#0000 # number of simulations per set
-sets <- 1 #6:10 #2:10
+N <- 1000 # number of simulations per set
+sets <- 11:20 #6:10 #2:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -94,6 +94,7 @@ n_bed_obs <- 50
 obs_ind <- sort(sample(length(ref_bed), n_bed_obs))
 obs_bed <- ref_bed[obs_ind] + rnorm(n_bed_obs, mean = 0, sd = 20) ## add noise
 bed_obs <- list(locations = obs_ind, obs = obs_bed)
+rm(.Random.seed, envir=globalenv())
 
 if (save_sims) {
   saveRDS(bed_obs, file = paste0(train_data_dir, "/bed_obs_", data_date, ".rds"))
@@ -193,7 +194,7 @@ if (refit_basis) {
     ## Fit basis to bedrock
     bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, sample_arr = bed_arr_demean)
     bed_fit <- list(mean = bed_mean, basis = bed_basis)
-
+ 
     if (save_sims) {
       saveRDS(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
       saveRDS(bed_fit, file = paste0(train_data_dir, "/bed_fit_", setf, "_", data_date, ".rds"))

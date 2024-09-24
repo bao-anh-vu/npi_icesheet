@@ -19,7 +19,7 @@ save_plots <- T
 
 ## Read data
 data_date <- "20240320"
-sets <- 3
+sets <- 1:10
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -58,9 +58,14 @@ history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
 # history %>% plot() #+
 # coord_cartesian(xlim = c(1, epochs))
 
-plot(history$metrics$loss[2:100], type = "l")
-lines(history$metrics$val_loss[2:100], col = "red")
-legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
+loss_plot <- history %>%
+  plot() +
+  coord_cartesian(xlim = c(1, length(history$metrics$loss)))
+
+
+# plot(history$metrics$loss[2:100], type = "l")
+# lines(history$metrics$val_loss[2:100], col = "red")
+# legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
 
 plot_dir <- paste0("./plots/", output_var, "/", setsf)
 
@@ -71,9 +76,10 @@ if (save_plots) {
     }
 
     png(paste0(plot_dir, "/loss_", output_var, ".png"), width = 1000, height = 500)
-    plot(history$metrics$loss[2:100], type = "l")
-    lines(history$metrics$val_loss[2:100], col = "red")
-    legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
+    # plot(history$metrics$loss[2:100], type = "l")
+    # lines(history$metrics$val_loss[2:100], col = "red")
+    # legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
+    print(loss_plot)
     dev.off()
 }
 
@@ -145,13 +151,18 @@ for (q in 1:length(quantiles)) {
     history_quantile <- readRDS(file = paste0(output_dir_quantile, "/history_", data_date, ".rds"))
     # history %>% plot() #+
     # coord_cartesian(xlim = c(1, epochs))
-    par(mfrow = c(2,1))
-    plot(history_quantile$metrics$loss[2:100], type = "l", 
-            xlab = "Iteration", ylab = "Loss",
-            main = paste0("Loss when training the", quantile*100, "th quantile"))
-    lines(history_quantile$metrics$val_loss[2:100], col = "red")
-    legend("topright", legend = c("Training", "Validation"), 
-            col = c("black", "red"), lty = 1, cex = 0.8)
+    # par(mfrow = c(2,1))
+    # plot(history_quantile$metrics$loss[2:100], type = "l", 
+    #         xlab = "Iteration", ylab = "Loss",
+    #         main = paste0("Loss when training the", quantile*100, "th quantile"))
+    # lines(history_quantile$metrics$val_loss[2:100], col = "red")
+    # legend("topright", legend = c("Training", "Validation"), 
+    #         col = c("black", "red"), lty = 1, cex = 0.8)
+
+    history_quantile %>%
+        plot() +
+        coord_cartesian(xlim = c(1, length(history_quantile$metrics$loss)))
+
 
     ## Reload model for quantile from checkpoint
     checkpoint_path_quantile <- paste0(output_dir_quantile, "/checkpoints/cp-{epoch:04d}.ckpt")

@@ -8,5 +8,6 @@
 /pilot/simbed/output/
 /pilot/truebed/training_data/
 /pilot/truebed/output/
+real_data/data/
 archived/
 .RData

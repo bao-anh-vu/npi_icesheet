@@ -49,11 +49,11 @@ source("./source/enkf/initialise_ice_thickness.R")
 # source("ssa_enkf_plots.R")
 
 ## Seed for generating bed
-ssa_seed <- 123
-set.seed(ssa_seed)
+# ssa_seed <- 123
+# set.seed(ssa_seed)
 
 run_EnKF <- T
-save_enkf_output <- F
+save_enkf_output <- T
 # save_bg_output <- F
 
 ## EnKF flags
@@ -63,7 +63,7 @@ use_true_velocity <- F # use reference velocity as the initial previous velocity
 # use_velocity_dependent_R <- FALSE
 # run_analysis <- T
 regenerate_ini_ens <- T # generate a fresh initial ensemble
-use_basis_functions <- F
+use_basis_funs <- T
 use_true_thickness <- F
 use_true_bed <- F
 use_true_friction <- F
@@ -73,7 +73,7 @@ log_transform <- T
 ## Presets
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
-Ne <- 50 # Ensemble size
+Ne <- 100#0 # Ensemble size
 years <- 20 # 40
 steps_per_yr <- 52 # 100
 # n_params <- 1 # 20 #number of beds
@@ -97,7 +97,20 @@ sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 data_dir <- paste0("./training_data/", setsf)
-output_dir <- paste0("./output/stateaug/", setsf)
+
+if (use_basis_funs) {
+    output_dir <- paste0("./output/stateaug/", setsf, "/basis")    
+} else {
+    output_dir <- paste0("./output/stateaug/", setsf, "/no_basis")
+}
+
+# if (!dir.exists(output_dir)) {
+#     dir.create(paste0(output_dir))
+# } else { # delete previously created output dir
+#     unlink(paste0(output_dir, "/*"))
+# }
+
+## Read test data
 test_data <- readRDS(file = paste0(data_dir, "/test_data_", output_date, ".rds"))
 
 true_surface_elevs <- test_data$true_surface_elevs_test
@@ -133,24 +146,30 @@ sim_param_list <- sim_params(
       bed_obs = bed_obs
     )
 
-## Fit basis to log(friction)
-nbasis <- 150
+if (use_basis_funs) {
+    ## Fit basis to log(friction)
+    nbasis <- 150
 
-friction_basis <- fit_friction_basis(
-    nbasis = nbasis,
-    domain = domain,
-    fric_arr = sim_param_list$friction,
-    log_transform = log_transform
-)
+    friction_basis <- fit_friction_basis(
+        nbasis = nbasis,
+        domain = domain,
+        fric_arr = sim_param_list$friction,
+        log_transform = log_transform
+    )
 
-## Fit basis to bedrock
+    ## Fit basis to bedrock
 
-bed_arr <- sim_param_list$bedrock
-bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, bed_arr = bed_arr)
-# bed_fit <- list(mean = bed_mean, basis = bed_basis)
+    bed_arr <- sim_param_list$bedrock
+    bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, bed_arr = bed_arr)
+    # bed_fit <- list(mean = bed_mean, basis = bed_basis)
 
-fitted_friction <- t(friction_basis$fitted_values)
-fitted_bed <- t(bed_basis$fitted_values)
+    friction_ens <- t(friction_basis$fitted_values)
+    bed_ens <- t(bed_basis$fitted_values)
+
+} else {
+    friction_ens <- log(t(sim_param_list$friction))
+    bed_ens <- t(sim_param_list$bedrock)
+}
 
 s <- 1
 # for (s in test_samples) {
@@ -173,7 +192,7 @@ s <- 1
             if (use_true_bed) {
                 ini_beds <- matrix(rep(true_bed[s, ], Ne), J, Ne)
             } else { ## use samples from parameter posterior
-                ini_beds <- fitted_bed
+                ini_beds <- bed_ens
             }
 
             ## Friction ##
@@ -182,7 +201,7 @@ s <- 1
                 ini_friction <- matrix(rep((true_fric[s, ]), Ne), J, Ne)
             } else {
                 # ini_friction <- matrix(rep(log(fric_sample), Ne), J, Ne)
-                ini_friction <- fitted_friction
+                ini_friction <- friction_ens
             }
 
             ## Now put the ensemble together
@@ -195,15 +214,29 @@ s <- 1
                 ini_thickness <- matrix(rep(true_thicknesses[s, , 1], Ne), J, Ne)
                 # ini_thickness <- matrix(rep(ssa_steady$current_thickness, Ne), J, Ne)
             } else {
-                ini_thickness <- matrix(0, J, Ne)
-                for (i in 1:Ne) {
-                    ini_thickness[, i] <- initialise_ice_thickness(domain,
-                    n_sims = 1,
-                    surface_obs = surface_elev_s[, 1], # use observed z at t = 0
-                    bed = ini_beds[, i],
-                    condsim_shelf = F
-                    )
-                }
+                # ini_thickness <- matrix(0, J, Ne)
+                # for (i in 1:Ne) { ## parallelise
+                #     ini_thickness[, i] <- initialise_ice_thickness(domain,
+                #     n_sims = 1,
+                #     surface_obs = surface_elev_s[, 1], # use observed z at t = 0
+                #     bed = ini_beds[, i],
+                #     condsim_shelf = F
+                #     )
+                # }
+
+                test <- system.time({
+                    
+                        bed_list <- lapply(1:ncol(bed_ens), function(i) bed_ens[, i])
+
+                        ini_thickness_ls <- lapply(bed_list, initialise_ice_thickness, 
+                        domain = domain,
+                        n_sims = 1,
+                        surface_obs = surface_elev_s[, 1], # use observed z at t = 0
+                        # mc.cores = 10L
+                        )
+                    
+                    ini_thickness <- matrix(unlist(ini_thickness_ls), nrow = J, ncol = Ne)
+                    })
             }
             ini_ens <- rbind(
                 ini_thickness,
@@ -217,10 +250,10 @@ s <- 1
             # ini_ens <- rbind(ini_thickness, matrix(rep(ini_beds[, 1], Ne), J, Ne), ini_friction)
 
             if (save_enkf_output) {
-                saveRDS(ini_ens_list, file = paste("/home/babv971/SSA_model/EnKF/Output/ini_ens_list_", output_date, ".rds", sep = ""))
+                saveRDS(ini_ens_list, file = paste0(output_dir, "/ini_ens_list_", output_date, "_Ne", Ne, ".rds", sep = ""))
             }
         } else {
-            ini_ens_list <- readRDS(file = paste("/home/babv971/SSA_model/EnKF/Output/ini_ens_list_", output_date, ".rds", sep = ""))
+            ini_ens_list <- readRDS(file = paste0(output_dir, "/ini_ens_list_", output_date, "_Ne", Ne, ".rds", sep = ""))
             # ini_ens <- ini_ens[, 1:Ne]
         }
     # }
@@ -290,42 +323,19 @@ s <- 1
         # enkf_friction <- enkf_out$friction_coef
         enkf_velocities <- enkf_out$velocities
 
-        # enkf_thickness_ls[[p]] <- enkf_thickness
-        # enkf_bed_ls[[p]] <- enkf_bed
-        # enkf_friction_ls[[p]] <- enkf_friction
-        # enkf_velocities_ls[[p]] <- enkf_velocities
-    
-
         enkf2 <- proc.time()
 
-        ## Then concatenate the ensembles
-        
-        # thickness_concat <- list() # length = number of years
-        # velocity_concat <- list()
-
-        # for (t in 1:(years+1)) {
-        #     thickness_t <- lapply(enkf_thickness_ls, function(x) x[[t]])
-            
-        #     velocity_t <- lapply(enkf_velocities_ls, function(x) x[[t]])
-        #     thickness_concat[[t]] <- do.call(cbind, thickness_t)
-            
-        #     velocity_concat[[t]] <- do.call(cbind, velocity_t)
-        # }
-
-        # bed_concat <- do.call(cbind, enkf_bed_ls)
-        # friction_concat <- do.call(cbind, enkf_friction_ls)
-    
         if (save_enkf_output) {
-            saveRDS(enkf_thickness, file = paste0(output_dir, "/enkf_thickness_sample_", output_date, ".rds", sep = ""))
-            saveRDS(enkf_bed, file = paste0(output_dir, "/enkf_bed_sample_", output_date, ".rds", sep = ""))
-            saveRDS(enkf_friction, file = paste0(output_dir, "/enkf_friction_sample_", output_date, ".rds", sep = ""))
-            saveRDS(enkf_velocities, file = paste0(output_dir, "/enkf_velocities_sample_", output_date, ".rds", sep = ""))
+            saveRDS(enkf_thickness, file = paste0(output_dir, "/enkf_thickness_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
+            saveRDS(enkf_bed, file = paste0(output_dir, "/enkf_bed_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
+            saveRDS(enkf_friction, file = paste0(output_dir, "/enkf_friction_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
+            saveRDS(enkf_velocities, file = paste0(output_dir, "/enkf_velocities_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
         }
     } else {
-        enkf_thickness <- readRDS(file = paste0(output_dir, "/enkf_thickness_sample_", output_date, ".rds", sep = ""))
-        enkf_bed <- readRDS(file = paste0(output_dir, "/enkf_bed_sample_", output_date, ".rds", sep = ""))
-        enkf_friction <- readRDS(file = paste0(output_dir, "/enkf_friction_sample_", output_date, ".rds", sep = ""))
-        enkf_velocities <- readRDS(file = paste0(output_dir, "/enkf_velocities_sample_", output_date, ".rds", sep = ""))
+        enkf_thickness <- readRDS(file = paste0(output_dir, "/enkf_thickness_sample_", "_Ne", Ne, output_date, ".rds", sep = ""))
+        enkf_bed <- readRDS(file = paste0(output_dir, "/enkf_bed_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
+        enkf_friction <- readRDS(file = paste0(output_dir, "/enkf_friction_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
+        enkf_velocities <- readRDS(file = paste0(output_dir, "/enkf_velocities_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
     }
 
     ################################################################################
@@ -338,8 +348,12 @@ s <- 1
     # combined_enkf_friction <- do.call(cbind, fin_enkf_friction)
     # combined_enkf_velocities <- do.call(cbind, fin_velocities)
 
-
-    plot_dir <- paste0("./plots/stateaug/", setsf)
+    print("Saving plots...")
+    if (use_basis_funs) {
+        plot_dir <- paste0("./plots/stateaug/", setsf, "/basis")
+    } else {
+        plot_dir <- paste0("./plots/stateaug/", setsf, "/no_basis")
+    }
 
     if (!dir.exists(plot_dir)) {
         dir.create(paste0(plot_dir))
@@ -480,33 +494,6 @@ s <- 1
 
     ## Bed plot
     if (plot_bed) {
-        # png(paste0(plot_dir, "/bed.png"), width = 2000, height = 1000, res = 300)
-        # # matplot(domain/1000, combined_bg_beds, type = "l", col = "lightgrey",
-        # #         xlab = "Domain (km)", ylab = "Elevation (m)")
-        
-        # # enkf_velocities.df <- data.frame(
-        # #         domain = domain / 1000, mean_velocity = rowMeans(ens_t),
-        # #         lq = thickness_low, uq = thickness_up
-        # #     )
-        
-        # matplot(domain / 1000, enkf_bed,
-        #     type = "l", col = "lightpink",
-        #     ylab = "Bed elevation (m)", xlab = "Domain (km)"
-        # )
-        # # matlines(domain/1000, combined_pf_beds, col = "skyblue2")
-        # # lines(domain/1000, reference$bedrock, col = "black", lwd = 1.5)
-        # lines(domain / 1000, true_bed[s, ], col = "black", lwd = 1.5)
-        # lines(domain / 1000, rowMeans(enkf_bed), col = "red", lwd = 1.5)
-        # # lines(domain/1000, rowMeans(combined_pf_beds), col = "royalblue", lwd = 1.5)
-        # legend("bottomleft",
-        #     legend = c("True bed", "Predicted bed"), # "Background ensemble",
-        #     # "EnKF ensemble", "EnKF mean"),
-        #     col = c(
-        #         "black", # "grey", "pink",
-        #         "red"
-        #     ), lty = 1
-        # )
-        # dev.off()
 
         for (t in plot_times) {
             # t <- plot_times[ind]
@@ -552,13 +539,21 @@ s <- 1
 
         for (t in plot_times) {
             # t <- plot_times[ind]
-            ens_t <- exp(enkf_friction[[t]])
+            ens_t <- enkf_friction[[t]]
             state_var <- 1 / (Ne - 1) * tcrossprod(ens_t - rowMeans(ens_t)) # diag(enkf_covmats[[t]])
-            lower <- rowMeans(ens_t[1:J, ]) + qnorm(0.025) * sqrt(diag(state_var)[1:J])
-            upper <- rowMeans(ens_t[1:J, ]) + qnorm(0.975) * sqrt(diag(state_var)[1:J])
+            
+            ## Need to sample from Gaussian posterior of the log(friction) here,
+            ## then exponentiate to get the friction values
+            ## and lastly find quantiles
+
+            log_fric_post_samples <- rmvnorm(1000, rowMeans(ens_t), state_var)
+            fric_post_samples <- exp(log_fric_post_samples)
+            fric_post_mean <- colMeans(fric_post_samples)
+            lower <- apply(fric_post_samples, 2, quantile, probs = 0.05)
+            upper <- apply(fric_post_samples, 2, quantile, probs = 0.95)
 
             enkf_friction.df <- data.frame(
-                domain = domain / 1000, mean = rowMeans(ens_t),
+                domain = domain / 1000, mean = fric_post_mean,
                 lq = lower, uq = upper
             )
             true_friction.df <- data.frame(domain = domain / 1000, val = exp(true_fric[s, ]))
@@ -589,19 +584,5 @@ s <- 1
         }
     }
 
-    ## RMSE (time series)
-    rmse <- function(estimated, true) {
-        stopifnot(length(estimated) == length(true))
-        sum(sqrt((estimated - true)^2))
-    }
-
-    enkf.rmse <- c()
-    for (t in 1:years) {
-        enkf.rmse[t] <- rmse(rowMeans(enkf_thickness[[t + 1]]), true_thicknesses[s, , t + 1])
-    }
-    plot(1:years, enkf.rmse,
-        type = "o", col = "red", xlab = "Time (years)", ylab = "RMSE",
-        main = paste0("RMSE of ice thickness over time for sample", s)
-    )
-
+    
 }

@@ -49,7 +49,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
     # Apply the propagate function to every ensemble member
-    ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
+    ens.list <- mclapply(ens.list, propagate, mc.cores = 50L, 
                          domain = domain, steps_per_yr = steps_per_yr,
                          transformation = transformation)
     
@@ -92,7 +92,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       
       ## Apply observation operator to every ensemble member
       HX <- mclapply(ens.list, obs_operator, transformation = transformation,
-                     domain = domain, mc.cores = 6L)
+                     domain = domain, mc.cores = 50L)
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
       
@@ -113,10 +113,10 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ## Construct measurement error covariance matrix R (depends on the velocity)
     # plot(prev_velocity) vs plot(rowMeans(HX)) here
       surf_elev_noise_sd  <- rep(10, J)
-      # vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
-      # vel_noise_sd[vel_noise_sd <= 0] <- 1e-05
+      vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
+      vel_noise_sd[vel_noise_sd <= 0] <- 1e-05
 
-      vel_noise_sd <- rep(20, J)
+      # vel_noise_sd <- rep(20, J)
       R <- diag(c(surf_elev_noise_sd^2, vel_noise_sd^2))
 
 
@@ -193,7 +193,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                                 return(u)
                                 
                               }, 
-                              mc.cores = 6L)
+                              mc.cores = 50L)
     
     
     # Convert velocity list to matrix

@@ -44,11 +44,11 @@ source("./source/enkf/initialise_ice_thickness.R")
 # source("ssa_enkf_plots.R")
 
 ## Seed for generating bed
-ssa_seed <- 123
-set.seed(ssa_seed)
+# ssa_seed <- 123
+# set.seed(ssa_seed)
 
 run_EnKF <- T
-save_enkf_output <- F
+save_enkf_output <- T
 # save_bg_output <- F
 
 ## EnKF flags
@@ -67,10 +67,10 @@ use_cov_taper <- T # use covariance taper
 ## Presets
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
-Ne <- 50 # Ensemble size
-years <- 20 # 20 # 40
+Ne <- 100 # Ensemble size
+years <- 2#0 # 20 # 40
 steps_per_yr <- 52 # 100
-n_params <- 10 # 20 #number of beds
+n_params <- 2 #10 # 20 #number of beds
 # n_bed_obs <- 100
 # smoothing_factor <- 0.5 # for the PF
 
@@ -82,7 +82,7 @@ plot_friction <- T
 
 ## SSA model info
 ssa_steady <- readRDS(file = paste("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
-reference <- readRDS(file = paste("./training_data/initial_conds/reference_20220329.rds", sep = ""))
+# reference <- readRDS(file = paste("./training_data/initial_conds/reference_20220329.rds", sep = ""))
 domain <- ssa_steady$domain
 J <- length(domain)
 
@@ -91,7 +91,6 @@ sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 data_dir <- paste0("./training_data/", setsf)
-output_dir <- paste0("./output/posterior/", setsf)
 test_data <- readRDS(file = paste0(data_dir, "/test_data_", output_date, ".rds"))
 
 true_surface_elevs <- test_data$true_surface_elevs_test
@@ -101,6 +100,15 @@ true_velocities <- test_data$true_velocity_test
 true_bed <- test_data$true_bed
 true_fric <- test_data$true_fric
 
+print("Reading posterior samples...")
+output_dir <- paste0("./output/posterior/", setsf)
+
+## Posterior samples
+fric_samples_ls <- readRDS(file = paste0(output_dir, "/fric_post_samples_", output_date, ".rds"))
+bed_samples_ls <- readRDS(file = paste0(output_dir, "/bed_post_samples_", output_date, ".rds"))
+# gl_samples_ls <- readRDS(file = paste0(output_dir, "/gl_post_samples_", output_date, ".rds"))
+
+## Mean prediction
 pred_fric <- readRDS(file = paste0(output_dir, "/pred_fric_", output_date, ".rds"))
 pred_bed <- readRDS(file = paste0(output_dir, "/pred_bed_", output_date, ".rds"))
 # pred_gl <- readRDS(pred_gl, file = paste0(output_dir, "/pred_gl_", output_date, ".rds"))
@@ -111,11 +119,8 @@ fric_scale <- 1e6 * secpera^(1 / 3)
 # pred_fric <- pred_fric * fric_scale
 
 ## Read surface observations
-# surface_obs <- test_data$input * test_data$input_sd + test_data$input_mean
 surface_elev <- test_data$input[, , , 1] * test_data$input_sd[1] + test_data$input_mean[1]
 velocity <- test_data$input[, , , 2] * test_data$input_sd[2] + test_data$input_mean[2]
-# surface_elev <- surface_obs[,,,1]
-# velocity <- surface_obs[,,,2]
 
 ################################
 ##      State inference       ##
@@ -123,12 +128,16 @@ velocity <- test_data$input[, , , 2] * test_data$input_sd[2] + test_data$input_m
 
 ## Sample from test set and do state inference
 n_test_samples <- dim(test_data$input)[1]
-test_samples <- 1 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
+test_samples <- 3 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
 
-print("Reading posterior samples...")
-fric_samples_ls <- readRDS(file = paste0(output_dir, "/fric_post_samples_", output_date, ".rds"))
-bed_samples_ls <- readRDS(file = paste0(output_dir, "/bed_post_samples_", output_date, ".rds"))
-# gl_samples_ls <- readRDS(file = paste0(output_dir, "/gl_post_samples_", output_date, ".rds"))
+s <- test_samples[1]
+enkf_output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
+
+ if (!dir.exists(enkf_output_dir)) {
+    dir.create(paste0(enkf_output_dir))
+} #else { # delete all previously saved plots
+#     unlink(paste0(plot_dir, "/*"))
+# }
 
 for (s in test_samples) {
     print(paste("Sample", s))
@@ -198,10 +207,10 @@ for (s in test_samples) {
                 # ini_ens <- rbind(ini_thickness, matrix(rep(ini_beds[, 1], Ne), J, Ne), ini_friction)
 
                 if (save_enkf_output) {
-                    saveRDS(ini_ens_list, file = paste("/home/babv971/SSA_model/EnKF/Output/ini_ens_list_", output_date, ".rds", sep = ""))
+                    saveRDS(ini_ens_list, file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".rds", sep = ""))
                 }
             } else {
-                ini_ens_list <- readRDS(file = paste("/home/babv971/SSA_model/EnKF/Output/ini_ens_list_", output_date, ".rds", sep = ""))
+                ini_ens_list <- readRDS(file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".rds", sep = ""))
                 # ini_ens <- ini_ens[, 1:Ne]
             }
         }
@@ -247,13 +256,15 @@ for (s in test_samples) {
         enkf_friction_ls <- list()
         enkf_velocities_ls <- list()
 
-
+        error_inds <- rep(0, n_params)
         for (p in 1:n_params) {
 
             ini_ens <- ini_ens_list[[p]]
-            enkf1 <- proc.time()
+            
+            # test <- tryCatch({
+                enkf1 <- proc.time()
 
-            enkf_out <- run_enkf(
+                enkf_out <- run_enkf(
                 domain = domain, years = years,
                 steps_per_yr = steps_per_yr,
                 ini_thickness = ini_ens[1:J, ],
@@ -266,7 +277,7 @@ for (s in test_samples) {
                 use_cov_taper = use_cov_taper,
                 process_noise_info = process_noise_info
             )
-
+            
             enkf_thickness <- enkf_out$ens
             enkf_bed <- enkf_out$bed
             enkf_friction <- enkf_out$friction_coef
@@ -278,6 +289,9 @@ for (s in test_samples) {
             enkf_velocities_ls[[p]] <- enkf_velocities
 
             enkf2 <- proc.time()
+
+            # },
+            # error = function(e){error_inds[p] <- 1})
         }
 
         ## Then concatenate the ensembles
@@ -298,16 +312,16 @@ for (s in test_samples) {
         friction_concat <- do.call(cbind, enkf_friction_ls)
     
         if (save_enkf_output) {
-            saveRDS(thickness_concat, file = paste0(output_dir, "/enkf_thickness_sample_", s, "_", output_date, ".rds", sep = ""))
-            saveRDS(bed_concat, file = paste0(output_dir, "/enkf_bed_sample_", s, "_", output_date, ".rds", sep = ""))
-            saveRDS(friction_concat, file = paste0(output_dir, "/enkf_friction_sample_", s, "_", output_date, ".rds", sep = ""))
-            saveRDS(velocity_concat, file = paste0(output_dir, "/enkf_velocities_sample_", s, "_", output_date, ".rds", sep = ""))
+            saveRDS(thickness_concat, file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_", output_date, ".rds", sep = ""))
+            saveRDS(bed_concat, file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_", output_date, ".rds", sep = ""))
+            saveRDS(friction_concat, file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_", output_date, ".rds", sep = ""))
+            saveRDS(velocity_concat, file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_", output_date, ".rds", sep = ""))
         }
     } else {
-        thickness_concat <- readRDS(file = paste0(output_dir, "/enkf_thickness_sample_", s, "_", output_date, ".rds", sep = ""))
-        bed_concat <- readRDS(file = paste0(output_dir, "/enkf_bed_sample_", s, "_", output_date, ".rds", sep = ""))
-        friction_concat <- readRDS(file = paste0(output_dir, "/enkf_friction_sample_", s, "_", output_date, ".rds", sep = ""))
-        velocity_concat <- readRDS(file = paste0(output_dir, "/enkf_velocities_sample_", s, "_", output_date, ".rds", sep = ""))
+        thickness_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_", output_date, ".rds", sep = ""))
+        bed_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_", output_date, ".rds", sep = ""))
+        friction_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_", output_date, ".rds", sep = ""))
+        velocity_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_", output_date, ".rds", sep = ""))
     }
 
     ################################################################################
@@ -340,7 +354,7 @@ for (s in test_samples) {
         for (t in plot_times) {
             # t <- plot_times[ind]
             ens_t <- thickness_concat[[t]]
-            state_var <- 1 / (Ne - 1) * tcrossprod(ens_t - rowMeans(ens_t)) # diag(enkf_covmats[[t]])
+            state_var <- 1 / (ncol(ens_t) - 1) * tcrossprod(ens_t - rowMeans(ens_t)) # diag(enkf_covmats[[t]])
             thickness_low <- rowMeans(ens_t[1:J, ]) + qnorm(0.025) * sqrt(diag(state_var)[1:J])
             thickness_up <- rowMeans(ens_t[1:J, ]) + qnorm(0.975) * sqrt(diag(state_var)[1:J])
 
@@ -395,7 +409,7 @@ for (s in test_samples) {
         for (t in plot_times) {
             # t <- plot_times[ind]
             ens_t <- velocity_concat[[t]]
-            state_var <- 1 / (Ne - 1) * tcrossprod(ens_t - rowMeans(ens_t)) # diag(enkf_covmats[[t]])
+            state_var <- 1 / (ncol(ens_t) - 1) * tcrossprod(ens_t - rowMeans(ens_t)) # diag(enkf_covmats[[t]])
             vel_low <- rowMeans(ens_t[1:J, ]) + qnorm(0.025) * sqrt(diag(state_var)[1:J])
             vel_up <- rowMeans(ens_t[1:J, ]) + qnorm(0.975) * sqrt(diag(state_var)[1:J])
 

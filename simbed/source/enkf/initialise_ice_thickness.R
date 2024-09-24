@@ -1,50 +1,7 @@
-# initialise_ice_thickness <- function(domain, surface_obs, bed, 
-#                                      n_sims,
-#                                      rho = 910, rho_w = 1028, 
-#                                      condsim_shelf = FALSE) {
-
-#   # Ne <- n_sims
-#   # 
-#   # if (is.null(ncol(bed))) {
-#   #   n_beds <- 1
-#   # } else {
-#   #   n_beds <- ncol(bed)
-#   # }
-
-#   # Calculate ice thickness from z and b
-#   simulated_thickness <- matrix(0, nrow = J, ncol = n_sims)
-#   thickness_ens <- list()
-  
-#   for (i in 1:n_sims) {
-#     h <- surface_obs - bed #s[, j]
-    
-#     ## Calculate GL position for each ensemble member
-#     GL <- gl_migrate2(surface_obs, bed) #s[, i])
-#     # cat("GL: ", GL, "\n")
-    
-#     ## Recalculate ice thickness from GL onwards (ice shelf)
-#     shelf_region <- GL:length(h)
-#     h[shelf_region] <- 1 / (1 - rho / rho_w) * surface_obs[shelf_region]
-  
-#     simulated_thickness[, i] <- h
-#   }
-
-#   return(simulated_thickness)
-  
-# }
-
 initialise_ice_thickness <- function(domain, surface_obs, bed, 
                                      n_sims,
                                      rho = 910, rho_w = 1028, 
                                      condsim_shelf = FALSE) {
-
-  # Ne <- n_sims
-  # 
-  # if (is.null(ncol(bed))) {
-  #   n_beds <- 1
-  # } else {
-  #   n_beds <- ncol(bed)
-  # }
 
   # Calculate ice thickness from z and b
   simulated_thickness <- matrix(0, nrow = J, ncol = n_sims)

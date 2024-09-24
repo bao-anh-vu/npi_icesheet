@@ -33,8 +33,9 @@ if (length(gpus) > 0) {
 rerun_cnn <- T
 sim_beds <- T
 output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
-quantile <- 0.05
+# quantiles <- 0.95
 # save_output <- T
+quantiles <- 0.5 #c(0.05, 0.5, 0.95)
 
 source("./source/create_model.R")
 source("./source/custom_loss_function.R")
@@ -100,77 +101,71 @@ print("Training CNN...")
 input_dim <- dim(train_data$input)[2:4]
 output_dim <- ncol(train_output)
 
-
-# if (output_var == "friction") {
-#   model <- create_model(input_dim = input_dim, output_dim = output_dim)
-# } else if (output_var == "grounding_line") {
-#   model <- create_model(input_dim = input_dim, output_dim = output_dim)
-# } else if (output_var == "bed") { ## bed
-#   model <- create_model_bed(input_dim = input_dim, output_dim = output_dim)
-# } else { ## all variables
+for (quantile in quantiles) {
   model <- create_model_quantile(input_dim = input_dim, output_dim = output_dim, quantile = quantile)
-# }
 
-# Display the model's architecture
-summary(model)
+  # Display the model's architecture
+  summary(model)
 
-# Create a callback that saves the model's weights
-# if (sim_beds) {
-  output_dir <- paste0("./output/", output_var, "/", setsf, "/quantile", quantile*100)
-# } else {
-#   output_dir <- paste0("./output/", output_var, "/", setsf)
-# }
+  # Create a callback that saves the model's weights
+  # if (sim_beds) {
+    output_dir <- paste0("./output/", output_var, "/", setsf, "/quantile", quantile*100)
+  # } else {
+  #   output_dir <- paste0("./output/", output_var, "/", setsf)
+  # }
 
-if (!dir.exists(output_dir)) {
-  dir.create(paste0(output_dir))
-} else { # delete all previously saved checkpoints
-  unlink(paste0(output_dir, "/*"))
-}
+  if (!dir.exists(output_dir)) {
+    dir.create(paste0(output_dir))
+  } else { # delete all previously saved checkpoints
+    unlink(paste0(output_dir, "/*"))
+  }
 
-# dir.create(paste0("output/", setsf)
-checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
-# checkpoint_dir <- fs::path_dir(checkpoint_path)
-
-batch_size <- 64
-epochs <- 50 #100
-
-if (rerun_cnn) {
-  
-  # checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+  # dir.create(paste0("output/", setsf)
+  checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
   # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
-  cp_callback <- callback_model_checkpoint(
-    filepath = checkpoint_path,
-    save_weights_only = TRUE,
-    verbose = 1#,m
-    # save_freq = 10*batch_size # save every 10 epochs
-  )
+  batch_size <- 64
+  epochs <- 50 #100
 
-  # Train the model with the new callback
-  history <- model %>% fit(
-      train_input, 
-      train_output,
-      epochs = epochs,
-      batch_size = batch_size,
-      validation_data = list(val_input, val_output),
-      callbacks = list(cp_callback)
-  )
+  if (rerun_cnn) {
+    
+    # checkpoint_path <- paste0("output/", setsf, "/checkpoints/cp-{epoch:04d}.ckpt")
+    # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
-  
-  saveRDS(history, file = paste0(output_dir, "/history_", data_date, ".rds"))
+    cp_callback <- callback_model_checkpoint(
+      filepath = checkpoint_path,
+      save_weights_only = TRUE,
+      verbose = 1#,m
+      # save_freq = 10*batch_size # save every 10 epochs
+    )
 
-  # Save the entire model as a SavedModel.
-  save_model_tf(model, paste0(output_dir, "/model_", data_date))
-} else {
-  model <- load_model_tf(paste0(output_dir, "/model_", data_date))
-  history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
+    # Train the model with the new callback
+    history <- model %>% fit(
+        train_input, 
+        train_output,
+        epochs = epochs,
+        batch_size = batch_size,
+        validation_data = list(val_input, val_output),
+        callbacks = list(cp_callback)
+    )
+
+    
+    saveRDS(history, file = paste0(output_dir, "/history_", data_date, ".rds"))
+
+    # Save the entire model as a SavedModel.
+    save_model_tf(model, paste0(output_dir, "/model_", data_date))
+  } else {
+    model <- load_model_tf(paste0(output_dir, "/model_", data_date))
+    history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
+  }
+
 }
-
+  
 # ## Plot the loss
 
-history %>%
-  plot() +
-  coord_cartesian(xlim = c(1, epochs))
+# history %>%
+#   plot() +
+#   coord_cartesian(xlim = c(1, epochs))
 
 # ## Get rid of first training loss
 # plot(history$metrics$loss[2:60],type = "l")

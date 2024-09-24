@@ -200,8 +200,6 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   ##################### Initial conditions ########################
 
-browser()
-
   H_ini <- NULL
   # For the ice thickness
   if (!is.null(ini_thickness)) {

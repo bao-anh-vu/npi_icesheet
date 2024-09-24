@@ -30,7 +30,7 @@ gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 # ggplot(thwaites_bound) +
 #   geom_sf(color = "black", fill = NA) +
 #   theme_bw()
-years <- 2000:2019
+years <- 2000:2022
 
 for (year in years) {
     cat("Mapping velocity data for year", year, "\n")
@@ -123,7 +123,9 @@ for (year in years) {
     ## Plot velocity along flowline
     gl_pos <- readRDS(paste0(data_dir, "/grounding_line/gl_pos.rds"))
     
-    delta <- 120
+    delta <- 120 # grid size
+    # flowline_dist <- sqrt((flowline$x[2:nrow(flowline)] - flowline$x[1:(nrow(flowline) - 1)])^2 +
+    #     (flowline$y[2:nrow(flowline)] - flowline$y[1:(nrow(flowline) - 1)])^2)
     flowline$ind <- 1:nrow(flowline)
     gl_near_pts <- flowline %>% filter(
                 x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
@@ -133,7 +135,9 @@ for (year in years) {
 
     png(paste0("./plots/velocity/vel_flowline_1d_", year, ".png"), width = 800, height = 500)
     # plot(flowline$vel_nearest, type = "l")
-    plot(1:nrow(flowline), flowline$vel_avg, type = "l")
+    plot(1:nrow(flowline), flowline$vel_avg, type = "l", 
+    main = paste0("Velocity for ", year), 
+    xlab = "Point along flowline", ylab = "Velocity (m/a)")
     abline(v = gl_near_pts$ind, col = "salmon", lty = 2, lwd = 2)
     dev.off()
 

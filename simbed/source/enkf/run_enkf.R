@@ -5,6 +5,11 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
   
   print("Running filter...")
   
+  # rand <- sample(c(0, 1), 1)
+  #   if (rand == 1) {
+  #     stop("Random error")
+  #   }
+
   Ne <- ncol(ini_thickness) # Ensemble size
   J <- length(domain)
   
@@ -39,7 +44,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
   for (year in 2:(years+1)) {
     
     cat("Forecast step", year - 1, "\n")
-    
+
     ##### II. Propagation #####
     # Append the velocities to the ensemble
     ens_all <- rbind(ens, beds, friction_coefs, prev_velocity)
@@ -96,8 +101,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       # PH <- NULL #matrix(NA, nrow = 3*J, ncol = 2*J)
     
       ## Apply observation operator to every ensemble member
-      HX <- mclapply(ens.list, obs_operator,
-                     domain = domain, transformation = "log", mc.cores = 6L)
+      HX <- lapply(ens.list, obs_operator,
+                     domain = domain, transformation = "log") #, mc.cores = 6L)
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
       
@@ -122,10 +127,10 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       
       # plot(prev_velocity) vs plot(rowMeans(HX)) here
       surf_elev_noise_sd  <- rep(10, J)
-      # vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
-      # vel_noise_sd[vel_noise_sd <= 0] <- 1e-05
+      vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
+      vel_noise_sd[vel_noise_sd <= 0] <- 1e-05
 
-      vel_noise_sd <- rep(20, J)
+      # vel_noise_sd <- rep(20, J)
       R <- diag(c(surf_elev_noise_sd^2, vel_noise_sd^2))
 
       
@@ -193,7 +198,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
     # Propagate velocity
-    velocity.list <- mclapply(ens.list, 
+    velocity.list <- lapply(ens.list, 
                               function(v) { 
                                 # secpera <- 31556926
                                 # fric_scale <- 1e6 * secpera^(1 / 3)  
@@ -208,8 +213,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                                 
                                 return(u)
                                 
-                              }, 
-                              mc.cores = 6L)
+                              }) #, 
+                              # mc.cores = 6L)
     
     # Convert velocity list to matrix
     prev_velocity <- matrix(unlist(velocity.list), nrow = J, ncol = Ne)
