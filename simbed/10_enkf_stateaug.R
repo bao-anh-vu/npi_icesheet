@@ -73,7 +73,7 @@ log_transform <- T
 ## Presets
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
-Ne <- 100#0 # Ensemble size
+Ne <- 1000 # Ensemble size
 years <- 20 # 40
 steps_per_yr <- 52 # 100
 # n_params <- 1 # 20 #number of beds
@@ -97,12 +97,6 @@ sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 data_dir <- paste0("./training_data/", setsf)
-
-if (use_basis_funs) {
-    output_dir <- paste0("./output/stateaug/", setsf, "/basis")    
-} else {
-    output_dir <- paste0("./output/stateaug/", setsf, "/no_basis")
-}
 
 # if (!dir.exists(output_dir)) {
 #     dir.create(paste0(output_dir))
@@ -138,7 +132,7 @@ bed_obs <- readRDS(file = paste0("./training_data/bed_obs_", output_date, ".rds"
 
 ## Sample from test set and do state inference
 n_test_samples <- dim(test_data$input)[1]
-test_samples <- 1 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
+test_samples <- 500 #1:5 # sample(1:n_test_samples, 1) # sample index
 
 # NEED TO GENERATE ENSEMBLES OF BED AND FRICTION HERE
 sim_param_list <- sim_params(
@@ -171,11 +165,22 @@ if (use_basis_funs) {
     bed_ens <- t(sim_param_list$bedrock)
 }
 
-s <- 1
-# for (s in test_samples) {
+for (i in 1:length(test_samples)) {
+    s <- test_samples[i]
     print(paste("Sample", s))
 
-    # surface_obs_s <- surface_obs[s,,,]
+    if (use_basis_funs) {
+    output_dir <- paste0("./output/stateaug/", setsf, "/basis/sample", s)    
+    } else {
+        output_dir <- paste0("./output/stateaug/", setsf, "/no_basis/sample", s)
+    }
+
+    if (!dir.exists(output_dir)) {
+    dir.create(paste0(output_dir))
+    } else { # delete all previously saved plots
+        unlink(paste0(output_dir, "/*"))
+    }
+    
     surface_elev_s <- surface_elev[s, , ]
     velocity_s <- velocity[s, , ]
 
@@ -224,20 +229,31 @@ s <- 1
                 #     )
                 # }
 
-                test <- system.time({
-                    
-                        bed_list <- lapply(1:ncol(bed_ens), function(i) bed_ens[, i])
+                ## Process noise parameters
+                ones <- rep(1, length(domain))
+                D <- rdist(domain)
+                l <- 50e3
+                R <- exp_cov(D, l)
 
-                        ini_thickness_ls <- lapply(bed_list, initialise_ice_thickness, 
-                        domain = domain,
-                        n_sims = 1,
-                        surface_obs = surface_elev_s[, 1], # use observed z at t = 0
-                        # mc.cores = 10L
-                        )
-                    
-                    ini_thickness <- matrix(unlist(ini_thickness_ls), nrow = J, ncol = Ne)
-                    })
+                # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
+                L <- t(chol(R))
+                L <- as(L, "dgCMatrix")
+                process_noise_info <- list(corrmat_chol = L, length_scale = l)
+
+                bed_list <- lapply(1:ncol(bed_ens), function(i) bed_ens[, i])
+
+                ini_thickness_ls <- lapply(bed_list, initialise_ice_thickness, 
+                domain = domain,
+                n_sims = 1,
+                surface_obs = surface_elev_s[, 1], # use observed z at t = 0
+                process_noise_info = process_noise_info
+                # mc.cores = 10L
+                )
+                
+                ini_thickness <- matrix(unlist(ini_thickness_ls), nrow = J, ncol = Ne)
+
             }
+
             ini_ens <- rbind(
                 ini_thickness,
                 ini_beds,
@@ -245,19 +261,20 @@ s <- 1
                 ini_friction
             )
 
-            ini_ens_list[[s]] <- ini_ens
+            ini_ens_list[[i]] <- ini_ens
             # }
             # ini_ens <- rbind(ini_thickness, matrix(rep(ini_beds[, 1], Ne), J, Ne), ini_friction)
 
             if (save_enkf_output) {
-                saveRDS(ini_ens_list, file = paste0(output_dir, "/ini_ens_list_", output_date, "_Ne", Ne, ".rds", sep = ""))
+                saveRDS(ini_ens_list, file = paste0(output_dir, "/ini_ens_list_sample", s, "_", output_date, "_Ne", Ne, ".rds", sep = ""))
             }
         } else {
-            ini_ens_list <- readRDS(file = paste0(output_dir, "/ini_ens_list_", output_date, "_Ne", Ne, ".rds", sep = ""))
+            ini_ens_list <- readRDS(file = paste0(output_dir, "/ini_ens_list_sample", s, "_", output_date, "_Ne", Ne, ".rds", sep = ""))
             # ini_ens <- ini_ens[, 1:Ne]
         }
-    # }
+    }
 
+browser()
     ## Try plotting one of the ensembles
     # param_ind <- 1
     # ini_state_params <- rbind(ini_ens_list[[param_ind]],
@@ -299,7 +316,7 @@ s <- 1
         enkf_velocities_ls <- list()
 
 
-        ini_ens <- ini_ens_list[[s]]
+        ini_ens <- ini_ens_list[[i]]
         enkf1 <- proc.time()
 
         enkf_out <- run_enkf(
@@ -314,6 +331,7 @@ s <- 1
             add_process_noise = add_process_noise,
             use_cov_taper = use_cov_taper,
             process_noise_info = process_noise_info,
+            use_const_measure_error = F,
         )
 
         enkf_thickness <- lapply(enkf_out$ens, function(x) x[1:J, ])
@@ -326,16 +344,16 @@ s <- 1
         enkf2 <- proc.time()
 
         if (save_enkf_output) {
-            saveRDS(enkf_thickness, file = paste0(output_dir, "/enkf_thickness_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
-            saveRDS(enkf_bed, file = paste0(output_dir, "/enkf_bed_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
-            saveRDS(enkf_friction, file = paste0(output_dir, "/enkf_friction_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
-            saveRDS(enkf_velocities, file = paste0(output_dir, "/enkf_velocities_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
+            saveRDS(enkf_thickness, file = paste0(output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date,  ".rds", sep = ""))
+            saveRDS(enkf_bed, file = paste0(output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+            saveRDS(enkf_friction, file = paste0(output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+            saveRDS(enkf_velocities, file = paste0(output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
         }
     } else {
-        enkf_thickness <- readRDS(file = paste0(output_dir, "/enkf_thickness_sample_", "_Ne", Ne, output_date, ".rds", sep = ""))
-        enkf_bed <- readRDS(file = paste0(output_dir, "/enkf_bed_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
-        enkf_friction <- readRDS(file = paste0(output_dir, "/enkf_friction_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
-        enkf_velocities <- readRDS(file = paste0(output_dir, "/enkf_velocities_sample_", output_date, "_Ne", Ne, ".rds", sep = ""))
+        enkf_thickness <- readRDS(file = paste0(output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date,  ".rds", sep = ""))
+        enkf_bed <- readRDS(file = paste0(output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+        enkf_friction <- readRDS(file = paste0(output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+        enkf_velocities <- readRDS(file = paste0(output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
     }
 
     ################################################################################
@@ -350,9 +368,9 @@ s <- 1
 
     print("Saving plots...")
     if (use_basis_funs) {
-        plot_dir <- paste0("./plots/stateaug/", setsf, "/basis")
+        plot_dir <- paste0("./plots/stateaug/", setsf, "/basis/sample", s)
     } else {
-        plot_dir <- paste0("./plots/stateaug/", setsf, "/no_basis")
+        plot_dir <- paste0("./plots/stateaug/", setsf, "/no_basis/sample", s)
     }
 
     if (!dir.exists(plot_dir)) {
@@ -361,7 +379,7 @@ s <- 1
         unlink(paste0(plot_dir, "/*"))
     }
 
-    plot_times <- seq(1, years + 1, 2)
+    plot_times <- seq(1, years + 1, 1)
     ## Ice thickness plot
     if (plot_ice_thickness) {
         # png(paste0(plot_dir, "/thickness_enkf.png"), width = 2000, height = 1000, res = 300)

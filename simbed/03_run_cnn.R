@@ -33,6 +33,7 @@ if (length(gpus) > 0) {
 rerun_cnn <- T
 sim_beds <- T
 output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
+use_missing_pattern <- F
 # save_output <- T
 
 source("./source/create_model.R")
@@ -54,10 +55,15 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
 # if (sim_beds) {
-  train_data_dir <- "./training_data"
-  train_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/train_data_", data_date, ".rds"))
-  val_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/val_data_", data_date, ".rds"))
-  test_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/test_data_", data_date, ".rds"))
+
+if (use_missing_pattern) {
+  train_data_dir <- paste0("./training_data", "/", setsf, "/missing")
+} else {
+  train_data_dir <- paste0("./training_data", "/", setsf)
+}
+train_data <- readRDS(file = paste0(train_data_dir, "/train_data_", data_date, ".rds"))
+val_data <- readRDS(file = paste0(train_data_dir, "/val_data_", data_date, ".rds"))
+test_data <- readRDS(file = paste0(train_data_dir, "/test_data_", data_date, ".rds"))
 
 # } else {
 #   train_data_dir <- "./training_data"
@@ -114,11 +120,11 @@ if (output_var == "friction") {
 summary(model)
 
 # Create a callback that saves the model's weights
-# if (sim_beds) {
+if (use_missing_pattern) {
+  output_dir <- paste0("./output/", output_var, "/", setsf, "/missing")
+} else {
   output_dir <- paste0("./output/", output_var, "/", setsf)
-# } else {
-#   output_dir <- paste0("./output/", output_var, "/", setsf)
-# }
+}
 
 if (!dir.exists(output_dir)) {
   dir.create(paste0(output_dir))
@@ -130,7 +136,7 @@ checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 50
+epochs <- 20
 
 if (rerun_cnn) {
   

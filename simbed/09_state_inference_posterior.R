@@ -20,6 +20,7 @@ library("mvtnorm")
 # library("mvnfast")
 library("splines")
 library(gridExtra)
+library(qs)
 # library("fda")
 
 source("./source/solve_ssa_nl.R")
@@ -42,6 +43,8 @@ source("./source/enkf/initialise_ice_thickness.R")
 # source("create_pf_smoother.R")
 
 # source("ssa_enkf_plots.R")
+
+use_missing_data <- T
 
 ## Seed for generating bed
 # ssa_seed <- 123
@@ -68,9 +71,9 @@ use_cov_taper <- T # use covariance taper
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
 Ne <- 100 # Ensemble size
-years <- 2#0 # 20 # 40
+years <- 20 # 40
 steps_per_yr <- 52 # 100
-n_params <- 2 #10 # 20 #number of beds
+n_params <- 10 #10 # 20 #number of beds
 # n_bed_obs <- 100
 # smoothing_factor <- 0.5 # for the PF
 
@@ -90,7 +93,11 @@ J <- length(domain)
 sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-data_dir <- paste0("./training_data/", setsf)
+if (use_missing_data) {
+    data_dir <- paste0("./training_data/", setsf, "/missing")
+} else {
+    data_dir <- paste0("./training_data/", setsf)
+}
 test_data <- readRDS(file = paste0(data_dir, "/test_data_", output_date, ".rds"))
 
 true_surface_elevs <- test_data$true_surface_elevs_test
@@ -101,11 +108,19 @@ true_bed <- test_data$true_bed
 true_fric <- test_data$true_fric
 
 print("Reading posterior samples...")
-output_dir <- paste0("./output/posterior/", setsf)
+if (use_missing_data) {
+    output_dir <- paste0("./output/posterior/", setsf, "/missing")
+} else {
+    output_dir <- paste0("./output/posterior/", setsf)
+}
 
 ## Posterior samples
-fric_samples_ls <- readRDS(file = paste0(output_dir, "/fric_post_samples_", output_date, ".rds"))
-bed_samples_ls <- readRDS(file = paste0(output_dir, "/bed_post_samples_", output_date, ".rds"))
+# fric_samples_ls <- readRDS(file = paste0(output_dir, "/fric_post_samples_", output_date, ".rds"))
+# bed_samples_ls <- readRDS(file = paste0(output_dir, "/bed_post_samples_", output_date, ".rds"))
+# # gl_samples_ls <- readRDS(file = paste0(output_dir, "/gl_post_samples_", output_date, ".rds"))
+
+fric_samples_ls <- qread(file = paste0(output_dir, "/fric_post_samples_", output_date, ".qs"))
+bed_samples_ls <- qread(file = paste0(output_dir, "/bed_post_samples_", output_date, ".qs"))
 # gl_samples_ls <- readRDS(file = paste0(output_dir, "/gl_post_samples_", output_date, ".rds"))
 
 ## Mean prediction
@@ -122,13 +137,22 @@ fric_scale <- 1e6 * secpera^(1 / 3)
 surface_elev <- test_data$input[, , , 1] * test_data$input_sd[1] + test_data$input_mean[1]
 velocity <- test_data$input[, , , 2] * test_data$input_sd[2] + test_data$input_mean[2]
 
+if (use_missing_data) {
+    print("Reading missing patterns...")
+    surf_elev_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/surface_elev/missing_pattern.rds")
+    vel_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/velocity/missing_pattern.rds")
+    missing_patterns <- abind(list(surf_elev_missing_pattern, vel_missing_pattern), along = 3)
+
+}
+
+
 ################################
 ##      State inference       ##
 ################################
 
 ## Sample from test set and do state inference
 n_test_samples <- dim(test_data$input)[1]
-test_samples <- 3 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
+test_samples <- 500 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
 
 s <- test_samples[1]
 enkf_output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
@@ -136,7 +160,7 @@ enkf_output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
  if (!dir.exists(enkf_output_dir)) {
     dir.create(paste0(enkf_output_dir))
 } #else { # delete all previously saved plots
-#     unlink(paste0(plot_dir, "/*"))
+#     unlink(paste0(output_dir, "/*"))
 # }
 
 for (s in test_samples) {
@@ -188,11 +212,24 @@ for (s in test_samples) {
                     ini_thickness <- matrix(rep(true_thicknesses[s, , 1], Ne), J, Ne)
                     # ini_thickness <- matrix(rep(ssa_steady$current_thickness, Ne), J, Ne)
                 } else {
+
+                    ## Process noise parameters
+                    ones <- rep(1, length(domain))
+                    D <- rdist(domain)
+                    l <- 50e3
+                    R <- exp_cov(D, l)
+
+                    # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
+                    L <- t(chol(R))
+                    L <- as(L, "dgCMatrix")
+                    process_noise_info <- list(corrmat_chol = L, length_scale = l)
+
                     ini_thickness <- initialise_ice_thickness(domain,
                         n_sims = Ne,
                         surface_obs = surface_elev_s[, 1], # use observed z at t = 0
                         bed = ini_beds[, p],
-                        condsim_shelf = F
+                        condsim_shelf = F, 
+                        process_noise_info = process_noise_info
                     )
                 }
                 ini_ens <- rbind(
@@ -256,12 +293,12 @@ for (s in test_samples) {
         enkf_friction_ls <- list()
         enkf_velocities_ls <- list()
 
-        error_inds <- rep(0, n_params)
+        error_inds <- rep(1, n_params)
         for (p in 1:n_params) {
 
             ini_ens <- ini_ens_list[[p]]
-            
-            # test <- tryCatch({
+
+            test <- try({
                 enkf1 <- proc.time()
 
                 enkf_out <- run_enkf(
@@ -278,6 +315,8 @@ for (s in test_samples) {
                 process_noise_info = process_noise_info
             )
             
+            error_inds[p] <- 0 # if run successfully turn off error flag
+
             enkf_thickness <- enkf_out$ens
             enkf_bed <- enkf_out$bed
             enkf_friction <- enkf_out$friction_coef
@@ -290,10 +329,54 @@ for (s in test_samples) {
 
             enkf2 <- proc.time()
 
-            # },
-            # error = function(e){error_inds[p] <- 1})
+            }#,
+            # error = function(e){error_inds[p] <- 1}
+            )
         }
 
+        for (p in error_inds) {
+            ## Rerun EnKF
+        }
+
+        # print("Running EnKF...")
+
+        # test <- system.time({
+        #     enkf_results <- lapply(ini_ens_list, function(ens) {
+
+        #     enkf_out <- run_enkf(
+        #         domain = domain, years = years,
+        #         steps_per_yr = steps_per_yr,
+        #         ini_thickness = ens[1:J, ],
+        #         ini_bed = ens[J + 1:J, ],
+        #         ini_friction_coef = ens[2 * J + 1:J, ],
+        #         ini_velocity = ini_velocity,
+        #         observations = surface_obs_list,
+        #         run_analysis = T,
+        #         add_process_noise = T, #add_process_noise,
+        #         use_cov_taper = use_cov_taper,
+        #         process_noise_info = process_noise_info
+        #     )
+        #     # enkf_thickness <- enkf_out$ens
+        #     # enkf_bed <- enkf_out$bed
+        #     # enkf_friction <- enkf_out$friction_coef
+        #     # enkf_velocities <- enkf_out$velocities
+
+        #     # return(result = list(
+        #     #     thickness = enkf_thickness,
+        #     #     bed = enkf_bed,
+        #     #     friction = enkf_friction,
+        #     #     velocities = enkf_velocities
+        #     # ))
+        # }# ,
+        # # mc.cores = 10L)
+        # )
+        # })
+
+        # enkf_thickness_ls <- lapply(enkf_results, function(r) r$thickness)
+        # enkf_bed_ls <- lapply(enkf_results, function(r) r$bed)
+        # enkf_friction_ls <- lapply(enkf_results, function(r) r$friction)
+        # enkf_velocities_ls <- lapply(enkf_results, function(r) r$velocities)
+        
         ## Then concatenate the ensembles
         
         thickness_concat <- list() # length = number of years
@@ -316,6 +399,7 @@ for (s in test_samples) {
             saveRDS(bed_concat, file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_", output_date, ".rds", sep = ""))
             saveRDS(friction_concat, file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_", output_date, ".rds", sep = ""))
             saveRDS(velocity_concat, file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_", output_date, ".rds", sep = ""))
+            saveRDS(error_inds, file = paste0(enkf_output_dir, "/error_inds_sample", s, "_", output_date, ".rds", sep = ""))
         }
     } else {
         thickness_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_", output_date, ".rds", sep = ""))

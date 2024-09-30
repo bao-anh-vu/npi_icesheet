@@ -1,7 +1,7 @@
 initialise_ice_thickness <- function(domain, surface_obs, bed, 
                                      n_sims,
                                      rho = 910, rho_w = 1028, 
-                                     condsim_shelf = FALSE) {
+                                     condsim_shelf = FALSE, process_noise_info) {
 
   # Calculate ice thickness from z and b
   simulated_thickness <- matrix(0, nrow = J, ncol = n_sims)
@@ -22,18 +22,6 @@ initialise_ice_thickness <- function(domain, surface_obs, bed,
   ## Now add variations around the "observed" thickness to form ensemble
   ## This is technically the prior
 
-  ## Process noise parameters
-  ones <- rep(1, length(domain))
-  D <- rdist(domain)
-  l <- 50e3
-  R <- exp_cov(D, l)
-
-  # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
-  L <- t(chol(R))
-  L <- as(L, "dgCMatrix")
-  process_noise_info <- list(corrmat_chol = L, length_scale = l)
-
-
   df <- data.frame(x = domain, h = h)
   h_smooth <- loess(h ~ x, data = df, span = 0.05)$fitted
 
@@ -47,10 +35,11 @@ initialise_ice_thickness <- function(domain, surface_obs, bed,
   #   simulated_thickness[, i] <- h_smooth + as.vector(h_noise)
   # }
 
-  test <- matrix(rep(h_sd, n_sims), nrow = length(h_sd), ncol = n_sims)
+  h_sd_mat <- matrix(rep(h_sd, n_sims), nrow = length(h_sd), ncol = n_sims)
   Zmat <- matrix(rnorm(length(domain) * n_sims), nrow = length(domain), ncol = n_sims)
   
-  h_noise <- test * (L %*% Zmat)
+  L <- process_noise_info$corrmat_chol
+  h_noise <- h_sd_mat * (L %*% Zmat)
   h_smooth_mat <- matrix(rep(h_smooth, n_sims), nrow = length(h_smooth), ncol = n_sims)
   simulated_thickness <- h_smooth_mat + h_noise
 

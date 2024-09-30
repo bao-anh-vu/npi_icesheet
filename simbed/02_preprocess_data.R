@@ -4,17 +4,42 @@ setwd("~/SSA_model/CNN/simbed/")
 
 rm(list = ls())
 
-## Flagsrh
+library(keras)
+reticulate::use_condaenv("myenv", required = TRUE)
+library(tensorflow)
+library(abind)
+library(parallel)
+## Flags
 # sim_beds <- T
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
 save_data <- T
 standardise_output <- T
+use_missing_pattern <- T
 
-library(abind)
 # library(tensorflow)
 # reticulate::use_condaenv("myenv", required = TRUE)
 
 source("./source/seq_mean_var.R")
+
+# List physical devices
+gpus <- tf$config$experimental$list_physical_devices('GPU')
+
+if (length(gpus) > 0) {
+  tryCatch({
+    # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
+    tf$config$experimental$set_virtual_device_configuration(
+      gpus[[1]],
+      list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
+    )
+    
+    logical_gpus <- tf$config$experimental$list_logical_devices('GPU')
+    
+    print(paste0(length(gpus), " Physical GPUs,", length(logical_gpus), " Logical GPUs"))
+  }, error = function(e) {
+    # Virtual devices must be set before GPUs have been initialized
+    print(e)
+  })
+}
 
 ## Read data
 data_date <- "20240320" # "20220329"
@@ -24,11 +49,7 @@ sets <- 1:50 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
-# if (sim_beds) {
-    train_data_dir <- "./training_data"
-# } else {
-    # train_data_dir <- "./training_data"
-# }
+train_data_dir <- "./training_data"
 
 ## Read thickness and velocity data
 print("Reading surface data...")
@@ -36,15 +57,47 @@ files <- lapply(setf, function(x) paste0(train_data_dir, "/surface_obs_arr_", x,
 surface_obs_list <- lapply(files, readRDS)
 surface_obs_arr <- abind(surface_obs_list, along = 1)
 
-# first year is the initial condition, so we don't use it as part of the training data
-# years <- dim(surface_obs_arr)[3] - 1 
-# surface_obs_arr <- surface_obs_arr[, , 2:(years+1), ] 
+if (use_missing_pattern) {
+    print("Reading missing patterns...")
+    surf_elev_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/surface_elev/missing_pattern.rds")
+    vel_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/velocity/missing_pattern.rds")
+    missing_patterns <- abind(list(surf_elev_missing_pattern, vel_missing_pattern), along = 3)
+
+    surface_obs_list <- lapply(1:dim(surface_obs_arr)[1], function(i) { surface_obs_arr[i,,,]})
+
+    surface_obs_list_missing <- lapply(surface_obs_list, function(arr) {
+    se <- arr[,,1] * surf_elev_missing_pattern
+    vel <- arr[,,2] * vel_missing_pattern
+    abind(se, vel, along = 3)
+    })
+
+    system.time({
+        surface_obs_arr <- abind(surface_obs_list_missing, along = 0)
+    })
+    
+    # surf_elev_tf <- tf$constant(surface_obs_arr)
+
+    # missing_pattern_tf <- tf$constant(missing_patterns)
+    # missing_patterns_tf <- tf$reshape(missing_pattern_tf, shape = c(1L, dim(missing_pattern_tf)))
+    # missing_patterns_tf <- tf$tile(missing_patterns_tf, multiples = c(as.integer(dim(surface_obs_arr)[1]), 1L, 1L, 1L))
+
+    # surf_obs_tf <- tf$math$multiply(surf_elev_tf, missing_patterns_tf)
+
+    # surface_obs_arr <- as.array(surf_obs_tf)
+}
 
 # compute mean and sd of surface elevation and velocity
-surf_elev_mean <- mean(surface_obs_list[[1]][, , , 1]) # just use the mean from the first set
-velocity_mean <- mean(surface_obs_list[[1]][, , , 2])
-surf_elev_sd <- sd(surface_obs_list[[1]][, , , 1])
-velocity_sd <- sd(surface_obs_list[[1]][, , , 2])
+if (dim(surface_obs_arr)[1] <= 10000) {
+    surf_elev_mean <- mean(surface_obs_arr[, , , 1]) # just use the mean from the first set
+    velocity_mean <- mean(surface_obs_arr[, , , 2])
+    surf_elev_sd <- sd(surface_obs_arr[, , , 1])
+    velocity_sd <- sd(surface_obs_arr[, , , 2])
+} else {
+    surf_elev_mean <- mean(surface_obs_arr[1:10000, , , 1]) # just use the mean from the first set
+    velocity_mean <- mean(surface_obs_arr[1:10000, , , 2])
+    surf_elev_sd <- sd(surface_obs_arr[1:10000, , , 1])
+    velocity_sd <- sd(surface_obs_arr[1:10000, , , 2])
+}
 
 # velocity_mean2 <- mean(surface_obs_list[[2]][,,,1])
 # surf_elev_mean2 <- mean(surface_obs_list[[2]][,,,2])
@@ -217,7 +270,11 @@ if (standardise_output) {
 ## Save output
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)]) # formatC(sets, width=2, flag="0")
 
-data_dir <- paste0(train_data_dir, "/", setsf)
+if (use_missing_pattern) {
+    data_dir <- paste0(train_data_dir, "/", setsf, "/missing")
+} else {
+    data_dir <- paste0(train_data_dir, "/", setsf)
+}
 
 if (!dir.exists(data_dir)) {
     dir.create(data_dir)

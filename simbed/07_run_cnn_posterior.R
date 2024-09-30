@@ -8,6 +8,7 @@ library(keras)
 reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
 library(ggplot2)
+library(qs)
 
 #List physical devices
 gpus <- tf$config$experimental$list_physical_devices('GPU')
@@ -33,6 +34,7 @@ if (length(gpus) > 0) {
 rerun_cnn <- T
 sim_beds <- T
 output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
+use_missing_pattern <- T
 # save_output <- T
 
 source("./source/create_model.R")
@@ -55,19 +57,21 @@ sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
-# if (sim_beds) {
-  train_data_dir <- "./training_data"
-  train_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/train_data_", data_date, ".rds"))
-  val_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/val_data_", data_date, ".rds"))
-  test_data <- readRDS(file = paste0(train_data_dir, "/", setsf, "/test_data_", data_date, ".rds"))
-
-# } else {
-#   train_data_dir <- "./training_data"
-#   train_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/train_data_", data_date, ".rds"))
-#   val_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/val_data_", data_date, ".rds"))
-#   test_data <- readRDS(file = paste0(train_data_dir, "/", output_var, "/", setsf, "/test_data_", data_date, ".rds"))
-
-# }
+if (use_missing_pattern) {
+  train_data_dir <- paste0("./training_data", "/", setsf, "/missing")
+} else {
+  train_data_dir <- paste0("./training_data", "/", setsf)
+}
+system.time({
+  train_data <- qread(file = paste0(train_data_dir, "/train_data_", data_date, ".qs"))
+  val_data <- qread(file = paste0(train_data_dir, "/val_data_", data_date, ".qs"))
+  test_data <- qread(file = paste0(train_data_dir, "/test_data_", data_date, ".qs"))
+})
+# system.time({
+  # qsave(train_data, file = paste0(train_data_dir, "/train_data_", data_date, ".qs"))
+  # qsave(val_data, file = paste0(train_data_dir, "/val_data_", data_date, ".qs"))
+  # qsave(test_data, file = paste0(train_data_dir, "/test_data_", data_date, ".qs"))
+# })
 
 train_input <- train_data$input
 val_input <- val_data$input
@@ -110,23 +114,23 @@ output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE T
 summary(model)
 
 # Create a callback that saves the model's weights
-# if (sim_beds) {
+if (use_missing_pattern) {
+  output_dir <- paste0("./output/posterior/", setsf, "/missing")
+} else {
   output_dir <- paste0("./output/posterior/", setsf)
-# } else {
-#   output_dir <- paste0("./output/", output_var, "/", setsf)
-# }
+}
 
 if (!dir.exists(output_dir)) {
   dir.create(paste0(output_dir))
 } else { # delete all previously saved checkpoints
   unlink(paste0(output_dir, "/*"))
 }
-# dir.create(paste0g("output/", setsf)
+
 checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 50
+epochs <- 20
 
 if (rerun_cnn) {
   print("Training CNN...")

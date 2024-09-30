@@ -18,6 +18,7 @@ save_pred <- T
 save_plots <- T
 log_transform <- T
 test_on_train <- F
+use_missing_pattern <- T
 
 ## Read data
 data_date <- "20240320"
@@ -26,8 +27,15 @@ sets <- 1:50 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # if (sim_beds) {
-data_dir <- paste0("./training_data/", setsf)
-output_dir <- paste0("./output/posterior/", setsf)
+
+if (use_missing_pattern) {
+    data_dir <- paste0("./training_data/", setsf, "/missing")
+    output_dir <- paste0("./output/posterior/", setsf, "/missing")
+} else {
+    data_dir <- paste0("./training_data/", setsf)
+    output_dir <- paste0("./output/posterior/", setsf)
+}
+
 test_data <- readRDS(file = paste0(data_dir, "/test_data_", data_date, ".rds"))
 
 if (test_on_train) {
@@ -87,7 +95,12 @@ plot(history$metrics$loss, type = "l")
 lines(history$metrics$val_loss, col = "red")
 legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
 
-plot_dir <- paste0("./plots/posterior/", setsf)
+if (use_missing_pattern) {
+    plot_dir <- paste0("./plots/posterior/", setsf, "/missing")
+} else {
+    plot_dir <- paste0("./plots/posterior/", setsf)
+
+}
 
 if (save_plots) {
 
@@ -229,7 +242,7 @@ gl_uq <- list()
 
 bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = S)
 
-for (s in 1:nrow(test_output)) {
+for (s in 1:nrow(test_output)) { # parallelise this later
 
     cat("Sample: ", s, "\n")
     L <- Lmats[[s]]
@@ -289,9 +302,19 @@ if (save_pred) {
     saveRDS(pred_bed, file = paste0(output_dir, "/pred_bed_", data_date, ".rds"))
     saveRDS(pred_gl, file = paste0(output_dir, "/pred_gl_", data_date, ".rds"))
     saveRDS(Lmats, file = paste0(output_dir, "/Lmats_", data_date, ".rds"))
-    saveRDS(fric_samples_ls, file = paste0(output_dir, "/fric_post_samples_", data_date, ".rds"))
-    saveRDS(bed_samples_ls, file = paste0(output_dir, "/bed_post_samples_", data_date, ".rds"))
-    saveRDS(gl_samples_ls, file = paste0(output_dir, "/gl_post_samples_", data_date, ".rds"))
+    # saveRDS(fric_samples_ls, file = paste0(output_dir, "/fric_post_samples_", data_date, ".rds"))
+    # saveRDS(bed_samples_ls, file = paste0(output_dir, "/bed_post_samples_", data_date, ".rds"))
+    # saveRDS(gl_samples_ls, file = paste0(output_dir, "/gl_post_samples_", data_date, ".rds"))
+    qsave(fric_samples_ls, file = paste0(output_dir, "/fric_post_samples_", data_date, ".qs"))
+    qsave(bed_samples_ls, file = paste0(output_dir, "/bed_post_samples_", data_date, ".qs"))
+    qsave(gl_samples_ls, file = paste0(output_dir, "/gl_post_samples_", data_date, ".qs"))
+
+    # saveRDS(fric_lq, file = paste0(output_dir, "/fric_lq_", data_date, ".rds"))
+    # saveRDS(fric_uq, file = paste0(output_dir, "/fric_uq_", data_date, ".rds"))
+    # saveRDS(bed_lq, file = paste0(output_dir, "/bed_lq_", data_date, ".rds"))
+    # saveRDS(bed_uq, file = paste0(output_dir, "/bed_uq_", data_date, ".rds"))
+    # saveRDS(gl_lq, file = paste0(output_dir, "/gl_lq_", data_date, ".rds"))
+    # saveRDS(gl_uq, file = paste0(output_dir, "/gl_uq_", data_date, ".rds"))
 }
 
 ######################################

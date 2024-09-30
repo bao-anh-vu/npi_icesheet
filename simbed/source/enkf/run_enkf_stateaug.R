@@ -7,6 +7,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                      ini_friction_coef, ini_velocity, observations,   
                      run_analysis = TRUE, use_cov_taper = TRUE, 
                      add_process_noise = TRUE, process_noise_info,
+                     use_const_measure_error = FALSE,
                      transformation = "log") {
   
   print("Running filter...")
@@ -113,10 +114,15 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ## Construct measurement error covariance matrix R (depends on the velocity)
     # plot(prev_velocity) vs plot(rowMeans(HX)) here
       surf_elev_noise_sd  <- rep(10, J)
-      vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
-      vel_noise_sd[vel_noise_sd <= 0] <- 1e-05
-
-      # vel_noise_sd <- rep(20, J)
+      
+      if (use_const_measure_error) {
+        vel_noise_sd <- rep(20, J)
+      } else {
+        vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
+        vel_noise_sd[vel_noise_sd <= 0] <- 0.5 #1e-05
+      }
+      
+      vel_noise_sd <- rep(20, J)
       R <- diag(c(surf_elev_noise_sd^2, vel_noise_sd^2))
 
 
