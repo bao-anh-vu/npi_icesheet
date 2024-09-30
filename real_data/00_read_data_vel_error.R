@@ -11,6 +11,7 @@ library(lattice)
 library(sf) # for shapefiles
 # library(sfheaders)
 library(sp)
+library(gridExtra)
 # library(raster)
 
 setwd("~/SSA_model/CNN/real_data/")
@@ -37,7 +38,7 @@ thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 #   geom_sf(color = "black", fill = NA) +
 #   theme_bw()
 
-year <- 0000 # "0000" for the composite velocity data
+year <- 2022 # "0000" for the composite velocity data
 
 if (reread_data) {
   ## Velocity data
@@ -93,12 +94,14 @@ if (reread_data) {
   ## Try filtering grid points in v with coordinates in x_thwaites and y_thwaites
   grid_thwaites <- grid %>% filter(x %in% x_thwaites & y %in% y_thwaites)
 
-  saveRDS(grid_thwaites, file = "./data/vel_thwaites.rds")
+#   saveRDS(grid_thwaites, file = "./data/vel_thwaites.rds")
 
 } else {
   grid_thwaites <- readRDS("./data/vel_thwaites.rds")
 }
 
+flowline <- readRDS("./data/flowline_regrid.rds")
+gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 
 ## Plot velocity data
 plot_thwaites <- ggplot(grid_thwaites) + 
@@ -109,10 +112,28 @@ plot_thwaites <- ggplot(grid_thwaites) +
   geom_point(data = gl_thwaites, aes(x = X, y = Y), color = "salmon", size = 0.5) +
   # geom_sf(data = gl_thwaites_sf, color = "salmon", fill = NA) +
   geom_sf(data = thwaites_bound, color = "black", fill = NA) +
+  geom_line(data = flowline, aes(x = x, y = y), color = "blue") +
   theme_bw()
 
-png(paste0("./plots/vel_thwaites.png"), width = 800, height = 800)
-print(plot_thwaites)
+# png(paste0("./plots/vel_thwaites.png"), width = 800, height = 800)
+# print(plot_thwaites)
+# dev.off()
+
+## Plot velocity data
+error_plot_thwaites <- ggplot(grid_thwaites) + 
+  geom_point(aes(x = x, y = y, colour = v_error)) +
+  scale_colour_distiller(palette = "Reds", direction = 1,
+                         limits = c(0, 1000),
+                         name = "Velocity error") +
+  # geom_point(data = gl_thwaites, aes(x = X, y = Y), color = "salmon", size = 0.5) +
+  # geom_sf(data = gl_thwaites_sf, color = "salmon", fill = NA) +
+  geom_sf(data = thwaites_bound, color = "black", fill = NA) +
+  geom_line(data = flowline, aes(x = x, y = y), color = "blue") +
+  theme_bw()
+
+png(paste0("./plots/vel_error_thwaites.png"), width = 800, height = 800)
+# print(error_plot_thwaites)
+grid.arrange(plot_thwaites, error_plot_thwaites, ncol = 2)
 dev.off()
 
 # Select only points within Thwaites glacier
@@ -125,7 +146,7 @@ dev.off()
 # retained_rows <- setdiff(1:nrow(grid_thwaites), removed_rows)
 # thwaites_vel <- grid_thwaites[retained_rows,]
 
-saveRDS(grid_thwaites, file = "./data/thwaites_vel.rds")
+# saveRDS(grid_thwaites, file = "./data/thwaites_vel.rds")
 
 
 

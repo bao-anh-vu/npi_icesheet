@@ -32,34 +32,6 @@ surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/height_thwaites
 
 ## Map surface elevation data to flowline
 
-year <- 2019
-var <- paste0("height", year)
-print("Mapping surface elevation data to flowline...")
-
-delta <- 1920 # grid size
-flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
-
-gl <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
-
-
-annual_surf_elev <- surf_elev_data %>% select(x, y, all_of(var))
-
-surf_elev_plot <- annual_surf_elev %>% ggplot() + 
-                    geom_point(aes(x = x, y = y, color = .data[[var]])) + 
-                    scale_colour_distiller(palette = "Blues", direction = 1, 
-                                name = "Height (m)") + 
-                    geom_sf(data = thwaites_bound, color = "black", fill = NA) +
-                    geom_point(data = gl, mapping = aes(x = X, y = Y), color = "salmon", size = 0.05) +
-                    geom_point(data = flowline, mapping = aes(x = x, y = y), color = "black", size = 0.1) + 
-                    theme_bw()
-
-png(paste0("./plots/surface_elev/surf_elev_", year, ".png"), width = 800, height = 500)
-print(surf_elev_plot)
-dev.off()
-#%%%%%%%%%%
-
-
 avg_nearest_four <- function(pos, values) {
     near_pts <- values %>% filter(
         x >= (pos[1] - delta) & x <= (pos[1] + delta),
@@ -78,13 +50,45 @@ avg_nearest_four <- function(pos, values) {
     return(near_height)
 }
 
-surf_elev <- lapply(flowline_pos, avg_nearest_four, values = annual_surf_elev) #, mc.cores = 12L)
+years <- 2001:2020
+# year <- 2019
+for (year in years) {
+    var <- paste0("height", year)
+    print("Mapping surface elevation data to flowline...")
 
-## where's the ice shelf??
+    delta <- 1920 # grid size
+    flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+    flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
-png(paste0("./plots/elev_flowline_1d_", year, ".png"), width = 800, height = 500)
-plot(unlist(surf_elev), type = "l")
-dev.off()
+    gl <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+
+    annual_surf_elev <- surf_elev_data %>% select(x, y, all_of(var))
+
+    surf_elev_plot <- annual_surf_elev %>% ggplot() + 
+                        geom_point(aes(x = x, y = y, color = .data[[var]])) + 
+                        scale_colour_distiller(palette = "Blues", direction = 1, 
+                                    name = "Height (m)") + 
+                        geom_sf(data = thwaites_bound, color = "black", fill = NA) +
+                        geom_point(data = gl, mapping = aes(x = X, y = Y), color = "salmon", size = 0.05) +
+                        geom_point(data = flowline, mapping = aes(x = x, y = y), color = "black", size = 0.1) + 
+                        theme_bw()
+
+    # png(paste0("./plots/surface_elev/surf_elev_", year, ".png"), width = 800, height = 500)
+    # print(surf_elev_plot)
+    # dev.off()
+
+    surf_elev <- lapply(flowline_pos, avg_nearest_four, values = annual_surf_elev) #, mc.cores = 12L)
+
+    ## where's the ice shelf??
+
+    png(paste0("./plots/elev_flowline_1d_", year, ".png"), width = 800, height = 500)
+    plot(unlist(surf_elev), type = "l")
+    dev.off()
+
+    saveRDS(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
+}
+
+
 
 # pos <- flowline_pos[[1]]
 # near_pts <- surf_elev_data %>% filter(
