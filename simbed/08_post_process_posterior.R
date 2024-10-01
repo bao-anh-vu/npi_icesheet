@@ -18,7 +18,7 @@ save_pred <- T
 save_plots <- T
 log_transform <- T
 test_on_train <- F
-use_missing_pattern <- T
+use_missing_pattern <- F
 
 ## Read data
 data_date <- "20240320"
@@ -287,10 +287,10 @@ for (s in 1:nrow(test_output)) { # parallelise this later
 }
 
 
-png(paste0(plot_dir, "/fric_coef_samples", checkpt, ".png"), width = 2000, height = 1200)
-matplot(fric_coef_samples_ustd[, 1:10], col = "grey", type = "l")
-lines(pred_fric_coefs[s, ], col = "red", lwd = 2)
-dev.off()
+# png(paste0(plot_dir, "/fric_coef_samples", checkpt, ".png"), width = 2000, height = 1200)
+# matplot(fric_coef_samples_ustd[, 1:10], col = "grey", type = "l")
+# lines(pred_fric_coefs[s, ], col = "red", lwd = 2)
+# dev.off()
 
 
 #################################

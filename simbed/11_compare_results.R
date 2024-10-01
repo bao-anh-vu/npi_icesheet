@@ -2,6 +2,7 @@
 
 library(ggplot2)
 library(mvtnorm)
+library(qs)
 
 setwd("/home/babv971/SSA_model/CNN/simbed/")
 rm(list = ls())
@@ -13,10 +14,11 @@ data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
 
 use_basis_funs <- T
-plot_ice_thickness <- T
-plot_velocity <- T
-plot_bed <- T
-plot_friction <- T
+plot_ice_thickness <- F
+plot_velocity <- F
+plot_bed <- F
+plot_friction <- F
+plot_gl <- F
 
 ## SSA model info
 ssa_steady <- readRDS(file = paste("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
@@ -24,25 +26,20 @@ ssa_steady <- readRDS(file = paste("./training_data/initial_conds/ssa_steady_202
 domain <- ssa_steady$domain
 J <- length(domain)
 
+## Read bed observations
+bed_obs <- readRDS(file = paste0("./training_data/bed_obs_", output_date, ".rds"))
+bed_obs_df <- data.frame(location = domain[bed_obs$locations] / 1000, bed_elev = bed_obs$obs)
+
 ## Read bed and friction from NN output
 sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
-s <- 3 # test sample index
+s <- 2 #500 # test sample index
 
 years <- 20
 Ne <- 1000 # Ensemble size
 
-data_dir <- paste0("./training_data/", setsf)
-cnn.output_dir <- paste0("./output/posterior/", setsf)
-cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
-
-if (use_basis_funs) {
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis", "/sample", s)
-} else {
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/no_basis", "/sample", s)
-}
-
 ## Read test data
+data_dir <- paste0("./training_data/", setsf)
 test_data <- readRDS(file = paste0(data_dir, "/test_data_", output_date, ".rds"))
 
 true_surface_elevs <- test_data$true_surface_elevs_test
@@ -53,15 +50,30 @@ true_bed <- test_data$true_bed
 true_fric <- exp(test_data$true_fric)
 true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
 
+
 ## Read CNN predictions
+cnn.output_dir <- paste0("./output/posterior/", setsf)
+cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
+
+if (use_basis_funs) {
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis", "/sample", s)
+} else {
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/no_basis", "/sample", s)
+}
+
 pred_fric <- readRDS(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".rds"))
 pred_bed <- readRDS(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".rds"))
 pred_gl <- readRDS(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".rds"))
 
 print("Reading posterior samples from CNN...")
-fric_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".rds"))
-bed_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/bed_post_samples_", output_date, ".rds"))
-gl_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/gl_post_samples_", output_date, ".rds"))
+# fric_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".rds"))
+# bed_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/bed_post_samples_", output_date, ".rds"))
+# gl_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/gl_post_samples_", output_date, ".rds"))
+
+fric_samples_ls <- qread(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".qs"))
+bed_samples_ls <- qread(file = paste0(cnn.output_dir, "/bed_post_samples_", output_date, ".qs"))
+gl_samples_ls <- qread(file = paste0(cnn.output_dir, "/gl_post_samples_", output_date, ".qs"))
+
 
 ## Scaling units for friction coefficients
 # secpera <- 31556926
@@ -88,8 +100,65 @@ enkfsa.bed <- readRDS(file = paste0(enkfsa.output_dir, "/enkf_bed_sample", s, "_
 enkfsa.friction <- readRDS(file = paste0(enkfsa.output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date,  ".rds", sep = ""))
 enkfsa.velocity <- readRDS(file = paste0(enkfsa.output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date,  ".rds", sep = ""))
 
-enkfsa.friction_fin <- exp(enkfsa.friction[[years + 1]])
-enkfsa.bed_fin <- enkfsa.bed[[years + 1]]
+##############################
+##    RMSE (time series)    ##
+##############################
+
+print("Calculating RMSE...")
+rmse <- function(estimated, true) {
+    stopifnot(length(estimated) == length(true))
+    sum(sqrt((estimated - true)^2))
+}
+
+## Thickness RMSE
+cnn.thickness_rmse <- c()
+enkfsa.thickness_rmse <- c()
+for (t in 1:years) {
+    cnn.thickness_rmse[t] <- rmse(rowMeans(cnn.thickness[[t + 1]]), true_thicknesses[s, , t + 1])
+    enkfsa.thickness_rmse[t] <- rmse(rowMeans(enkfsa.thickness[[t + 1]]), true_thicknesses[s, , t + 1])
+}
+plot(1:years, enkfsa.thickness_rmse,
+    type = "o", col = "blue",
+    ylim = c(20000, 47000),
+    xlab = "Time (years)", ylab = "RMSE",
+    main = paste0("RMSE of ice thickness over time for sample ", s)
+)
+lines(1:years, cnn.thickness_rmse, type = "o", col = "red")
+
+## Velocity RMSE
+cnn.vel_rmse <- c()
+enkfsa.vel_rmse <- c()
+for (t in 1:years) {
+    cnn.vel_rmse[t] <- rmse(rowMeans(cnn.velocity[[t + 1]]), true_velocities[s, , t + 1])
+    enkfsa.vel_rmse[t] <- rmse(rowMeans(enkfsa.velocity[[t + 1]]), true_velocities[s, , t + 1])
+}
+plot(1:years, enkfsa.vel_rmse,
+    type = "o", col = "blue",
+    # ylim = c(30000, 100000),
+    xlab = "Time (years)", ylab = "RMSE",
+    main = paste0("RMSE of ice velocity over time for sample ", s)
+) ## The scale is a bit ridiculous here
+lines(1:years, cnn.vel_rmse, type = "o", col = "red")
+
+## Bed RMSE
+cnn.bed_rmse <- rmse(cnn.bed, true_bed[s, ])
+enkfsa.bed_rmse <- rmse(rowMeans(enkfsa.bed[[years+1]]), true_bed[s, ])
+
+## Friction RMSE
+fin_gl <- true_gl[s, years]
+fin_gl_gridpt <- floor(fin_gl * 1000 / domain[length(domain)] * J)
+cnn.fric_rmse <- rmse(cnn.fric[1:fin_gl_gridpt], true_fric[s, 1:fin_gl_gridpt])
+enkfsa.friction_fin <- exp(enkfsa.friction[[years+1]])
+enkfsa.fric_rmse <- rmse(rowMeans(enkfsa.friction_fin)[1:fin_gl_gridpt], true_fric[s, 1:fin_gl_gridpt])
+
+rmse_df <- data.frame(cnn_rmse = c(cnn.bed_rmse, cnn.fric_rmse), 
+            enkfsa_rmse = c(enkfsa.bed_rmse, enkfsa.fric_rmse))
+rmse_df$parameter <- c("bed", "friction")
+print(rmse_df)
+
+#############################
+##    Plotting results     ## 
+#############################
 
 if (use_basis_funs) {
     plot_dir <- paste0("./plots/combined/Ne", Ne, "/basis/sample", s)
@@ -233,25 +302,30 @@ if (plot_velocity) {
 ## Plot the GL predicted by the CNN, GL using inferred state + flotation condition, and true GL position here
 ### Need to first calculate GL based on inferred state and bed
 enkfsa.mean_thickness <- lapply(enkfsa.thickness, rowMeans)
-enkfsa.bed <- rowMeans(enkfsa.bed_fin)
-enkfsa.gl <- sapply(enkfsa.mean_thickness, gl_migrate, b = enkfsa.bed) # grid pts
-enkfsa.gl <- enkfsa.gl / J * domain[length(domain)] / 1000 # convert to km
+enkfsa.mean_bed <- rowMeans(enkfsa.bed[[years+1]])
+enkfsa.gl <- sapply(enkfsa.mean_thickness, gl_migrate, b = enkfsa.mean_bed) # grid pts
+enkfsa.gl <- domain[enkfsa.gl] / 1000 # convert to km
 
 cnn.mean_thickness <- lapply(cnn.thickness, rowMeans)
 enkf_cnn.gl <- sapply(cnn.mean_thickness, gl_migrate, b = cnn.bed) # grid pts
-enkf_cnn.gl <- enkf_cnn.gl / J * domain[length(domain)] / 1000 # convert to km
+enkf_cnn.gl <- domain[enkf_cnn.gl] / 1000 # convert to km
 
-png(paste0(plot_dir, "/gl_comparison.png"), width = 2000, height = 1000, res = 300)
-plot(true_gl[s, ], type = "l", col = "black", lwd = 2, xlab = "Time (years)", ylab = "Grounding line (km)")
-lines(cnn.gl, col = "red", lwd = 2) # CNN prediction
-lines(enkfsa.gl, col = "blue", lwd = 2) # EnKF-SA prediction
-lines(enkf_cnn.gl, col = "goldenrod", lwd = 2) # EnKF-CNN prediction
-legend("bottomright", legend = c("True GL", "CNN", "EnKF-SA", "EnKF-CNN"), col = c("black", "red", "blue", "goldenrod"), lwd = 2)
-dev.off()
+if (plot_gl) {
+    png(paste0(plot_dir, "/gl_comparison.png"), width = 2000, height = 1000, res = 300)
+    plot(true_gl[s, ], type = "l", col = "black", lwd = 2, ylim = c(360, 363),
+        xlab = "Time (years)", ylab = "Grounding line (km)")
+    lines(cnn.gl, col = "red", lwd = 2) # CNN prediction
+    lines(enkfsa.gl, col = "blue", lwd = 2) # EnKF-SA prediction
+    lines(enkf_cnn.gl, col = "goldenrod", lwd = 2) # EnKF-CNN prediction
+    legend("bottomright", legend = c("True GL", "CNN", "EnKF-SA", "EnKF-CNN"), col = c("black", "red", "blue", "goldenrod"), lwd = 2)
+    dev.off()
+}
 
 ## Bed
 if (plot_bed) {
-    enkfsa.ens_t <- enkfsa.bed_fin
+    # enkfsa.bed[[years+1]] <- enkfsa.bed[[1]]#enkfsa.bed
+    t <- years + 1
+    enkfsa.ens_t <- enkfsa.bed[[t]]
     enkfsa.covmat <- 1 / (ncol(enkfsa.ens_t) - 1) * tcrossprod(enkfsa.ens_t - rowMeans(enkfsa.ens_t)) # diag(enkf_covmats[[t]])
     enkfsa.lower <- rowMeans(enkfsa.ens_t[1:J, ]) + qnorm(0.025) * sqrt(diag(enkfsa.covmat)[1:J])
     enkfsa.upper <- rowMeans(enkfsa.ens_t[1:J, ]) + qnorm(0.975) * sqrt(diag(enkfsa.covmat)[1:J])
@@ -288,6 +362,7 @@ if (plot_bed) {
         geom_line(data = bed.df, aes(domain, enkfsa_mean), colour = "blue") +
         geom_line(data = bed.df, aes(domain, cnn_mean), colour = "red") +
         geom_vline(xintercept = true_gl[s, years], lty = 2, colour = "black") +
+        geom_point(data = bed_obs_df, aes(location, bed_elev), colour = "black") +
         xlab("Domain (km)") +
         ylab("Velocity (m)") +
         ggtitle(title) +
@@ -303,6 +378,8 @@ if (plot_bed) {
 }
 
 ## Friction
+# enkfsa.friction_fin <- exp(enkfsa.friction[[years + 1]])
+
 if (plot_friction) {
     enkfsa.ens_t <- enkfsa.friction_fin
     enkfsa.covmat <- 1 / (ncol(enkfsa.ens_t) - 1) * tcrossprod(enkfsa.ens_t - rowMeans(enkfsa.ens_t)) # diag(enkf_covmats[[t]])
@@ -361,55 +438,3 @@ if (plot_friction) {
     # grid.arrange(grobs = vel_plots, ncol = 2)
     dev.off()
 }
-
-##############################
-##    RMSE (time series)    ##
-##############################
-
-rmse <- function(estimated, true) {
-    stopifnot(length(estimated) == length(true))
-    sum(sqrt((estimated - true)^2))
-}
-
-## Thickness RMSE
-cnn.thickness_rmse <- c()
-enkfsa.thickness_rmse <- c()
-for (t in 1:years) {
-    cnn.thickness_rmse[t] <- rmse(rowMeans(cnn.thickness[[t + 1]]), true_thicknesses[s, , t + 1])
-    enkfsa.thickness_rmse[t] <- rmse(rowMeans(enkfsa.thickness[[t + 1]]), true_thicknesses[s, , t + 1])
-}
-plot(1:years, enkfsa.thickness_rmse,
-    type = "o", col = "blue",
-    ylim = c(20000, 47000),
-    xlab = "Time (years)", ylab = "RMSE",
-    main = paste0("RMSE of ice thickness over time for sample ", s)
-)
-lines(1:years, cnn.thickness_rmse, type = "o", col = "red")
-
-## Velocity RMSE
-cnn.vel_rmse <- c()
-enkfsa.vel_rmse <- c()
-for (t in 1:years) {
-    cnn.vel_rmse[t] <- rmse(rowMeans(cnn.velocity[[t + 1]]), true_velocities[s, , t + 1])
-    enkfsa.vel_rmse[t] <- rmse(rowMeans(enkfsa.velocity[[t + 1]]), true_velocities[s, , t + 1])
-}
-plot(1:years, enkfsa.vel_rmse,
-    type = "o", col = "blue",
-    # ylim = c(30000, 100000),
-    xlab = "Time (years)", ylab = "RMSE",
-    main = paste0("RMSE of ice velocity over time for sample ", s)
-) ## The scale is a bit ridiculous here
-lines(1:years, cnn.vel_rmse, type = "o", col = "red")
-
-fin_gl <- true_gl[s, years]
-fin_gl_gridpt <- floor(fin_gl * 1000 / domain[length(domain)] * J)
-cnn.bed_rmse <- rmse(cnn.bed[1:fin_gl_gridpt], true_bed[s, 1:fin_gl_gridpt])
-enkfsa.bed_rmse <- rmse(rowMeans(enkfsa.bed_fin)[1:fin_gl_gridpt], true_bed[s, 1:fin_gl_gridpt])
-
-cnn.fric_rmse <- rmse(cnn.fric[1:fin_gl_gridpt], true_fric[s, 1:fin_gl_gridpt])
-enkfsa.fric_rmse <- rmse(rowMeans(enkfsa.friction_fin)[1:fin_gl_gridpt], true_fric[s, 1:fin_gl_gridpt])
-
-rmse_df <- data.frame(cnn_rmse = c(cnn.bed_rmse, cnn.fric_rmse), 
-            enkfsa_rmse = c(enkfsa.bed_rmse, enkfsa.fric_rmse))
-rmse_df$parameter <- c("bed", "friction")
-print(rmse_df)

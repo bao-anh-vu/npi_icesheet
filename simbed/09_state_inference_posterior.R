@@ -44,7 +44,7 @@ source("./source/enkf/initialise_ice_thickness.R")
 
 # source("ssa_enkf_plots.R")
 
-use_missing_data <- T
+use_missing_pattern <- T
 
 ## Seed for generating bed
 # ssa_seed <- 123
@@ -93,7 +93,7 @@ J <- length(domain)
 sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-if (use_missing_data) {
+if (use_missing_pattern) {
     data_dir <- paste0("./training_data/", setsf, "/missing")
 } else {
     data_dir <- paste0("./training_data/", setsf)
@@ -108,7 +108,7 @@ true_bed <- test_data$true_bed
 true_fric <- test_data$true_fric
 
 print("Reading posterior samples...")
-if (use_missing_data) {
+if (use_missing_pattern) {
     output_dir <- paste0("./output/posterior/", setsf, "/missing")
 } else {
     output_dir <- paste0("./output/posterior/", setsf)
@@ -137,11 +137,11 @@ fric_scale <- 1e6 * secpera^(1 / 3)
 surface_elev <- test_data$input[, , , 1] * test_data$input_sd[1] + test_data$input_mean[1]
 velocity <- test_data$input[, , , 2] * test_data$input_sd[2] + test_data$input_mean[2]
 
-if (use_missing_data) {
+if (use_missing_pattern) {
     print("Reading missing patterns...")
     surf_elev_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/surface_elev/missing_pattern.rds")
     vel_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/velocity/missing_pattern.rds")
-    missing_patterns <- abind(list(surf_elev_missing_pattern, vel_missing_pattern), along = 3)
+    missing_patterns <- list(surface_elev = surf_elev_missing_pattern, vel = vel_missing_pattern)
 
 }
 
@@ -268,9 +268,16 @@ for (s in test_samples) {
         ini_velocity <- matrix(rep(true_velocities[s, , 1], Ne), J, Ne)
         # ini_velocity <- matrix(rep(ssa_steady$current_velocity, Ne), J, Ne)
     } else { # use a smoothed version of the observed velocity as initial velocity
-        velocity_df <- data.frame(x = domain, u = velocity_s[, 1]) # u = observations$velocity_obs[, 1])
+        ini_vel_obs <- velocity_s[, 1]
+            
+        if (use_missing_pattern) {
+            ini_missing <- missing_patterns$vel[, 1]
+            ini_vel_obs[which(ini_missing == 0)] <- NA
+        }
+        velocity_df <- data.frame(x = domain, u = ini_vel_obs) # u = observations$velocity_obs[, 1])
         smoothed_velocity <- loess(u ~ x, data = velocity_df, span = 0.05)$fitted
         ini_velocity <- matrix(rep(smoothed_velocity, Ne), J, Ne)
+
     }
 
     ################################################################################
@@ -309,7 +316,8 @@ for (s in test_samples) {
                 ini_friction_coef = ini_ens[2 * J + 1:J, ],
                 ini_velocity = ini_velocity,
                 observations = surface_obs_list,
-                run_analysis = T,
+                # missing_pattern = missing_pattern,
+                # run_analysis = T,
                 add_process_noise = add_process_noise,
                 use_cov_taper = use_cov_taper,
                 process_noise_info = process_noise_info
@@ -332,10 +340,6 @@ for (s in test_samples) {
             }#,
             # error = function(e){error_inds[p] <- 1}
             )
-        }
-
-        for (p in error_inds) {
-            ## Rerun EnKF
         }
 
         # print("Running EnKF...")
@@ -418,8 +422,12 @@ for (s in test_samples) {
     # combined_enkf_friction <- do.call(cbind, fin_enkf_friction)
     # combined_enkf_velocities <- do.call(cbind, fin_velocities)
 
+    if (use_missing_pattern) {
+        plot_dir <- paste0("./plots/posterior/", setsf, "/sample", s, "/missing")
+    } else {
+        plot_dir <- paste0("./plots/posterior/", setsf, "/sample", s)
 
-    plot_dir <- paste0("./plots/posterior/", setsf, "/sample", s)
+    }
 
     if (!dir.exists(plot_dir)) {
         dir.create(paste0(plot_dir))
@@ -552,26 +560,6 @@ for (s in test_samples) {
             dev.off()
             # print(thickness_plot)
         }
-
-
-        # png(paste0(plot_dir, "/velocity.png"), width = 2000, height = 1000, res = 300)
-        # # matplot(domain/1000, combined_bg_velocities[1:J, ], type = "l", col = "lightgrey",
-        # #         xlab = "Domain (km)", ylab = "Velocity (m/a)")
-        # # matlines(domain/1000, combined_pf_velocities[1:J, ], lty = 2, col = "skyblue2")
-        # matplot(domain/1000, enkf_velocities[[years+1]], lty = 2, type = "l", col = "lightpink",
-        #   ylab = "Velocity (m/a)", xlab = "Domain (km)", main = paste0("Velocity at year ", years))
-        # # lines(domain/1000, rowMeans(combined_bg_velocities[1:J, ]), col = "grey")
-        # # lines(domain/1000, reference$all_velocities[, years+1], col = "black", lwd = 1.5)
-        # lines(domain/1000, true_velocities[s, , years+1], col = "black", lwd = 1.5)
-        # lines(domain/1000, rowMeans(enkf_velocities[[years+1]]), col = "red", lwd = 1.5)
-        # # lines(domain/1000, rowMeans(combined_pf_velocities[1:J, ]), col = "royalblue", lwd = 1.5)
-        # legend("bottomright", legend = c("True thickness",
-        #                                   # "Background ensemble",
-        #                                  "EnKF ensemble", "EnKF mean"), #, "PF ensemble", "PF mean"),
-        #        col = c("black", #"grey",
-        #        "lightpink", "red"), #, "skyblue2", "royalblue"),
-        #        lty = 1, cex = 0.7)
-        # dev.off()
     }
 
     ## Bed plot
@@ -650,20 +638,4 @@ for (s in test_samples) {
         main = paste0("RMSE of ice thickness over time for sample", s)
     )
 
-    # png(paste0(plot_dir, "/ice_thickness.png"), width = 2000, height = 1000, res = 300)
-    # # matplot(domain/1000, combined_bg_ens[1:J, ], type = "l", col = "lightgrey",
-    # #         xlab = "Domain (km)", ylab = "Ice thickness (m)")
-    # matplot(domain/1000, enkf_thickness[[years+1]], lty = 2, type = "l", col = "lightpink")
-    # # matlines(domain/1000, combined_pf_ens[1:J, ], lty = 2, col = "skyblue2")
-    # # lines(domain/1000, rowMeans(combined_bg_ens[1:J, ]), col = "grey")
-    # # lines(domain/1000, reference$all_thicknesses[, years+1], col = "black", lwd = 1.5)
-    # lines(domain/1000, true_thicknesses[s, , years+1], col = "black", lwd = 1.5)
-    # lines(domain/1000, rowMeans(enkf_thickness[[years+1]]), col = "red", lwd = 1.5)
-    # # lines(domain/1000, rowMeans(combined_pf_ens[1:J, ]), col = "royalblue", lwd = 1.5)
-    # legend("topright", legend = c("True thickness", #"Background ensemble",
-    #                               "EnKF ensemble", "EnKF mean"), #, "PF ensemble", "PF mean"),
-    #        col = c("black", #"grey",
-    #        "pink", "red"), #, "skyblue2", "royalblue"),
-    #        lty = 1, cex = 0.7)
-    # dev.off()
 }
