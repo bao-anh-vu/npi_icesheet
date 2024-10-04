@@ -1,6 +1,7 @@
 run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed, 
                      ini_friction_coef, ini_velocity, observations, 
-                     missing_pattern = NULL, run_analysis = TRUE, use_cov_taper = TRUE, 
+                     missing_pattern = NULL, run_analysis = TRUE, use_cov_taper = TRUE,
+                     inflate_cov = TRUE, 
                      add_process_noise = TRUE, process_noise_info) {
   
   print("Running filter...")
@@ -9,10 +10,42 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
   #   if (rand == 1) {
   #     stop("Random error")
   #   }
-
   Ne <- ncol(ini_thickness) # Ensemble size
   J <- length(domain)
-  
+
+  if (!is.null(missing_pattern)) { # turn this part into a function later
+      mp_surface_elev <- missing_pattern$surface_elev
+      mp_velocity <- missing_pattern$vel
+      
+    ## Construct the "missing observation matrix" C_t here
+
+      mp_surface_elev_ls <- lapply(1:(years+1), function(y) {
+        mp_year <- mp_surface_elev[, y]
+        nonmiss <- sum(mp_year)
+        C_t <- sparseMatrix(i = 1:nonmiss, j = which(mp_year == 1), x = 1,
+                            dims = c(nonmiss, J))
+        return(C_t)
+      })
+
+      mp_vel_ls <- lapply(1:(years+1), function(y) {
+        mp_year <- mp_velocity[, y]
+        nonmiss <- sum(mp_year)
+        C_t <- sparseMatrix(i = 1:nonmiss, j = which(mp_year == 1), x = 1,
+                            dims = c(nonmiss, J))
+        return(C_t)
+      })
+
+      C_t_ls <- lapply(1:(years+1), function(y) {
+        bdiag(mp_surface_elev_ls[[y]], mp_vel_ls[[y]])
+      })
+
+      # png("./plots/C_t.png")
+      # image(as.matrix(C_t))
+      # dev.off()
+  } else {
+    C_t_ls <- lapply(1:(years+1), function(t) diag(1, 2*J))
+  }
+
   # State ensemble 
   enkf_means <- matrix(NA, nrow = J, ncol = years + 1)
   enkf_means[, 1] <- rowMeans(ini_thickness)
@@ -32,9 +65,11 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
   prev_velocity <- ini_velocity
   
   ## Covariance tapering ##
-  taper_mat <- wendland(0.1 * domain[length(domain)], rdist(domain, domain))
-  ens_taper1 <- kronecker(matrix(rep(1, 2), 1, 2), taper_mat)
-  ens_taper2 <- kronecker(matrix(rep(1, 4), 2, 2), taper_mat)
+  taper_mat <- wendland(0.01 * domain[length(domain)], rdist(domain, domain))
+  # taper_mat <- wendland(0.1 * domain[length(domain)], rdist(domain, domain))
+  
+  # ens_taper1 <- kronecker(matrix(rep(1, 2), 1, 2), taper_mat)
+  # ens_taper2 <- kronecker(matrix(rep(1, 4), 2, 2), taper_mat)
   
   ## Likelihood ##
   llh <- c()
@@ -62,10 +97,15 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     
     # Convert ensemble from list back to matrix
     ens_all <- matrix(unlist(ens.list), nrow = 4*J, ncol = Ne)
-    
+
     ## Extract forecast ens and velocity ens
     ens <- ens_all[1:J, ]
     prev_velocity <- ens_all[(3*J+1):(4*J), ]
+
+  #   png(paste0("plots/temp/ens_", year - 1, ".png"))
+  #   matplot(ens, type = "l")
+  #   dev.off()
+  # browser()
 
     # Save the mean velocity
     # mean_prev_velocity <- rowMeans(prev_velocity)
@@ -84,10 +124,18 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
      
       ens <- as.matrix(ens + h_noise_mat) # add noise to ice thickness
       
+      if (inflate_cov) {
+
+      # print("Inflating covariance...")
+        ens <- ens + 0.1 * (ens - rowMeans(ens))
+      }
+
       # Convert ensemble from matrix to list
       ens_all <- rbind(ens, beds, friction_coefs, prev_velocity)
       ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i]) 
     }
+
+    
 
     # ens <- forecast_ens
     if (run_analysis) {
@@ -101,24 +149,13 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       # PH <- NULL #matrix(NA, nrow = 3*J, ncol = 2*J)
     
       ## Apply observation operator to every ensemble member
+      HX <- lapply(ens.list, obs_operator,
+                    domain = domain, transformation = "log") #, mc.cores = 6L)
       
-      if (!is.null(missing_pattern)) {
-        browser() 
-        mp_surface_elev <- missing_pattern$surface_elev
-        mp_velocity <- missing_pattern$velocity
-       
-        HX <- lapply(ens.list, obs_operator,
-                     domain = domain, transformation = "log",
-                     missing_pattern = missing_pattern) #, mc.cores = 6L)
-      
-      } else {
-        HX <- lapply(ens.list, obs_operator,
-                     domain = domain, transformation = "log") #, mc.cores = 6L)
-      
-      }
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
-      
+      HX <- C_t_ls[[year]] %*% HX # apply the missing observation matrix
+
       # Compute P %*% t(H) and H %*% P %*% t(H)
       HPH <- 1 / (Ne - 1) * tcrossprod(HX - rowMeans(HX))
       PH <- 1 / (Ne - 1) * tcrossprod(ens - rowMeans(ens), HX - rowMeans(HX))
@@ -130,13 +167,14 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       # R <- diag(c(rep(10^2, J), rep(20^2, J))) ## NEED TO FIX THE MEASUREMENT NOISE FOR VELOCITY
       
       ## Extract yearly observations
-      surf_elev_obs <- observations$surface_elev[, year]
-      vel_obs <- observations$velocity[, year]
+      surf_elev_obs <- na.omit(observations$surface_elev[, year])
+      vel_obs <- na.omit(observations$velocity[, year])
       
       y <- c(surf_elev_obs, vel_obs)
+      # y <- y[!is.na(y)]
 
       ## Generate "observation ensemble" Y = (y, y, ..., y)
-      Y <- matrix(rep(y, Ne), 2*J, Ne) 
+      Y <- matrix(rep(y, Ne), length(y), Ne) 
       
       # plot(prev_velocity) vs plot(rowMeans(HX)) here
       surf_elev_noise_sd  <- rep(10, J)
@@ -145,13 +183,13 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
 
       # vel_noise_sd <- rep(20, J)
       R <- diag(c(surf_elev_noise_sd^2, vel_noise_sd^2))
-
+      R <- C_t_ls[[year]] %*% R %*% t(C_t_ls[[year]]) # apply the missing observation matrix
       
       ##### Compute likelihood #####
       # test <- dmvn(y - HX[, 1], mu = rep(0, 2*J), 
       #              sigma = HPH + R, log = TRUE)
-      noise <- matrix(rnorm(2*J*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
-
+      noise <- matrix(rnorm(length(diag(R))*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
+      
       # forecast_mean <- c(rowMeans(ens), beds[, 1], friction_coefs[, 1], rowMeans(prev_velocity))
       # HX_mean <- obs_operator(state = forecast_mean, domain = domain, transformation = "log")
       
@@ -166,6 +204,9 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
         
         ##### CHANGED HERE #######
         # Tapered Kalman gain
+        ens_taper2 <- kronecker(matrix(rep(1, 4), 2, 2), taper_mat)
+        ens_taper2 <- C_t_ls[[year]] %*% ens_taper2 %*% t(C_t_ls[[year]])
+        
         # Sigma <- as(ens_taper2 * HPH + R, "dsCMatrix") # deprecated since Matrix package v1.5
         Sigma <- as(as(as(ens_taper2 * HPH + R, "dMatrix"), "symmetricMatrix"), "CsparseMatrix")
         # L <- t(chol(ens_taper2 * HPH + R))
@@ -182,14 +223,9 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       }
       
       ## Update ensemble
-      
-      ##### CHANGED HERE #######
-      # noise <- rmvn(Ne, rep(0, 2*J), R) # takes 0.4s
-      # noise <- matrix(rnorm(2*J*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
-      
-      ##### CHANGED HERE #######
-      # ens <- forecast_ens + K %*% (Y - HX - t(noise))
       if (use_cov_taper) {
+        ens_taper1 <- kronecker(matrix(rep(1, 2), 1, 2), taper_mat)
+        ens_taper1 <- ens_taper1 %*% t(C_t_ls[[year]]) ## only pick out the parts that correspond to observed data
         ens <- ens + (ens_taper1 * PH) %*% solve(a = Sigma, b = (Y - HX - noise))
       } else {
         # ens <- ens + PH %*% solve(a = Sigma, b = (Y - HX - noise))
@@ -199,7 +235,11 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       analysis.t2 <- proc.time() 
     }
 
-    
+    # png(paste0("plots/temp/ens_", year - 1, ".png"))
+    # matplot(ens, type = "l")
+    # dev.off()
+
+
     # Store analysis ensemble and ensemble mean
     enkf_means[, year] <- rowMeans(ens)
     enkf_ens[[year]] <- ens
@@ -255,6 +295,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                          bed = beds, #[, 1], # all beds are the same anyway
                          friction_coef = friction_coefs, #[, 1], # same with friction
                          log_likelihood = log_likelihood, 
+                         use_cov_taper = use_cov_taper,
+                         inflate_cov = inflate_cov,
                          time = mc.t2 - mc.t1))  
 }
 

@@ -101,21 +101,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       # PH <- NULL #matrix(NA, nrow = 3*J, ncol = 2*J)
     
       ## Apply observation operator to every ensemble member
-      
-      if (!is.null(missing_pattern)) {
-        browser() 
-        mp_surface_elev <- missing_pattern$surface_elev
-        mp_velocity <- missing_pattern$velocity
-       
-        HX <- lapply(ens.list, obs_operator,
-                     domain = domain, transformation = "log",
-                     missing_pattern = missing_pattern) #, mc.cores = 6L)
-      
-      } else {
-        HX <- lapply(ens.list, obs_operator,
-                     domain = domain, transformation = "log") #, mc.cores = 6L)
-      
-      }
+      HX <- lapply(ens.list, obs_operator,
+                    domain = domain, transformation = "log") #, mc.cores = 6L)
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
       

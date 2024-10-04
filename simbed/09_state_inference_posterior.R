@@ -26,13 +26,14 @@ library(qs)
 source("./source/solve_ssa_nl.R")
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
+source("./source/surface_elev.R")
 source("./source/enkf/get_obs.R")
 source("./source/enkf/initialise_ens.R")
 source("./source/enkf/ssa_plot_ini_ens.R")
 source("./source/enkf/propagate.R")
 source("./source/enkf/obs_operator.R")
-source("./source/enkf/run_enkf.R")
-source("./source/enkf/surface_elev.R")
+# source("./source/enkf/run_enkf.R")
+source("./source/enkf/run_enkf_missing.R")
 
 # source("run_bg_ens.R")
 # source("run_pf.R")
@@ -65,7 +66,7 @@ use_basis_functions <- F
 use_true_thickness <- F
 use_true_bed <- F
 use_true_friction <- F
-use_cov_taper <- T # use covariance taper
+use_cov_taper <- F # use covariance taper
 
 ## Presets
 data_date <- "20220329" # "20230518"
@@ -73,7 +74,7 @@ output_date <- "20240320" # "20240518"
 Ne <- 100 # Ensemble size
 years <- 20 # 40
 steps_per_yr <- 52 # 100
-n_params <- 10 #10 # 20 #number of beds
+n_params <- 10 #10 #10 # 20 #number of beds
 # n_bed_obs <- 100
 # smoothing_factor <- 0.5 # for the PF
 
@@ -141,8 +142,28 @@ if (use_missing_pattern) {
     print("Reading missing patterns...")
     surf_elev_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/surface_elev/missing_pattern.rds")
     vel_missing_pattern <- readRDS("~/SSA_model/CNN/real_data/data/velocity/missing_pattern.rds")
-    missing_patterns <- list(surface_elev = surf_elev_missing_pattern, vel = vel_missing_pattern)
+    missing_pattern <- list(surface_elev = surf_elev_missing_pattern, vel = vel_missing_pattern)
 
+    vel_mp_c <- c(vel_missing_pattern)
+    vel_mp_df <- data.frame(gridpt = rep(1:J, ncol(vel_missing_pattern)), 
+                            nonmissing = vel_mp_c, 
+                            year = rep(0:(ncol(vel_missing_pattern)-1), each = J))
+
+    ## Plot missing velocity pattern over space-time
+    vel_st_plot <- ggplot(vel_mp_df) + 
+        geom_tile(aes(x = gridpt, y = year, col = nonmissing)) + 
+        # scale_fill_distiller(palette = "BuPu", direction = 1) +
+        theme_bw() + 
+        labs(x = "Grid Point", y = "Year", fill = "Missingness") + 
+        ggtitle("Thwaites Glacier Velocity Over Time") + theme(plot.title = element_text(hjust = 0.5))
+
+
+    # png("./plots/temp/vel_mp.png")
+    # print(vel_st_plot)
+    # dev.off()
+
+} else {
+    missing_pattern <- NULL
 }
 
 
@@ -152,7 +173,7 @@ if (use_missing_pattern) {
 
 ## Sample from test set and do state inference
 n_test_samples <- dim(test_data$input)[1]
-test_samples <- 500 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
+test_samples <- 1 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
 
 s <- test_samples[1]
 enkf_output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
@@ -161,7 +182,7 @@ enkf_output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
     dir.create(paste0(enkf_output_dir))
 } #else { # delete all previously saved plots
 #     unlink(paste0(output_dir, "/*"))
-# }
+# }t
 
 for (s in test_samples) {
     print(paste("Sample", s))
@@ -171,6 +192,24 @@ for (s in test_samples) {
     # surface_obs_s <- surface_obs[s,,,]
     surface_elev_s <- surface_elev[s, , ]
     velocity_s <- velocity[s, , ]
+    
+    if (use_missing_pattern) {
+        surface_elev_s[which(missing_pattern$surface_elev == 0)] <- NA
+        velocity_s[which(missing_pattern$vel == 0)] <- NA
+    }
+
+    ## Replace NA values with the last non-NA value
+    ini_surf_obs <- surface_elev_s[, 1]
+    nonNA <- ini_surf_obs[!is.na(ini_surf_obs)]
+    ini_surf_obs[which(is.na(ini_surf_obs))] <- nonNA[length(nonNA)]
+    # surf_elev_df <- data.frame(x = domain, z = ini_surf_obs) # u = observations$velocity_obs[, 1])
+    # polyfit <- loess(z ~ x, data = surf_elev_df, span = 0.05)#$fitted
+    # lmfit <- lm(z ~ x, data = surf_elev_df)
+    # smoothed_surf_elev <- predict(polyfit, data = surf_elev_df)
+
+    # png("./plots/surf_elev.png")
+    # plot(ini_surf_obs, type = "l")
+    # dev.off()
 
     surface_obs_list <- list(surface_elev = surface_elev_s, velocity = velocity_s)
 
@@ -194,7 +233,7 @@ for (s in test_samples) {
                 }
 
                 ## Friction ##
-                print("Simulating friction coefficient...")
+                # print("Simulating friction coefficient...")
                 if (use_true_friction) {
                     ini_friction <- matrix(rep((true_fric[s, ]), Ne), J, Ne)
                 } else {
@@ -203,7 +242,7 @@ for (s in test_samples) {
                 }
 
                 ## Now put the ensemble together
-                print("Calculating ice thicknesses based on simulated beds and observed top surface elevation...")
+                # print("Calculating ice thicknesses based on simulated beds and observed top surface elevation...")
                 
                 # for (p in 1:n_params) { # create 20 ensembles from 20 beds
 
@@ -226,11 +265,12 @@ for (s in test_samples) {
 
                     ini_thickness <- initialise_ice_thickness(domain,
                         n_sims = Ne,
-                        surface_obs = surface_elev_s[, 1], # use observed z at t = 0
+                        surface_obs = ini_surf_obs, # use observed z at t = 0
                         bed = ini_beds[, p],
                         condsim_shelf = F, 
                         process_noise_info = process_noise_info
                     )
+
                 }
                 ini_ens <- rbind(
                     ini_thickness,
@@ -268,14 +308,23 @@ for (s in test_samples) {
         ini_velocity <- matrix(rep(true_velocities[s, , 1], Ne), J, Ne)
         # ini_velocity <- matrix(rep(ssa_steady$current_velocity, Ne), J, Ne)
     } else { # use a smoothed version of the observed velocity as initial velocity
+    
         ini_vel_obs <- velocity_s[, 1]
-            
-        if (use_missing_pattern) {
-            ini_missing <- missing_patterns$vel[, 1]
-            ini_vel_obs[which(ini_missing == 0)] <- NA
-        }
         velocity_df <- data.frame(x = domain, u = ini_vel_obs) # u = observations$velocity_obs[, 1])
-        smoothed_velocity <- loess(u ~ x, data = velocity_df, span = 0.05)$fitted
+        loessfit <- loess(u ~ x, data = velocity_df, span = 0.05)#$fitted
+        
+        smoothed_velocity <- predict(loessfit, newdata = data.frame(x = domain))
+        
+        if (use_missing_pattern) {
+            na_ind <- which(is.na(smoothed_velocity))
+            polyfit <- lm(u ~ poly(x, 3), data = velocity_df)#$fitted
+            smoothed_velocity[na_ind] <- predict(polyfit, newdata = data.frame(x = domain[na_ind]))
+        }
+        # png(paste0("./plots/velocity_obs.png"), width = 2000, height = 1000, res = 300)
+        # plot(velocity_df$u, type = "l")
+        # lines(smoothed_velocity, col = "red")
+        # dev.off()
+        
         ini_velocity <- matrix(rep(smoothed_velocity, Ne), J, Ne)
 
     }
@@ -305,7 +354,7 @@ for (s in test_samples) {
 
             ini_ens <- ini_ens_list[[p]]
 
-            test <- try({
+            # test <- try({
                 enkf1 <- proc.time()
 
                 enkf_out <- run_enkf(
@@ -316,7 +365,7 @@ for (s in test_samples) {
                 ini_friction_coef = ini_ens[2 * J + 1:J, ],
                 ini_velocity = ini_velocity,
                 observations = surface_obs_list,
-                # missing_pattern = missing_pattern,
+                missing_pattern = missing_pattern,
                 # run_analysis = T,
                 add_process_noise = add_process_noise,
                 use_cov_taper = use_cov_taper,
@@ -337,9 +386,9 @@ for (s in test_samples) {
 
             enkf2 <- proc.time()
 
-            }#,
+            # }#,
             # error = function(e){error_inds[p] <- 1}
-            )
+            # )
         }
 
         # print("Running EnKF...")
@@ -435,7 +484,7 @@ for (s in test_samples) {
         unlink(paste0(plot_dir, "/*"))
     }
 
-    plot_times <- seq(1, years + 1, 2)
+    plot_times <- seq(1, years + 1, 1)
     ## Ice thickness plot
     if (plot_ice_thickness) {
         # png(paste0(plot_dir, "/thickness_enkf.png"), width = 2000, height = 1000, res = 300)

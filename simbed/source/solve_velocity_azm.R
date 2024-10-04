@@ -18,7 +18,7 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   # z0 <- 0 # ocean surface elevation
   u <- prev_velocity
   H <- thickness
-  
+   
   u0 <- velocity_bc
   
   ## Convert input velocity into m/s
@@ -56,6 +56,7 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   if (include_GL) {
     
     GL <- gl_migrate(H, b)
+
     # cat("GL position: ",  GL / J * L / 1000,  "\n")
     ## Ice hardness
     if (perturb_hardness) {

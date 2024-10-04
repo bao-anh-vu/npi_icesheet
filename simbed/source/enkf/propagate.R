@@ -21,12 +21,17 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
 
   # prev_velocity <- c()
   for (i in 1:steps_per_yr) {
+    
     prev_velocity <- velocity
     
     thickness <- solve_thickness(velocity = prev_velocity,
                                  thickness = thickness, domain = domain,
                                  bed = bed, steps_per_yr = steps_per_yr)
+    # png("./plots/thickness.png")
+    # plot(thickness, type = "l", main = "Thickness")
+    # dev.off()
     
+
     ## need to somehow save both the previous and the current velocity
     velocity <- as.vector(solve_velocity(prev_velocity = prev_velocity, 
                                          thickness = thickness, # should use the mean of the ice thickness as well?
@@ -35,6 +40,10 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
                                          friction = friction,
                                          perturb_hardness = TRUE))
     
+    # png("./plots/velocity.png")
+    # plot(prev_velocity, type = "l", main = "Velocity")
+    # dev.off()
+
   }
   
 # Why not just call solve_ssa_nl() here instead? // because we need the previous velocity at the (k-1)th step not k-th!!

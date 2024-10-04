@@ -19,7 +19,7 @@ gl_migrate <- function (H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
   # Flotation criterion: rho * H >= rho_w * b for grounded ice
   grounded <- rho * H > rho_w * (z0 - b)
   GL <- sum(grounded)
-  
+
   return(GL)
 }
 
