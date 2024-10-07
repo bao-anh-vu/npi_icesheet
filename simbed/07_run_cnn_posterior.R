@@ -164,13 +164,13 @@ if (rerun_cnn) {
   history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
 }
 
-# loss_plot <- history %>%
-#   plot() +
-#   coord_cartesian(xlim = c(1, epochs))
-# # ## Plot the loss
-# png(paste0("plots/posterior/loss_", data_date, ".png"))
-# print(loss_plot)
-# dev.off()
+loss_plot <- history %>%
+  plot() +
+  coord_cartesian(xlim = c(1, epochs))
+# ## Plot the loss
+png(paste0("plots/posterior/loss_", data_date, ".png"))
+print(loss_plot)
+dev.off()
 # ## Get rid of first training loss
 # plot(history$metrics$loss[2:60],type = "l")
 # lines(history$metrics$val_loss[2:60], col = "red")

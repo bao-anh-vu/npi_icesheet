@@ -7,18 +7,19 @@ library(qs)
 setwd("/home/babv971/SSA_model/CNN/simbed/")
 rm(list = ls())
 
-source("./source/enkf/surface_elev.R")
+source("./source/surface_elev.R")
 
 ## Presets
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
 
+use_missing_pattern <- T
 use_basis_funs <- T
-plot_ice_thickness <- F
-plot_velocity <- F
-plot_bed <- F
-plot_friction <- F
-plot_gl <- F
+plot_ice_thickness <- T
+plot_velocity <- T
+plot_bed <- T
+plot_friction <- T
+plot_gl <- T
 
 ## SSA model info
 ssa_steady <- readRDS(file = paste("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
@@ -33,13 +34,17 @@ bed_obs_df <- data.frame(location = domain[bed_obs$locations] / 1000, bed_elev =
 ## Read bed and friction from NN output
 sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
-s <- 2 #500 # test sample index
+s <- 1 #500 # test sample index
 
 years <- 20
 Ne <- 1000 # Ensemble size
 
 ## Read test data
-data_dir <- paste0("./training_data/", setsf)
+if (use_missing_pattern) {
+    data_dir <- paste0("./training_data/", setsf, "/missing")
+} else {
+    data_dir <- paste0("./training_data/", setsf)
+}
 test_data <- readRDS(file = paste0(data_dir, "/test_data_", output_date, ".rds"))
 
 true_surface_elevs <- test_data$true_surface_elevs_test
@@ -52,13 +57,17 @@ true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
 
 
 ## Read CNN predictions
-cnn.output_dir <- paste0("./output/posterior/", setsf)
+if (use_missing_pattern) {
+    cnn.output_dir <- paste0("./output/posterior/", setsf, "/missing")
+} else {
+    cnn.output_dir <- paste0("./output/posterior/", setsf)
+}
 cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
 
-if (use_basis_funs) {
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis", "/sample", s)
+if (use_missing_pattern) {
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis/sample", s, "/missing")    
 } else {
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/no_basis", "/sample", s)
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis/sample", s)    
 }
 
 pred_fric <- readRDS(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".rds"))
@@ -88,10 +97,13 @@ cnn.bed <- pred_bed[, s]
 cnn.fric <- pred_fric[, s]
 cnn.gl <- pred_gl[s, ]
 
-cnn.bed_lq <- apply(bed_samples_ls[[s]], 1, quantile, probs = 0.05)
-cnn.bed_uq <- apply(bed_samples_ls[[s]], 1, quantile, probs = 0.95)
-cnn.fric_lq <- apply(fric_samples_ls[[s]], 1, quantile, probs = 0.05)
-cnn.fric_uq <- apply(fric_samples_ls[[s]], 1, quantile, probs = 0.95)
+
+cnn.bed_q <- apply(bed_samples_ls[[s]], 1, quantile, probs = c(0.025, 0.975))
+cnn.fric_q <- apply(fric_samples_ls[[s]], 1, quantile, probs = c(0.025, 0.975))
+cnn.bed_lq <- cnn.bed_q[1, ]
+cnn.bed_uq <- cnn.bed_q[2, ]
+cnn.fric_lq <- cnn.fric_q[1, ]
+cnn.fric_uq <- cnn.fric_q[2, ]
 
 
 ## Read EnKF-StateAug results
@@ -160,10 +172,10 @@ print(rmse_df)
 ##    Plotting results     ## 
 #############################
 
-if (use_basis_funs) {
-    plot_dir <- paste0("./plots/combined/Ne", Ne, "/basis/sample", s)
+if (use_missing_pattern) {
+    plot_dir <- paste0("./plots/combined/Ne", Ne, "/basis/sample", s, "/missing")
 } else {
-    plot_dir <- paste0("./plots/combined_Ne", Ne, "/no_basis/sample", s)
+    plot_dir <- paste0("./plots/combined_Ne", Ne, "/basis/sample", s)
 }
 
 if (!dir.exists(plot_dir)) {

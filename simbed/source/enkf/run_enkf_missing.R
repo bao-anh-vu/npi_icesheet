@@ -1,4 +1,4 @@
-run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed, 
+run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed, 
                      ini_friction_coef, ini_velocity, observations, 
                      missing_pattern = NULL, run_analysis = TRUE, use_cov_taper = TRUE,
                      inflate_cov = TRUE, 
@@ -19,21 +19,24 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       
     ## Construct the "missing observation matrix" C_t here
 
-      mp_surface_elev_ls <- lapply(1:(years+1), function(y) {
-        mp_year <- mp_surface_elev[, y]
-        nonmiss <- sum(mp_year)
-        C_t <- sparseMatrix(i = 1:nonmiss, j = which(mp_year == 1), x = 1,
-                            dims = c(nonmiss, J))
-        return(C_t)
-      })
+      mp_surface_elev_ls <- construct_missing_matrix(missing_pattern = mp_surface_elev)
+      mp_vel_ls <- construct_missing_matrix(missing_pattern = mp_velocity)
+      
+      # mp_surface_elev_ls <- lapply(1:(years+1), function(y) {
+      #   mp_year <- mp_surface_elev[, y]
+      #   nonmiss <- sum(mp_year)
+      #   C_t <- sparseMatrix(i = 1:nonmiss, j = which(mp_year == 1), x = 1,
+      #                       dims = c(nonmiss, J))
+      #   return(C_t)
+      # })
 
-      mp_vel_ls <- lapply(1:(years+1), function(y) {
-        mp_year <- mp_velocity[, y]
-        nonmiss <- sum(mp_year)
-        C_t <- sparseMatrix(i = 1:nonmiss, j = which(mp_year == 1), x = 1,
-                            dims = c(nonmiss, J))
-        return(C_t)
-      })
+      # mp_vel_ls <- lapply(1:(years+1), function(y) {
+      #   mp_year <- mp_velocity[, y]
+      #   nonmiss <- sum(mp_year)
+      #   C_t <- sparseMatrix(i = 1:nonmiss, j = which(mp_year == 1), x = 1,
+      #                       dims = c(nonmiss, J))
+      #   return(C_t)
+      # })
 
       C_t_ls <- lapply(1:(years+1), function(y) {
         bdiag(mp_surface_elev_ls[[y]], mp_vel_ls[[y]])
@@ -65,8 +68,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
   prev_velocity <- ini_velocity
   
   ## Covariance tapering ##
-  taper_mat <- wendland(0.01 * domain[length(domain)], rdist(domain, domain))
-  # taper_mat <- wendland(0.1 * domain[length(domain)], rdist(domain, domain))
+  # taper_mat <- wendland(0.01 * domain[length(domain)], rdist(domain, domain))
+  taper_mat <- wendland(0.1 * domain[length(domain)], rdist(domain, domain))
   
   # ens_taper1 <- kronecker(matrix(rep(1, 2), 1, 2), taper_mat)
   # ens_taper2 <- kronecker(matrix(rep(1, 4), 2, 2), taper_mat)
@@ -135,8 +138,6 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i]) 
     }
 
-    
-
     # ens <- forecast_ens
     if (run_analysis) {
       ##### III. Analysis #####
@@ -160,12 +161,6 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       HPH <- 1 / (Ne - 1) * tcrossprod(HX - rowMeans(HX))
       PH <- 1 / (Ne - 1) * tcrossprod(ens - rowMeans(ens), HX - rowMeans(HX))
       
-      ## Construct measurement error covariance matrix R (depends on the velocity)
-      # vel_std <- pmin(0.25 * rowMeans(HX)[(J+1):(2*J)], 20)
-      # vel_std[vel_std == 0] <- 1e-05
-      # R <- diag(c(rep(10^2, J), vel_std^2)) # measurement noise for top surface and velocity
-      # R <- diag(c(rep(10^2, J), rep(20^2, J))) ## NEED TO FIX THE MEASUREMENT NOISE FOR VELOCITY
-      
       ## Extract yearly observations
       surf_elev_obs <- na.omit(observations$surface_elev[, year])
       vel_obs <- na.omit(observations$velocity[, year])
@@ -176,7 +171,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ## Generate "observation ensemble" Y = (y, y, ..., y)
       Y <- matrix(rep(y, Ne), length(y), Ne) 
       
-      # plot(prev_velocity) vs plot(rowMeans(HX)) here
+      ## Construct measurement error covariance matrix R (depends on the velocity)
       surf_elev_noise_sd  <- rep(10, J)
       vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
       vel_noise_sd[vel_noise_sd <= 0] <- 0.1 #1e-05
@@ -215,11 +210,10 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
         
       } else {
         
-        # K <- PH %*% solve(HPH + R) # compute the original Kalman gain matrix for comparison
         L <- t(chol(HPH + R))
-        K <- PH %*% solve(t(L)) %*% solve(L)
-        # Sigma <- as(HPH + R, "dsCMatrix")
-        
+        Linv <- solve(L)
+        K <- PH %*% t(Linv) %*% Linv
+
       }
       
       ## Update ensemble
