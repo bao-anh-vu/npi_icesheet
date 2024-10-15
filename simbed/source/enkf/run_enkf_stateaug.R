@@ -7,8 +7,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                      ini_friction_coef, ini_velocity, observations,   
                      run_analysis = TRUE, use_cov_taper = TRUE, 
                      add_process_noise = TRUE, process_noise_info,
-                     use_const_measure_error = FALSE,
-                     transformation = "log") {
+                     transformation = "log",
+                     use_const_measure_error = FALSE) {
   
   print("Running filter...")
   
@@ -37,6 +37,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
   
   mc.t1 <- proc.time()
   
+  
   for (year in 2:(years+1)) {
     ##### II. Propagation #####
     cat("Forecast step", year - 1, "\n")
@@ -50,22 +51,19 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
     # Apply the propagate function to every ensemble member
-    ens.list <- mclapply(ens.list, propagate, mc.cores = 50L, 
+    ens.list <- mclapply(ens.list, propagate, mc.cores = 10L, 
                          domain = domain, steps_per_yr = steps_per_yr,
                          transformation = transformation)
     
     # Convert ensemble from list back to matrix
     ens_all <- matrix(unlist(ens.list), nrow = 4*J, ncol = Ne)
     
-    ## Extract forecast ens and velocity ens
-    # ens <- ens_all[1:(3*J), ]
-    # prev_velocity <- ens_all[(3*J+1):(4*J), ]
-    
     # Save the mean velocity
     # mean_prev_velocity <- rowMeans(prev_velocity)
     
     if (add_process_noise) { ## Add process noise
       # print("Adding process noise...")
+      set.seed(1)
       h_sd <- pmin(0.02 * rowMeans(ens_all[1:J, ]), 20)
 
       h_noise <- lapply(1:Ne, function(n) as.vector(h_sd * (process_noise_info$corrmat_chol %*% rnorm(length(domain), 0, 1))))
@@ -78,6 +76,10 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       # ens_all <- rbind(ens, prev_velocity)
       ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i]) 
     }
+    
+    ## Extract forecast ens and velocity ens
+    ens <- ens_all[1:(3*J), ]
+    prev_velocity <- ens_all[(3*J+1):(4*J), ]
     
     # ens <- forecast_ens
     
@@ -93,7 +95,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       
       ## Apply observation operator to every ensemble member
       HX <- mclapply(ens.list, obs_operator, transformation = transformation,
-                     domain = domain, mc.cores = 50L)
+                     domain = domain, mc.cores = 10L)
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
       
@@ -114,15 +116,14 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ## Construct measurement error covariance matrix R (depends on the velocity)
     # plot(prev_velocity) vs plot(rowMeans(HX)) here
       surf_elev_noise_sd  <- rep(10, J)
-      
+
       if (use_const_measure_error) {
         vel_noise_sd <- rep(20, J)
       } else {
         vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
-        vel_noise_sd[vel_noise_sd <= 0] <- 0.5 #1e-05
+        vel_noise_sd[vel_noise_sd <= 0] <- 0.1 #1e-05
       }
-      
-      vel_noise_sd <- rep(20, J)
+      # vel_noise_sd <- rep(20, J)
       R <- diag(c(surf_elev_noise_sd^2, vel_noise_sd^2))
 
 
@@ -199,13 +200,17 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                                 return(u)
                                 
                               }, 
-                              mc.cores = 50L)
+                              mc.cores = 10L)
     
     
     # Convert velocity list to matrix
     prev_velocity <- matrix(unlist(velocity.list), nrow = J, ncol = Ne)
     mean_prev_velocity <- rowMeans(prev_velocity)
     
+png(paste0("./plots/temp/velocity_ens_", year, ".png"))
+matplot(prev_velocity[1:J, ], type = "l")
+dev.off()
+
     ## Save velocities
     enkf_velocities[[year]] <- prev_velocity
     enkf_velocity_means[, year] <- mean_prev_velocity
