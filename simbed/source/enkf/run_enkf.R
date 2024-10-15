@@ -72,6 +72,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     
     if (add_process_noise) { ## Add process noise
       # print("Adding process noise...")
+      set.seed(1)
       h_sd <- pmin(0.02 * rowMeans(ens), 20)
       # h_sd <- pmin(0.01 * rowMeans(ens), 10)
       
