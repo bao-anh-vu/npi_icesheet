@@ -13,7 +13,8 @@ source("./source/surface_elev.R")
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
 
-use_missing_pattern <- T
+use_missing_pattern <- F
+use_cov_taper <- F
 use_basis_funs <- T
 plot_ice_thickness <- T
 plot_velocity <- T
@@ -34,7 +35,7 @@ bed_obs_df <- data.frame(location = domain[bed_obs$locations] / 1000, bed_elev =
 ## Read bed and friction from NN output
 sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
-s <- 1 #500 # test sample index
+s <- 4 #500 # test sample index
 
 years <- 20
 Ne <- 1000 # Ensemble size
@@ -43,9 +44,10 @@ Ne <- 1000 # Ensemble size
 if (use_missing_pattern) {
     data_dir <- paste0("./training_data/", setsf, "/missing")
 } else {
-    data_dir <- paste0("./training_data/", setsf)
+    data_dir <- paste0("./training_data/", setsf, "/nonmissing")
 }
-test_data <- readRDS(file = paste0(data_dir, "/test_data_", output_date, ".rds"))
+
+test_data <- qread(file = paste0(data_dir, "/test_data_", output_date, ".qs"))
 
 true_surface_elevs <- test_data$true_surface_elevs_test
 true_thicknesses <- test_data$true_thickness_test
@@ -59,20 +61,30 @@ true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
 ## Read CNN predictions
 if (use_missing_pattern) {
     cnn.output_dir <- paste0("./output/posterior/", setsf, "/missing")
+    cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/missing/sample", s)
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/missing/sample", s)    
 } else {
-    cnn.output_dir <- paste0("./output/posterior/", setsf)
-}
-cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/sample", s)
-
-if (use_missing_pattern) {
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis/sample", s, "/missing")    
-} else {
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis/sample", s)    
+    cnn.output_dir <- paste0("./output/posterior/", setsf, "/nonmissing")
+    cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/nonmissing/sample", s)
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/nonmissing/sample", s)    
 }
 
-pred_fric <- readRDS(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".rds"))
-pred_bed <- readRDS(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".rds"))
-pred_gl <- readRDS(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".rds"))
+if (use_cov_taper) {
+    cnn_enkf.output_dir <- paste0(cnn_enkf.output_dir, "/taper")
+    enkfsa.output_dir <- paste0(enkfsa.output_dir, "/taper")
+} else {
+    cnn_enkf.output_dir <- paste0(cnn_enkf.output_dir, "/no_taper")
+    enkfsa.output_dir <- paste0(enkfsa.output_dir, "/no_taper")
+}
+
+pred_fric <- qread(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".qs"))
+pred_bed <- qread(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".qs"))
+pred_gl <- qread(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".qs"))
+
+# pred_fric <- readRDS(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".rds"))
+# pred_bed <- readRDS(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".rds"))
+# pred_gl <- readRDS(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".rds"))
+
 
 print("Reading posterior samples from CNN...")
 # fric_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".rds"))
@@ -88,10 +100,14 @@ gl_samples_ls <- qread(file = paste0(cnn.output_dir, "/gl_post_samples_", output
 # secpera <- 31556926
 # fric_scale <- 1e6 * secpera^(1 / 3)
 
-
 ## Read EnKF-CNN results
 cnn.thickness <- readRDS(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", s, "_", output_date, ".rds", sep = ""))
 cnn.velocity <- readRDS(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", s, "_", output_date, ".rds", sep = ""))
+
+cnn.thickness <- lapply(cnn.thickness, as.matrix)
+cnn.velocity <- lapply(cnn.velocity, as.matrix)
+
+# test <- lapply(cnn.thickness, base::rowMeans)
 
 cnn.bed <- pred_bed[, s]
 cnn.fric <- pred_fric[, s]
@@ -112,9 +128,15 @@ enkfsa.bed <- readRDS(file = paste0(enkfsa.output_dir, "/enkf_bed_sample", s, "_
 enkfsa.friction <- readRDS(file = paste0(enkfsa.output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date,  ".rds", sep = ""))
 enkfsa.velocity <- readRDS(file = paste0(enkfsa.output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date,  ".rds", sep = ""))
 
+enkfsa.thickness <- lapply(enkfsa.thickness, as.matrix)
+enkfsa.bed <- lapply(enkfsa.bed, as.matrix)
+enkfsa.friction <- lapply(enkfsa.friction, as.matrix)
+enkfsa.velocity <- lapply(enkfsa.velocity, as.matrix)
+
 ##############################
 ##    RMSE (time series)    ##
 ##############################
+
 
 print("Calculating RMSE...")
 rmse <- function(estimated, true) {
@@ -125,32 +147,32 @@ rmse <- function(estimated, true) {
 ## Thickness RMSE
 cnn.thickness_rmse <- c()
 enkfsa.thickness_rmse <- c()
-for (t in 1:years) {
-    cnn.thickness_rmse[t] <- rmse(rowMeans(cnn.thickness[[t + 1]]), true_thicknesses[s, , t + 1])
-    enkfsa.thickness_rmse[t] <- rmse(rowMeans(enkfsa.thickness[[t + 1]]), true_thicknesses[s, , t + 1])
+for (t in 1:(years+1)) {
+    enkfsa.thickness_rmse[t] <- rmse(rowMeans(enkfsa.thickness[[t]]), true_thicknesses[s, , t])
+    cnn.thickness_rmse[t] <- rmse(rowMeans(cnn.thickness[[t]]), true_thicknesses[s, , t])
 }
-plot(1:years, enkfsa.thickness_rmse,
+plot(1:(years+1), enkfsa.thickness_rmse,
     type = "o", col = "blue",
     ylim = c(20000, 47000),
     xlab = "Time (years)", ylab = "RMSE",
     main = paste0("RMSE of ice thickness over time for sample ", s)
 )
-lines(1:years, cnn.thickness_rmse, type = "o", col = "red")
+lines(1:(years+1), cnn.thickness_rmse, type = "o", col = "red")
 
 ## Velocity RMSE
 cnn.vel_rmse <- c()
 enkfsa.vel_rmse <- c()
-for (t in 1:years) {
-    cnn.vel_rmse[t] <- rmse(rowMeans(cnn.velocity[[t + 1]]), true_velocities[s, , t + 1])
-    enkfsa.vel_rmse[t] <- rmse(rowMeans(enkfsa.velocity[[t + 1]]), true_velocities[s, , t + 1])
+for (t in 1:(years+1)) {
+    cnn.vel_rmse[t] <- rmse(rowMeans(cnn.velocity[[t]]), true_velocities[s, , t])
+    enkfsa.vel_rmse[t] <- rmse(rowMeans(enkfsa.velocity[[t]]), true_velocities[s, , t])
 }
-plot(1:years, enkfsa.vel_rmse,
+plot(1:(years+1), enkfsa.vel_rmse,
     type = "o", col = "blue",
     # ylim = c(30000, 100000),
     xlab = "Time (years)", ylab = "RMSE",
     main = paste0("RMSE of ice velocity over time for sample ", s)
 ) ## The scale is a bit ridiculous here
-lines(1:years, cnn.vel_rmse, type = "o", col = "red")
+lines(1:(years+1), cnn.vel_rmse, type = "o", col = "red")
 
 ## Bed RMSE
 cnn.bed_rmse <- rmse(cnn.bed, true_bed[s, ])
@@ -173,16 +195,22 @@ print(rmse_df)
 #############################
 
 if (use_missing_pattern) {
-    plot_dir <- paste0("./plots/combined/Ne", Ne, "/basis/sample", s, "/missing")
+    plot_dir <- paste0("./plots/combined/Ne", Ne, "/missing/sample", s)
 } else {
-    plot_dir <- paste0("./plots/combined_Ne", Ne, "/basis/sample", s)
+    plot_dir <- paste0("./plots/combined/Ne", Ne, "/nonmissing/sample", s)
+}
+
+if (use_cov_taper) {
+    plot_dir <- paste0(plot_dir, "/taper")
+} else {
+    plot_dir <- paste0(plot_dir, "/no_taper")
 }
 
 if (!dir.exists(plot_dir)) {
     dir.create(paste0(plot_dir))
-} else { # delete all previously saved plots
-    unlink(paste0(plot_dir, "/*"))
-}
+} #else { # delete all previously saved plots
+#     unlink(paste0(plot_dir, "/*"))
+# }
 
 plot_times <- seq(1, years + 1, 2)
 
@@ -398,7 +426,7 @@ if (plot_friction) {
     enkfsa.lower <- rowMeans(enkfsa.ens_t[1:J, ]) + qnorm(0.025) * sqrt(diag(enkfsa.covmat)[1:J])
     enkfsa.upper <- rowMeans(enkfsa.ens_t[1:J, ]) + qnorm(0.975) * sqrt(diag(enkfsa.covmat)[1:J])
 
-    enkfsa.log_fric_samples <- rmvnorm(1000, rowMeans(enkfsa.ens_t), enkfsa.covmat)
+    enkfsa.log_fric_samples <- rmvnorm(1000, rowMeans(enkfsa.ens_t), as.matrix(enkfsa.covmat))
     enkfsa.fric_samples <- exp(enkfsa.log_fric_samples)
     enkfsa.fric_mean <- colMeans(enkfsa.fric_samples)
     lower <- apply(enkfsa.fric_samples, 2, quantile, probs = 0.05)
@@ -450,3 +478,5 @@ if (plot_friction) {
     # grid.arrange(grobs = vel_plots, ncol = 2)
     dev.off()
 }
+
+

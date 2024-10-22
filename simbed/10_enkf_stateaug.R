@@ -58,7 +58,7 @@ source("./source/enkf/initialise_ice_thickness.R")
 run_EnKF <- T
 save_enkf_output <- T
 # save_bg_output <- F
-use_missing_pattern <- F
+use_missing_pattern <- T
 
 ## EnKF flags
 add_process_noise <- T
@@ -78,9 +78,11 @@ log_transform <- T
 ## Presets
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
-Ne <- 100#0 # Ensemble size
-years <- 1#0 # 40
+Ne <- 1000 # Ensemble size
+years <- 20 # 40
 steps_per_yr <- 52 # 100
+test_samples <- 9#:10 #1:5 # sample(1:n_test_samples, 1) # sample index
+
 # n_params <- 1 # 20 #number of beds
 # n_bed_obs <- 100
 # smoothing_factor <- 0.5 # for the PF
@@ -149,7 +151,6 @@ bed_obs <- readRDS(file = paste0("./training_data/bed_obs_", output_date, ".rds"
 
 ## Sample from test set and do state inference
 n_test_samples <- dim(test_data$input)[1]
-test_samples <- 2 #1:5 # sample(1:n_test_samples, 1) # sample index
 
 # NEED TO GENERATE ENSEMBLES OF BED AND FRICTION HERE
 sim_param_list <- sim_params(
@@ -375,7 +376,7 @@ for (i in 1:length(test_samples)) {
         ini_ens <- ini_ens_list[[i]]
         enkf1 <- proc.time()
 
-        enkf_out <- run_enkf_missing_noH(
+        enkf_out <- run_enkf_missing(
             domain = domain, years = years,
             steps_per_yr = steps_per_yr,
             ini_thickness = ini_ens[1:J, ],
@@ -383,7 +384,7 @@ for (i in 1:length(test_samples)) {
             ini_friction_coef = ini_ens[2 * J + 1:J, ],
             ini_velocity = ini_velocity,
             observations = surface_obs_list,
-            # missing_pattern = missing_pattern,
+            missing_pattern = missing_pattern,
             run_analysis = T,
             add_process_noise = add_process_noise,
             use_cov_taper = use_cov_taper,
@@ -392,7 +393,7 @@ for (i in 1:length(test_samples)) {
             use_const_measure_error = F
         )
 
-        # enkf_out2 <- run_enkf_missing(
+        # enkf_out <- run_enkf(
         #     domain = domain, years = years,
         #     steps_per_yr = steps_per_yr,
         #     ini_thickness = ini_ens[1:J, ],
@@ -400,53 +401,27 @@ for (i in 1:length(test_samples)) {
         #     ini_friction_coef = ini_ens[2 * J + 1:J, ],
         #     ini_velocity = ini_velocity,
         #     observations = surface_obs_list,
-        #     missing_pattern = missing_pattern,
+        #     # missing_pattern = missing_pattern,
         #     run_analysis = T,
         #     add_process_noise = add_process_noise,
         #     use_cov_taper = use_cov_taper,
-        #     inflate_cov = inflate_cov,
         #     process_noise_info = process_noise_info,
         #     use_const_measure_error = F
         # )
-
-        enkf_out3 <- run_enkf(
-            domain = domain, years = years,
-            steps_per_yr = steps_per_yr,
-            ini_thickness = ini_ens[1:J, ],
-            ini_bed = ini_ens[J + 1:J, ],
-            ini_friction_coef = ini_ens[2 * J + 1:J, ],
-            ini_velocity = ini_velocity,
-            observations = surface_obs_list,
-            # missing_pattern = missing_pattern,
-            run_analysis = T,
-            add_process_noise = add_process_noise,
-            use_cov_taper = use_cov_taper,
-            process_noise_info = process_noise_info,
-            use_const_measure_error = F
-        )
 
         enkf_thickness <- lapply(enkf_out$ens, function(x) x[1:J, ])
         enkf_bed <- lapply(enkf_out$ens, function(x) x[J + 1:J, ])
         enkf_friction <- lapply(enkf_out$ens, function(x) x[2 * J + 1:J, ])
         enkf_velocities <- enkf_out$velocities
 
-        # enkf_thickness2 <- lapply(enkf_out2$ens, function(x) x[1:J, ])
-        # enkf_bed2 <- lapply(enkf_out2$ens, function(x) x[J + 1:J, ])
-        # enkf_friction2 <- lapply(enkf_out2$ens, function(x) x[2 * J + 1:J, ])
-        # enkf_velocities2 <- enkf_out2$velocities
+        # enkf_thickness3 <- lapply(enkf_out3$ens, function(x) x[1:J, ])
+        # enkf_bed3 <- lapply(enkf_out3$ens, function(x) x[J + 1:J, ])
+        # enkf_friction3 <- lapply(enkf_out3$ens, function(x) x[2 * J + 1:J, ])
+        # enkf_velocities3 <- enkf_out3$velocities
 
-        enkf_thickness3 <- lapply(enkf_out3$ens, function(x) x[1:J, ])
-        enkf_bed3 <- lapply(enkf_out3$ens, function(x) x[J + 1:J, ])
-        enkf_friction3 <- lapply(enkf_out3$ens, function(x) x[2 * J + 1:J, ])
-        enkf_velocities3 <- enkf_out3$velocities
-
-        head(rowMeans(enkf_thickness[[2]]) - rowMeans(enkf_thickness3[[2]]))
-        # head(rowMeans(enkf_thickness2[[2]]) - rowMeans(enkf_thickness3[[2]]))
-        
-        # png("./plots/temp/compare_enkf.png")
-        # plot(rowMeans(enkf_thickness[[5]]), type = "l")
-        # lines(rowMeans(enkf_thickness2[[5]]), col = "red")
-        # dev.off()
+        # yr <- 5
+        # plot(rowMeans(enkf_thickness[[yr]]) - rowMeans(enkf_thickness3[[yr]]))
+    #     points(rowMeans(enkf_thickness[[2]]) - rowMeans(enkf_thickness3[[2]]), col = "red")
 
         enkf2 <- proc.time()
 
@@ -627,6 +602,7 @@ for (i in 1:length(test_samples)) {
         # dev.off()
     }
 
+    plot_times <- seq(1, years + 1, 5)
     ## Bed plot
     if (plot_bed) {
 
@@ -675,7 +651,7 @@ for (i in 1:length(test_samples)) {
         for (t in plot_times) {
             # t <- plot_times[ind]
             ens_t <- enkf_friction[[t]]
-            state_var <- 1 / (Ne - 1) * tcrossprod(ens_t - rowMeans(ens_t)) # diag(enkf_covmats[[t]])
+            state_var <- as.matrix(1 / (Ne - 1) * tcrossprod(ens_t - rowMeans(ens_t))) # diag(enkf_covmats[[t]])
             
             ## Need to sample from Gaussian posterior of the log(friction) here,
             ## then exponentiate to get the friction values

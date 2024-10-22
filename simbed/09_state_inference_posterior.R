@@ -59,27 +59,27 @@ save_enkf_output <- T
 ## EnKF flags
 add_process_noise <- T
 # avg_prev_velocity <- TRUE # use the ensemble mean previous velocity to compute the current velocity
-use_true_velocity <- T # use reference velocity as the initial previous velocity
+use_true_velocity <- F # use reference velocity as the initial previous velocity
 # use_velocity_dependent_R <- FALSE
 # run_analysis <- T
 regenerate_ini_ens <- T # generate a fresh initial ensemble
 use_basis_functions <- F
-use_true_thickness <- T
-use_true_bed <- T
-use_true_friction <- T
+use_true_thickness <- F
+use_true_bed <- F
+use_true_friction <- F
 use_cov_taper <- F # use covariance taper
 inflate_cov <- F
 
 ## Presets
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
-Ne <- 100 # Ensemble size
-years <- 2#0 # 40
+Ne <- 500 # Ensemble size
+years <- 20 # 40
 steps_per_yr <- 52 # 100
-n_params <- 1 #20 #10 # 20 #number of beds
+n_params <- 1#0 #20 #10 # 20 #number of beds
 # n_bed_obs <- 100
 # smoothing_factor <- 0.5 # for the PF
-test_samples <- 6 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
+test_samples <- 11#0 #00 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
 
 
 ## Plot settings
@@ -312,11 +312,11 @@ for (s in test_samples) {
                 if (save_enkf_output) {
                     saveRDS(ini_ens_list, file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".rds", sep = ""))
                 }
-            } else {
-                ini_ens_list <- readRDS(file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".rds", sep = ""))
-                # ini_ens <- ini_ens[, 1:Ne]
-            }
+            } 
         }
+    } else {
+        ini_ens_list <- readRDS(file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".rds", sep = ""))
+        # ini_ens <- ini_ens[, 1:Ne]
     }
 
     ## Try plotting one of the ensembles
@@ -383,7 +383,7 @@ for (s in test_samples) {
             test <- try({
                 enkf1 <- proc.time()
 
-                enkf_out <- run_enkf_missing_noH(
+                enkf_out <- run_enkf_missing(
                 domain = domain, years = years,
                 steps_per_yr = steps_per_yr,
                 ini_thickness = ini_ens[1:J, ],
@@ -400,21 +400,39 @@ for (s in test_samples) {
                 use_const_measure_error = F
                 )
 
-                enkf_out2 <- run_enkf(
-                domain = domain, years = years,
-                steps_per_yr = steps_per_yr,
-                ini_thickness = ini_ens[1:J, ],
-                ini_bed = ini_ens[J + 1:J, ],
-                ini_friction_coef = ini_ens[2 * J + 1:J, ],
-                ini_velocity = ini_velocity,
-                observations = surface_obs_list,
-                # missing_pattern = missing_pattern,
-                run_analysis = T,
-                add_process_noise = add_process_noise,
-                use_cov_taper = use_cov_taper,
-                # inflate_cov = inflate_cov,
-                process_noise_info = process_noise_info
-                )
+                # enkf_out <- run_enkf_missing_noH(
+                # domain = domain, years = years,
+                # steps_per_yr = steps_per_yr,
+                # ini_thickness = ini_ens[1:J, ],
+                # ini_bed = ini_ens[J + 1:J, ],
+                # ini_friction_coef = ini_ens[2 * J + 1:J, ],
+                # ini_velocity = ini_velocity,
+                # observations = surface_obs_list,
+                # # missing_pattern = missing_pattern,
+                # run_analysis = T,
+                # add_process_noise = add_process_noise,
+                # use_cov_taper = use_cov_taper,
+                # # inflate_cov = inflate_cov,
+                # process_noise_info = process_noise_info,
+                # use_const_measure_error = F
+                # )
+
+                # enkf_out <- run_enkf(
+                # domain = domain, years = years,
+                # steps_per_yr = steps_per_yr,
+                # ini_thickness = ini_ens[1:J, ],
+                # ini_bed = ini_ens[J + 1:J, ],
+                # ini_friction_coef = ini_ens[2 * J + 1:J, ],
+                # ini_velocity = ini_velocity,
+                # observations = surface_obs_list,
+                # # missing_pattern = missing_pattern,
+                # run_analysis = T,
+                # add_process_noise = add_process_noise,
+                # use_cov_taper = use_cov_taper,
+                # # inflate_cov = inflate_cov,
+                # process_noise_info = process_noise_info,
+                # use_const_measure_error = F
+                # )
             
             error_inds[p] <- 0 # if run successfully turn off error flag
 
@@ -423,12 +441,27 @@ for (s in test_samples) {
             enkf_friction <- enkf_out$friction_coef
             enkf_velocities <- enkf_out$velocities
 
-            enkf_thickness2 <- enkf_out2$ens
-            enkf_bed2 <- enkf_out2$bed
-            enkf_friction2 <- enkf_out2$friction_coef
-            enkf_velocities2 <- enkf_out2$velocities
+            # enkf_thickness2 <- enkf_out2$ens
+            # enkf_bed2 <- enkf_out2$bed
+            # enkf_friction2 <- enkf_out2$friction_coef
+            # enkf_velocities2 <- enkf_out2$velocities
 
-            # head(rowMeans(enkf_thickness2[[2]]) - rowMeans(enkf_thickness[[2]]))
+            # enkf_thickness3 <- enkf_out3$ens
+            # enkf_bed3 <- enkf_out3$bed
+            # enkf_friction3 <- enkf_out3$friction_coef
+            # enkf_velocities3 <- enkf_out3$velocities
+
+            # K1 <- enkf_out$K
+            # K2 <- enkf_out2$K
+
+            # HX1 <- enkf_out$HX
+            # HX2 <- enkf_out2$HX
+
+            # yr <- 20
+#             # HX1[[yr]][1:5, 1:5] - HX2[[yr]][1:5, 1:5]
+#             # K1[[yr]][1:5, 1:5] - K2[[yr]][1:5, 1:5]
+            # head(rowMeans(enkf_thickness[[yr]]) - rowMeans(enkf_thickness2[[yr]]))
+#             plot(rowMeans(enkf_thickness2[[yr]]) - rowMeans(enkf_thickness[[yr]]))
 
             enkf_thickness_ls[[p]] <- enkf_thickness
             enkf_bed_ls[[p]] <- enkf_bed
@@ -502,17 +535,17 @@ for (s in test_samples) {
         friction_concat <- do.call(cbind, enkf_friction_ls)
     
         if (save_enkf_output) {
-            saveRDS(thickness_concat, file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_", output_date, ".rds", sep = ""))
-            saveRDS(bed_concat, file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_", output_date, ".rds", sep = ""))
-            saveRDS(friction_concat, file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_", output_date, ".rds", sep = ""))
-            saveRDS(velocity_concat, file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_", output_date, ".rds", sep = ""))
-            saveRDS(error_inds, file = paste0(enkf_output_dir, "/error_inds_sample", s, "_", output_date, ".rds", sep = ""))
+            saveRDS(thickness_concat, file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+            saveRDS(bed_concat, file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+            saveRDS(friction_concat, file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+            saveRDS(velocity_concat, file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+            saveRDS(error_inds, file = paste0(enkf_output_dir, "/error_inds_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
         }
     } else {
-        thickness_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_", output_date, ".rds", sep = ""))
-        bed_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_", output_date, ".rds", sep = ""))
-        friction_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_", output_date, ".rds", sep = ""))
-        velocity_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_", output_date, ".rds", sep = ""))
+        thickness_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+        bed_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+        friction_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+        velocity_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
     }
 
     ################################################################################
@@ -536,9 +569,9 @@ for (s in test_samples) {
     } 
 
     if (use_cov_taper) {
-        plot_dir <- paste0(plot_dir, "/taper")
+        plot_dir <- paste0(plot_dir, "/taper", "_Ne", Ne)
     } else {
-        plot_dir <- paste0(plot_dir, "/no_taper")
+        plot_dir <- paste0(plot_dir, "/no_taper", "_Ne", Ne)
     }
 
     if (!dir.exists(plot_dir)) {
@@ -674,6 +707,8 @@ for (s in test_samples) {
         }
     }
 
+
+    plot_times <- seq(1, years + 1, 5)
     ## Bed plot
     if (plot_bed) {
         png(paste0(plot_dir, "/bed.png"), width = 2000, height = 1000, res = 300)
