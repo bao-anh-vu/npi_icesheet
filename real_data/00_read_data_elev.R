@@ -98,7 +98,8 @@ height_change_arr[height_change_arr==fillvalue$value] <- NA
 
 time_2000 <- time_cf %>% filter(year >= 2000)
 data_from_2000 <- height_change_arr[,, time_2000$row]
-year_ind <- split(time_2000$row, cut(seq_along(time_2000$row), 21, labels = FALSE))
+nyears <- 2020-2000+1
+year_ind <- split(time_2000$row, cut(seq_along(time_2000$row), nyears, labels = FALSE))
 
 yearly_height_change <- lapply(year_ind, function(x) {
     height_change_arr[,, x]
@@ -107,7 +108,7 @@ yearly_height_change <- lapply(year_ind, function(x) {
 # dim(yearly_height[[1]])
 # test <- apply(yearly_height[[1]], 1:2, mean, na.rm = TRUE)
 
-height_change_list <- mclapply(yearly_height, function(x) {
+height_change_list <- mclapply(yearly_height_change, function(x) {
     apply(x, 1:2, mean, na.rm = TRUE)
 }, mc.cores = 12L)
 
@@ -116,7 +117,7 @@ height_change_list <- mclapply(yearly_height, function(x) {
 for (year in 1:length(year_ind)) {
     height_grid[, ncol(height_grid) + 1] <- as.vector(height_change_list[[year]])
 }
-colnames(height_grid)[3:ncol(height_grid)] <- paste0("change", 2002:2020)
+colnames(height_grid)[4:ncol(height_grid)] <- paste0("change", 2000:2020)
 
 test <- na.omit(height_grid)
 

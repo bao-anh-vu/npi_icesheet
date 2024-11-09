@@ -6,6 +6,7 @@ library(ggplot2)
 
 extract_flowline <- F
 regrid_flowline <- F
+
 ## Read (averaged) velocity data
 setwd("~/SSA_model/CNN/real_data/")
 data_dir <- "./data"
@@ -16,54 +17,37 @@ thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
   
 ## Velocity data on Thwaites glacier
   thwaites_vel <- readRDS(paste0(data_dir, "/vel_thwaites.rds"))
-  thwaites_vel <- thwaites_vel %>% filter(!is.na(v)) # remove negative velocities
-  # head(thwaites_vel)
-
-  # max_x_pts <- thwaites_vel %>% filter(x == max(x))
-  # min_x_pts <- thwaites_vel %>%
-  #   filter(x == min(x)) %>%
-  #   select(x) %>%
-  #   unique()
-  # min_y_pts <- thwaites_vel %>%
-  #   filter(y == min(y)) %>%
-  #   select(y) %>%
-  #   unique()
-
-  # thwaites_wgs <- st_transform(thwaites_bound, crs = 4326)
-
-  # rast <- raster(extent(thwaites_points[, c(X, Y)])) #, ncol = 5, nrow = 5)
-  # xmin <- min(thwaites_points$X) #min(thwaites_points$X)
+  thwaites_vel <- thwaites_vel %>% filter(!is.na(v)) # remove NA velocities
   
-  half_range_x <- min(thwaites_points$X) + 400e3 # (max(x) - min(x))/2
-  half_range_y <- min(thwaites_points$Y) + 500e3 # (max(y) - min(y))/2
+  ## Choose a point in the middle of the glacier
+  half_range_x <- min(thwaites_points$X) + 300e3 #400e3 
+  half_range_y <- min(thwaites_points$Y) + 400e3 #500e3 
 
   x_unique <- unique(thwaites_vel$x) # x-coordinates
   delta <- x_unique[2] - x_unique[1] # grid size
 
   midpts <- thwaites_vel %>%
-    filter(x >= (half_range_x - delta) & x <= half_range_x + delta) %>%
-    # summarise(y_min = min(y), y_max = max(y))#,
-    filter(y >= (half_range_y - delta) & y <= (half_range_y + delta)) # %>%
-  # slice_min(x)
+    filter(x >= (half_range_x - delta) & x <= half_range_x + delta & 
+          y >= (half_range_y - delta) & y <= (half_range_y + delta))
 
   # head(midpts)
   chosen_pt <- midpts[1, ]
 
-  # ## Plot data around the chosen point
-  # margin <- 1e3
-  # near_pts <- thwaites_vel2 %>% filter(x >= (chosen_pt$x - margin) & x <= (chosen_pt$x + margin) &
-  #   y >= (chosen_pt$y - margin) & y <= (chosen_pt$y + margin))
+  ## Plot data around the chosen point
+  margin <- 1e3
+  near_pts <- thwaites_vel %>% filter(x >= (chosen_pt$x - margin) & x <= (chosen_pt$x + margin) &
+    y >= (chosen_pt$y - margin) & y <= (chosen_pt$y + margin))
 
-  # png(paste0("./plots/vel_thwaites_point_near.png"), width = 800, height = 800)
-  # ggplot(near_pts) +
-  #   geom_point(aes(x = x, y = y, colour = v)) +
-  #   scale_colour_distiller(
-  #     palette = "Reds", direction = 1,
-  #     name = "Velocity (m/a)"
-  #   ) +
-  #   geom_point(data = data.frame(chosen_pt), aes(x = x, y = y), color = "black", size = 5) +
-  #   theme_bw()
-  # dev.off()
+  png(paste0("./plots/flowline_start_point.png"), width = 800, height = 800)
+  ggplot(near_pts) +
+    geom_point(aes(x = x, y = y, colour = v)) +
+    scale_colour_distiller(
+      palette = "Reds", direction = 1,
+      name = "Velocity (m/a)"
+    ) +
+    geom_point(data = data.frame(chosen_pt), aes(x = x, y = y), color = "black", size = 5) +
+    theme_bw()
+  dev.off()
 
 
 if (extract_flowline) {
@@ -113,11 +97,9 @@ if (extract_flowline) {
     # velocities <- c(velocities, list(near_v))
   }
 
-  saveRDS(positions, paste0(data_dir, "/flowline_positions.rds"))
-  # saveRDS(velocities, paste0(data_dir, "/flowline_velocities.rds")) # but this is composite velocity; we need monthly velocity
+  # saveRDS(positions, paste0(data_dir, "/flowline_positions.rds"))
 } else {
   positions <- readRDS(paste0(data_dir, "/flowline_positions.rds"))
-  # velocities <- readRDS(paste0(data_dir, "/flowline_velocities.rds"))
 }
 
 # positions
@@ -140,14 +122,10 @@ plot_flowline <- ggplot(thwaites_vel) +
                 aes(x = x, y = y), color = "cyan", linewidth = 2) +
     theme_bw()
 
-# png(paste0("./plots/flowline2.png"), width = 800, height = 800)
-# print(plot_flowline)
-# dev.off()
-
-# print("Saving flowline plot...")
-# png(paste0("./plots/flowline.png"), width = 800, height = 800)
-# print(plot_flowline)
-# # plot(flowline_x, flowline_y, type = "l", col = "blue", xlab = "x", ylab = "y")
+print("Saving flowline plot...")
+png(paste0("./plots/flowline2.png"), width = 800, height = 800)
+print(plot_flowline)
+plot(flowline_x, flowline_y, type = "l", col = "blue", xlab = "x", ylab = "y")
 
 # dev.off()
 
@@ -158,7 +136,7 @@ if (regrid_flowline) {
   dist <- sqrt(sq_x_diff + sq_y_diff)
   flowline_length <- sum(dist)
 
-  J <- 2001
+  J <- 2100 #2001
   grid_size <- flowline_length/J
 
   cumul_dist <- c(0, cumsum(dist))
@@ -194,7 +172,7 @@ if (regrid_flowline) {
   points(x_new, y_new, col = "red", pch = 16)
 
   flowline_regrid <- data.frame(x = x_new, y = y_new)
-  # flowline_regrid <- na.omit(flowline_regrid)
+  flowline_regrid <- na.omit(flowline_regrid)
 
   # saveRDS(flowline_regrid, paste0(data_dir, "/flowline_regrid.rds"))
 } else {

@@ -1,0 +1,310 @@
+## Predict on real data
+
+## Post-process output from CNN
+setwd("~/SSA_model/CNN/real_data/")
+
+rm(list = ls())
+source("./source/create_model.R")
+source("./source/posterior_loss.R")
+source("./source/sample_from_posterior.R")
+
+# library(parallel)
+library(mvtnorm) 
+library(Matrix)
+library(keras)
+reticulate::use_condaenv("myenv", required = TRUE)
+library(tensorflow)
+library(ggplot2)
+library(qs)
+library(abind)
+
+## Flags
+save_pred <- T
+save_plots <- T
+log_transform <- T
+test_on_train <- F
+use_missing_pattern <- T
+
+## Read data
+data_date <- "20241103"
+sets <- 1:20 #6:20
+# setf <- formatC(set, width=2, flag="0")
+setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
+
+if (use_missing_pattern) {
+    data_dir <- paste0("./data/training_data/", setsf, "/missing")
+    output_dir <- paste0("./output/cnn/", setsf, "/missing")
+} else {
+    data_dir <- paste0("./data/training_data/", setsf, "/nonmissing")
+    output_dir <- paste0("./output/cnn/", setsf, "/nonmissing")
+}
+
+# if (test_on_train) {
+#     train_data <- qread(file = paste0(data_dir, "/train_data_", data_date, ".qs"))
+# }
+
+# setf <- formatC(sets[1], width = 2, flag = "0")
+# friction_basis <- qread(file = paste0("./data/training_data/friction_basis_", setf, "_", data_date, ".qs"))
+# dim(friction_basis$basis_mat)      
+
+# png(paste0(output_dir, "/true_fric_1.png"), width = 2000, height = 1200)
+# plot(friction_basis$fitted_values[1, ], type = "l")
+# dev.off()
+
+ssa_steady <- qread(file = paste("./data/training_data/steady_state.qs", sep = ""))
+domain <- ssa_steady$domain
+
+surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
+
+mean_surf_elev <- mean(surf_elev_data, na.rm = T)
+sd_surf_elev <- sd(surf_elev_data, na.rm = T)
+surf_elev_data_std <- (surf_elev_data - mean_surf_elev) / sd_surf_elev
+
+mean_velocity <- mean(velocity_data, na.rm = T)
+sd_velocity <- sd(velocity_data, na.rm = T)
+velocity_data_std <- (velocity_data - mean_velocity) / sd_velocity
+
+real_data <- abind(surf_elev_data_std, velocity_data_std, along = 3)
+real_data <- array(real_data, dim = c(1L, dim(real_data)))
+
+## Have to standardise the input
+test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
+test_input <- test_data$input
+test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
+
+png("./plots/cnn/test.png"), width = 2000, height = 1200)
+matplot(real_data[1,,,1], type = "l")
+matlines(test_data$input[1,,,1], col = "red")
+dev.off()
+
+input_dim <- dim(test_data$input)[2:4]
+n_basis_funs <- dim(test_data$fric_coefs)[2]
+n_gl <- dim(test_data$grounding_line)[2]
+n_mean_elements <- n_basis_funs * 2 + n_gl
+n_chol_elements <- (n_basis_funs * 2 + n_gl) + (n_basis_funs - 1) * 2 + (n_gl - 1) # diagonal + lower-diag elements
+output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE TOTAL NUMBER OF BASIS FUNCTIONS + COVARIANCE PARAMETERS
+
+
+## Load the model
+model <- create_model_posterior(input_dim = input_dim, 
+                                output_dim = output_dim,
+                                n_basis_funs = n_basis_funs,
+                                n_gl = n_gl)
+
+### Display the model's architecture
+summary(model)
+
+### Plot the loss
+history <- qread(file = paste0(output_dir, "/history_", data_date, ".qs"))
+# history %>% plot() #+
+# coord_cartesian(xlim = c(1, epochs))
+
+if (use_missing_pattern) {
+    plot_dir <- paste0("./plots/cnn/", setsf, "/missing")
+} else {
+    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing")
+
+}
+
+# if (save_plots) {
+
+#     if (!dir.exists(plot_dir)) {
+#         dir.create(plot_dir)
+#     }
+
+#     png(paste0(plot_dir, "/loss.png"), width = 1000, height = 500)
+#     plot(history$metrics$loss[2:100], type = "l")
+#     lines(history$metrics$val_loss[2:100], col = "red")
+#     legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
+#     dev.off()
+# }
+
+###################################
+##        Mean prediction        ##   
+###################################
+
+## Reload model from checkpoint
+checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
+checkpoint_dir <- fs::path_dir(checkpoint_path)
+
+checkpt <- which.min(history$metrics$val_loss) 
+if (!is.null(checkpt)) {
+    ## Load the model from checkpt
+    cp_restart <- paste0(output_dir, "/checkpoints/cp-", formatC(checkpt, width = 4, flag = "0"), ".ckpt")
+    # latest <- tf$train$latest_checkpoint(checkpoint_dir)
+    load_model_weights_tf(model, cp_restart)
+} else { # use latest checkpt
+    latest <- tf$train$latest_checkpoint(checkpoint_dir)
+    load_model_weights_tf(model, latest)
+}
+
+## Predict
+if (test_on_train) {
+    train_subset <- train_data$input[1:100,,,]
+    pred_output <- model %>% predict(train_subset)
+} else {
+
+    pred_time <- system.time({
+        # pred_output <- model %>% predict(test_input)
+        pred_output <- model %>% predict(real_data)
+
+    })
+    cat("Prediction time: ", pred_time[3], "\n")
+}
+
+browser()
+
+## Plot the predicted friction coefs generated by these basis functions
+
+fric_basis_mat <- test_data$fric_basis_mat
+bed_basis_mat <- test_data$bed_basis_mat
+n_fric_basis <- ncol(fric_basis_mat)
+n_bed_basis <- ncol(bed_basis_mat)
+
+pred_mean <- pred_output[, 1:n_mean_elements]
+
+## Un-standardise output
+pred_fric_coefs <- pred_mean[1:n_fric_basis] * test_data$sd_fric_coefs + test_data$mean_fric_coefs
+pred_bed_coefs <- pred_mean[(n_fric_basis+1):(n_fric_basis+n_bed_basis)] * test_data$sd_bed_coefs + test_data$mean_bed_coefs
+pred_gl <- pred_mean[(n_fric_basis+n_bed_basis+1):length(pred_mean)] * test_data$sd_gl + test_data$mean_gl
+
+# if (test_on_train) {
+#     train_fric_coefs <- train_data$fric_coefs[1:100, ] * train_data$sd_fric_coefs + train_data$mean_fric_coefs
+# }
+test_fric_coefs <- test_output[, 1:n_fric_basis] * test_data$sd_fric_coefs + test_data$mean_fric_coefs
+test_bed_coefs <- test_output[, (n_fric_basis+1):(n_fric_basis+n_bed_basis)] * test_data$sd_bed_coefs + test_data$mean_bed_coefs
+test_gl <- test_output[, (n_fric_basis+n_bed_basis+1):ncol(test_output)] * test_data$sd_gl + test_data$mean_gl
+
+png(paste0(plot_dir, "/pred_fric_real.png"), width = 2000, height = 1200)
+plot(pred_fric_coefs, type = "l")
+lines(test_fric_coefs[1,], col = "red")
+dev.off()
+
+png(paste0(plot_dir, "/pred_bed_real.png"), width = 2000, height = 1200)
+plot(pred_bed_coefs, type = "l")
+lines(test_bed_coefs[1,], col = "red")
+dev.off()
+
+## Compute predicted vs original friction 
+if (log_transform) {
+    pred_fric <- exp(fric_basis_mat %*% pred_fric_coefs)
+    test_fric <- exp(fric_basis_mat %*% t(test_fric_coefs))
+} else {
+    pred_fric <- fric_basis_mat %*% pred_fric_coefs
+    test_fric <- fric_basis_mat %*% t(test_fric_coefs)
+}
+
+## Compute predicted vs original bed fluctuations (demeaned bed)
+pred_bed_demean <- bed_basis_mat %*% pred_bed_coefs
+test_bed_demean <- bed_basis_mat %*% t(test_bed_coefs)
+browser()
+
+# if (test_on_train) {
+#     par(mfrow = c(1,1))
+#     plot(train_fric_coefs[50,], type = "l")
+#     lines(pred_fric_coefs[50,], col = "red")
+# } else {
+#     par(mfrow = c(1,1))
+#     plot(test_fric_coefs[1,], type = "l")
+#     lines(pred_fric_coefs[1,], col = "red")
+# }
+
+### Reconstruct bed elevation by adding bed trend to the predicted oscillations
+# bed_obs <- readRDS(file = paste0("./data/training_data/bed_obs_", data_date, ".rds"))
+
+bed_basis <- qread(file = paste0("./data/training_data/bed_basis_01_", data_date, ".qs"))
+
+
+bed_mean <- bed_basis$bed_mean
+# bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = ncol(pred_bed_demean))
+pred_bed <- pred_bed_demean + bed_mean
+# test_bed <- test_bed_demean + bed_mean_mat
+
+## Covariance matrix
+pred_chol <- pred_output[, (n_mean_elements+1):ncol(pred_output)]
+
+## Construct Cholesky factor of the precision
+Lb_elems <- n_basis_funs + (n_basis_funs - 1)
+Lc_elems <- n_basis_funs + (n_basis_funs - 1)
+Lg_elems <- n_gl + (n_gl - 1)
+
+# Lmats <- list()
+# for (s in 1:nrow(pred_chol)) {
+    Lb <- construct_L_matrix(pred_chol[1:Lb_elems], n_basis_funs)
+    Lc <- construct_L_matrix(pred_chol[(Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
+    Lg <- construct_L_matrix(pred_chol[(Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
+    Lmat <- bdiag(Lb, Lc, Lg)
+    # Lmats[[s]] <- bdiag(Lb, Lc, Lg)
+# }
+
+# ## Need to sample from the posterior distribution of the coefs
+# ## then transform them to actual friction, bed, gl
+
+S <- 1000 ## number of posterior samples
+
+# fric_samples_ls2 <- list()
+# bed_samples_ls2 <- list()
+# gl_samples_ls2 <- list()
+
+# fric_lq2 <- list()
+# fric_uq2 <- list()
+# bed_lq2 <- list()
+# bed_uq2 <- list()
+# gl_lq2 <- list()
+# gl_uq2 <- list()
+
+## Sample basis function coefficients from posterior
+# sampletime1 <- system.time({
+# pred_samples_ls <- lapply(1:nrow(pred_output), function(i) 
+#                             sample_from_posterior(n = S, mean = pred_mean[i, ], prec_chol = Lmats[[i]])) #,
+                                # mc.cores = 10L)
+
+pred_samples_ls <- sample_from_posterior(n = S, mean = pred_mean, prec_chol = Lmat)    
+
+## Transform basis coefficients into actual friction coefficients
+sd_fric_coefs <- test_data$sd_fric_coefs
+mean_fric_coefs <- test_data$mean_fric_coefs
+
+fric_coefs <- pred_samples_ls[1:n_fric_basis, ]
+fric_coefs_ustd <- fric_coefs * sd_fric_coefs + mean_fric_coefs
+
+# if (log_transform) {
+    fric_samples <- exp(fric_basis_mat %*% fric_coefs_ustd)
+# } else {
+    # fric_samples <- fric_basis_mat %*% fric_coefs_ustd
+# }
+
+
+## Transform basis coefficients into bed elevations
+bed_coefs <- pred_samples_ls[(n_fric_basis+1):(n_fric_basis+n_bed_basis)]
+bed_coefs_ustd <- bed_coefs * test_data$sd_bed_coefs + test_data$mean_bed_coefs
+bed_samples <- bed_basis_mat %*% bed_coefs_ustd + bed_mean
+
+# bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = S)
+# s3 <- system.time({
+# bed_samples_ls <- lapply(pred_samples_ls, function(x) {
+#     bed_coefs <- x[(n_fric_basis+1):(n_fric_basis+n_bed_basis), ]
+#     bed_coefs_ustd <- bed_coefs * test_data$sd_bed_coefs + test_data$mean_bed_coefs
+#     bed_samples <- bed_basis_mat %*% bed_coefs_ustd + bed_mean_mat
+#     }
+# )
+
+# })
+
+## Grounding line is a direct output from the CNN
+gl_samples_ls <- lapply(pred_samples_ls, function(x) x[(n_fric_basis+n_bed_basis+1):n_mean_elements, ])
+
+## Compute quantiles
+s5 <- system.time({
+    fric_q <- lapply(fric_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)))
+    bed_q <- lapply(bed_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)))
+    gl_q <- lapply(gl_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)))
+})
+
+fric_lq <- lapply(fric_q, function(x) x[1, ])
+fric_uq <- lapply(fric_q, function(x) x[2, ])
+bed_lq <- lapply(bed_q, function(x) x[1, ])
+bed_uq <- lapply(bed_q, function(x) x[2, ])
+gl_lq <- lapply(gl_q, function(x) x[1, ])
+gl_uq <- lapply(gl_q, function(x) x[2, ])

@@ -76,6 +76,7 @@ gl_SEN_geo <- st_geometry(gl_SEN)
 
 flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
 # flowline_sf <- st_as_sf(flowline, coords = c("x", "y"), crs = st_crs(gl_ERS_polar))
+flowline <- na.omit(flowline)
 flowline_str <- st_linestring(as.matrix(flowline))
 flowline_str <- st_sfc(flowline_str, crs = st_crs(gl_ERS_geo))
 intersect_pts <- st_intersection(flowline_str, gl_ERS_geo)
@@ -118,7 +119,7 @@ png(paste0("./plots/gl_thwaites.png"), width = 800, height = 800)
 print(gl_thwaites_plot)
 dev.off()
 
-tail_len <- 500
+tail_len <- 1000
 tail_flowline <- tail(flowline, tail_len)
 
 gl_thwaites_tail <- gl_thwaites %>% filter(X >= min(tail_flowline$x) & X <= max(tail_flowline$x) &
@@ -137,9 +138,9 @@ print(gl_intst_plot)
 dev.off()
 
 ## Choose 2nd intersection point (more upstream) as gl position
-gl_pos <- intersect_pts[2, ]
-gl_pos <- as.numeric(gl_pos[, 1:2])
-gl_pos
+# gl_pos <- intersect_pts[2, ]
+# gl_pos <- as.numeric(gl_pos[, 1:2])
+# gl_pos
 # saveRDS(gl_pos, file = "./data/grounding_line/gl_pos.rds")
 
 # } else {
