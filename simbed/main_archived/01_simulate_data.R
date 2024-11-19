@@ -39,9 +39,9 @@ source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 
 ## Some flagsn,
-regenerate_sims <- F
-refit_basis <- F
-save_sims <- F
+regenerate_sims <- T
+refit_basis <- T
+save_sims <- T
 log_transform <- T
 # sim_beds <- T
 
@@ -49,10 +49,8 @@ train_data_dir <- "./training_data"
 
 ## Presets
 data_date <- "20240320" # "20220329"
-N <- 2 # number of simulations per set
-warmup <- 10
-years <- 20 + warmup
-sets <- 1 #2:5 #1:5h
+N <- 10 # number of simulations per set
+sets <- 51 #2:5 #1:5h
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -61,13 +59,6 @@ nbasis <- 150
 
 # 0. Load ice sheet at steady state
 ssa_steady <- readRDS(file = paste0("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
-domain <- ssa_steady$domain
-
-# png(paste0("./plots/temp/steady_state.png"), width = 800, height = 800)
-# plot(domain, ssa_steady$top_surface, type = 'l', ylim = c(-2000, 2000))
-# lines(domain, ssa_steady$bottom_surface)
-# lines(domain, ssa_steady$bedrock)
-# dev.off()
 
 # 0. Simulate bed observations
 set.seed(2024)
@@ -83,6 +74,8 @@ if (save_sims) {
   saveRDS(bed_obs, file = paste0(train_data_dir, "/bed_obs_", data_date, ".rds"))
 }
 
+years <- 20
+domain <- ssa_steady$domain
 
 ## Scaling units for friction coefficients
 secpera <- 31556926
@@ -91,9 +84,8 @@ fric_scale <- 1e6 * secpera^(1 / 3)
 t1 <- proc.time()
 if (regenerate_sims) {
 
-t1 <- proc.time()
-
     flags <- c()
+
 
   for (i in 1:length(sets)) {
     set <- sets[i]
@@ -230,32 +222,31 @@ t1 <- proc.time()
       saveRDS(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".rds"))
     }
   }
-
-  t2 <- proc.time()
 } else {
 
-  # flags <- c()
-  # for (s in 1:length(sets)) {
-  #   set <- sets[s]
-  #   cat("Checking set", set, "\n")
-  #   setf <- formatC(set, width = 2, flag = "0")
-  #   sim_results <- readRDS(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".rds"))
+  flags <- c()
+  for (s in 1:length(sets)) {
+    set <- sets[s]
+    cat("Checking set", set, "\n")
+    setf <- formatC(set, width = 2, flag = "0")
+    sim_results <- readRDS(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".rds"))
 
-  #   if (length(sim_results$errors) > 0) {
-  #     flags[s] <- 1
-  #   } else {
-  #     flags[s] <- 0
-  #   }
-  # }
+    if (length(sim_results$errors) > 0) {
+      flags[s] <- 1
+    } else {
+      flags[s] <- 0
+    }
+  }
 
-  # bad_sets <- sets[which(flags == 1)]
+  bad_sets <- sets[which(flags == 1)]
+  browser()
 
-  # bad_sets <- sets[which(flags == 1)]
-  # sink("bad_sets.txt")
-  # print(bad_sets)
-  # sink()
 }
 
+bad_sets <- sets[which(flags == 1)]
+sink("bad_sets.txt")
+print(bad_sets)
+sink()
 
 t2 <- proc.time()
 
@@ -322,7 +313,7 @@ bed_mean <- bed_basis$mean
 
 plots <- list()
 
-nsamples <- 2
+nsamples <- 1
 sims <- sample(1:N, size = nsamples)
 
 space <- domain / 1000
@@ -335,145 +326,76 @@ inds <- matrix(1:(nsamples * 4), nsamples, 4, byrow = T)
 
 gl <- ceiling(gl_arr[1, 1] / (domain[length(domain)] / 1000) * length(domain))
 
-# s <- 1
-for (s in 1:nsamples) {
-  sim <- sims[[s]]
-  ind <- inds[s, ]
-  # print(ind)
-  # thickness_velocity_arr <- sim_results[[s]]$thickness_velocity_arr
-  # thickness <- thickness_velocity_arr[sim,,,1]
-  # velocity <- thickness_velocity_arr[sim,,,2]
-  surface_elev <- surface_obs_arr[sim, , , 1]
-  velocity <- surface_obs_arr[sim, , , 2]
-  # grid_test$thickness <- as.vector(thickness)
-  grid_test$surface_elev <- as.vector(surface_elev)
-  grid_test$velocity <- as.vector(velocity)
+s <- 1
+# for (s in 1:nsamples) {
+sim <- sims[[s]]
+ind <- inds[s, ]
+# print(ind)
+# thickness_velocity_arr <- sim_results[[s]]$thickness_velocity_arr
+# thickness <- thickness_velocity_arr[sim,,,1]
+# velocity <- thickness_velocity_arr[sim,,,2]
+surface_elev <- surface_obs_arr[sim, , , 1]
+velocity <- surface_obs_arr[sim, , , 2]
+# grid_test$thickness <- as.vector(thickness)
+grid_test$surface_elev <- as.vector(surface_elev)
+grid_test$velocity <- as.vector(velocity)
 
-  # thickness_plot <- ggplot(grid_test) +
-  # geom_tile(aes(space, time, fill = thickness)) +
-  surface_elev_plot <- ggplot(grid_test) +
-    geom_tile(aes(space, time, fill = surface_elev)) +
-    scale_fill_distiller(palette = "Blues", direction = 1) +
-    scale_y_reverse() +
-    theme_bw() +
-    theme(text = element_text(size = 24)) +
-    # labs(fill="Thickness (m)")
-    labs(fill = "Surface elev. (m)")
+# thickness_plot <- ggplot(grid_test) +
+# geom_tile(aes(space, time, fill = thickness)) +
+surface_elev_plot <- ggplot(grid_test) +
+  geom_tile(aes(space, time, fill = surface_elev)) +
+  scale_fill_distiller(palette = "Blues", direction = 1) +
+  theme_bw() +
+  # labs(fill="Thickness (m)")
+  labs(fill = "Surface elevation (m)")
 
-  velocity_plot <- ggplot(grid_test) +
-    geom_tile(aes(space, time, fill = velocity)) +
-    theme_bw() +
-    scale_y_reverse() +
-    theme(text = element_text(size = 24)) +
-    scale_fill_distiller(palette = "Reds", direction = 1) +
-    labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")"))
+velocity_plot <- ggplot(grid_test) +
+  geom_tile(aes(space, time, fill = velocity)) +
+  theme_bw() +
+  scale_fill_distiller(palette = "Reds", direction = 1) +
+  labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")"))
 
-  if (log_transform) {
-    fitted_fric_sim <- exp(fitted_friction[sim, 1:gl])
-    friction_sim <- exp(friction_arr[sim, 1:gl])
-  } else {
-    fitted_fric_sim <- fitted_friction[sim, 1:gl]
-    friction_sim <- friction_arr[sim, 1:gl]
-  }
 
-  df <- data.frame(
-    domain = ssa_steady$domain[1:gl] / 1000, friction = friction_sim,
-    fitted_fric = fitted_fric_sim
-  )
-  friction_plot <- ggplot(df, aes(x = domain, y = friction)) +
-    geom_line(lwd = 1) +
-    # geom_line(aes(x = domain, y = fitted_fric), col = "red", lwd = 1) +
-    theme_bw() +
-    theme(text = element_text(size = 24)) +
-    xlab("Domain (km)") +
-    ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")"))
-
-  bed_sim <- bed_arr[sim, ]
-  fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
-  bed_df <- data.frame(domain = ssa_steady$domain / 1000, bed = bed_sim, fitted_bed = fitted_bed_sim)
-  
-  bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) +
-    geom_line(lwd = 1) +
-    # geom_line(aes(x = domain, y = fitted_bed), col = "red", lwd = 1) +
-    theme_bw() +
-    theme(text = element_text(size = 24)) +
-    xlab("Domain (km)") +
-    ylab("Bed (m)")
-
-  # plots[[ind[1]]] <- thickness_plot
-  plots[[ind[1]]] <- surface_elev_plot
-  plots[[ind[2]]] <- velocity_plot
-  plots[[ind[3]]] <- friction_plot
-  plots[[ind[4]]] <- bed_plot
-
+if (log_transform) {
+  fitted_fric_sim <- exp(fitted_friction[sim, 1:gl])
+  friction_sim <- exp(friction_arr[sim, 1:gl])
+} else {
+  fitted_fric_sim <- fitted_friction[sim, 1:gl]
+  friction_sim <- friction_arr[sim, 1:gl]
 }
 
-png(file = paste0("./plots/simulations_truth_", setf, "_", data_date, ".png"), 
-          width = 2400, height = 800)
-grid.arrange(grobs = plots, nrow = nsamples, ncol = 4)
+df <- data.frame(
+  domain = ssa_steady$domain[1:gl] / 1000, friction = friction_sim,
+  fitted_fric = fitted_fric_sim
+)
+friction_plot <- ggplot(df, aes(x = domain, y = friction)) +
+  geom_line() +
+  geom_line(aes(x = domain, y = fitted_fric), col = "red") +
+  theme_bw() +
+  xlab("Domain (km)") +
+  ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")"))
+
+bed_sim <- bed_arr[sim, ]
+fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
+bed_df <- data.frame(domain = ssa_steady$domain / 1000, bed = bed_sim)
+bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) +
+  geom_line() +
+  geom_line(aes(x = domain, y = fitted_bed_sim), col = "red") +
+  theme_bw() +
+  xlab("Domain (km)") +
+  ylab(bquote("Bed (m)"))
+
+# plots[[ind[1]]] <- thickness_plot
+plots[[ind[1]]] <- surface_elev_plot
+plots[[ind[2]]] <- velocity_plot
+plots[[ind[3]]] <- friction_plot
+plots[[ind[4]]] <- bed_plot
+
+# }
+
+png(file = paste0("./plots/simulations_", setf, "_", data_date, ".png"), width = 2000, height = 500)
+grid.arrange(grobs = plots, nrow = 1, ncol = 4)
 dev.off()
-
-# ## Plot an example ice sheet profile
-# top_surface <- ssa_steady$top_surface
-# bottom_surface <- ssa_steady$bottom_surface
-# bedrock <- ssa_steady$bedrock
-
-# # timepts <- seq(3001, 2501, -100)
-# # top_surf_retreat <- ssa_steady$all_top_surface[, timepts]
-# ref_df <- data.frame(domain = ssa_steady$domain / 1000, 
-#                     top_surface = top_surface, 
-#                     # top_surface_1 = top_surf_retreat[, 1],
-#                     # top_surface_2 = top_surf_retreat[, 2],
-#                     # top_surface_3 = top_surf_retreat[, 3],
-#                     # bottom_surface= bottom_surface, 
-#                     bedrock = bedrock)
-
-
-# ## Plot ice sheet profile
-# ss_plot <- ggplot(ref_df, aes(x = domain)) +
-#   geom_line(aes(y = top_surface)) +
-#   geom_line(aes(y = bottom_surface)) +
-#   geom_line(aes(y = bedrock)) +
-#   theme_bw() +
-#   theme(text = element_text(size = 24)) +
-#   xlim(250, 450) +
-#   ylim(-1000, 1500) +
-#   xlab("Domain (km)") +
-#   ylab("Elevation (m)")
-
-# # png(file = paste0("./plots/steady_state_profile.png"), width = 800, height = 500)
-# # print(ss_plot)
-# # dev.off()
-
-# ## Now plot the evolution of the ice sheet over time
-# sim <- 1
-# surface_elev <- surface_obs_arr[sim, , , 1]
-# # velocity <- surface_obs_arr[sim, , , 2]
-# bed <- bed_arr[sim, ]
-
-# # ice_evol_df <- data.frame(domain = ssa_steady$domain / 1000, 
-# #                           surface_elev_1 = surface_elev[, 1], 
-# #                           surface_elev_2 = surface_elev[, 2],
-# #                           surface_elev_3 = surface_elev[, 3],
-
-# #                           bed = bed)
-
-# ref_df$bed_sim <- bed
-# ss_plot2 <- ggplot(ref_df, aes(x = domain)) +
-#   geom_line(aes(y = top_surface)) +
-#   geom_line(aes(y = bottom_surface)) +
-#   geom_line(aes(y = bed_sim, col = "red")) +
-#   theme_bw() +
-#   theme(text = element_text(size = 24)) +
-#   xlim(250, 450) +
-#   ylim(-1000, 1500) +
-#   xlab("Domain (km)") +
-#   ylab("Elevation (m)")
-
-
-# png(file = paste0("./plots/steady_state_profile2.png"), width = 800, height = 500)
-# print(ss_plot2)
-# dev.off()
 
 # ## Plot fitted frictions
 # nsamples <- 2

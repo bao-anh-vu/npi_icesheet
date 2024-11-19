@@ -1,7 +1,8 @@
 run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed, 
                      ini_friction_coef, ini_velocity, observations, 
                      missing_pattern = NULL, run_analysis = TRUE, use_cov_taper = TRUE, 
-                     add_process_noise = TRUE, process_noise_info) {
+                     add_process_noise = TRUE, process_noise_info,
+                     use_const_measure_error = FALSE) {
   
   print("Running filter...")
   
@@ -41,6 +42,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
   
   mc.t1 <- proc.time()
   
+  K_list <- list()
+  HX_list <- list()
   for (year in 2:(years+1)) {
     
     cat("Forecast step", year - 1, "\n")
@@ -56,7 +59,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     # ens.list <- mclapply(ens.list, propagate, mc.cores = 6L, 
     #                      domain = domain, steps_per_yr = steps_per_yr)
 
-    ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
+    ens.list <- mclapply(ens.list, propagate, mc.cores = 10L, 
                          domain = domain, steps_per_yr = steps_per_yr,
                          transformation = "log")
     
@@ -72,12 +75,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     
     if (add_process_noise) { ## Add process noise
       # print("Adding process noise...")
-      set.seed(1)
+      # set.seed(1)
       h_sd <- pmin(0.02 * rowMeans(ens), 20)
-      # h_sd <- pmin(0.01 * rowMeans(ens), 10)
-      
-      # h_noise <- cond_sim(mu = rep(0, J), sd = h_sd,
-      #                     domain, l = 50e3, nsims = Ne)
 
       h_noise <- lapply(1:Ne, function(n) as.vector(h_sd * (process_noise_info$corrmat_chol %*% rnorm(length(domain), 0, 1))))
      
@@ -102,20 +101,14 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       # PH <- NULL #matrix(NA, nrow = 3*J, ncol = 2*J)
     
       ## Apply observation operator to every ensemble member
-      HX <- lapply(ens.list, obs_operator,
-                    domain = domain, transformation = "log") #, mc.cores = 6L)
+      HX <- mclapply(ens.list, obs_operator,
+                    domain = domain, transformation = "log", mc.cores = 10L)
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
       
       # Compute P %*% t(H) and H %*% P %*% t(H)
       HPH <- 1 / (Ne - 1) * tcrossprod(HX - rowMeans(HX))
       PH <- 1 / (Ne - 1) * tcrossprod(ens - rowMeans(ens), HX - rowMeans(HX))
-      
-      ## Construct measurement error covariance matrix R (depends on the velocity)
-      # vel_std <- pmin(0.25 * rowMeans(HX)[(J+1):(2*J)], 20)
-      # vel_std[vel_std == 0] <- 1e-05
-      # R <- diag(c(rep(10^2, J), vel_std^2)) # measurement noise for top surface and velocity
-      # R <- diag(c(rep(10^2, J), rep(20^2, J))) ## NEED TO FIX THE MEASUREMENT NOISE FOR VELOCITY
       
       ## Extract yearly observations
       surf_elev_obs <- observations$surface_elev[, year]
@@ -126,10 +119,14 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ## Generate "observation ensemble" Y = (y, y, ..., y)
       Y <- matrix(rep(y, Ne), 2*J, Ne) 
       
-      # plot(prev_velocity) vs plot(rowMeans(HX)) here
+      ## Construct measurement error covariance matrix R (depends on the velocity)
       surf_elev_noise_sd  <- rep(10, J)
-      vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
-      vel_noise_sd[vel_noise_sd <= 0] <- 0.1 #1e-05
+      if (use_const_measure_error) {
+        vel_noise_sd <- rep(20, J)
+      } else {
+        vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
+        vel_noise_sd[vel_noise_sd <= 0] <- 0.1 #1e-05
+      }
 
       # vel_noise_sd <- rep(20, J)
       R <- diag(c(surf_elev_noise_sd^2, vel_noise_sd^2))
@@ -138,6 +135,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ##### Compute likelihood #####
       # test <- dmvn(y - HX[, 1], mu = rep(0, 2*J), 
       #              sigma = HPH + R, log = TRUE)
+      # set.seed(1)
       noise <- matrix(rnorm(2*J*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
 
       # forecast_mean <- c(rowMeans(ens), beds[, 1], friction_coefs[, 1], rowMeans(prev_velocity))
@@ -182,8 +180,11 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       } else {
         # ens <- ens + PH %*% solve(a = Sigma, b = (Y - HX - noise))
         ens <- ens + K %*% (Y - HX - noise)
+        # K_list[[year]] <- K
       }
       
+      # HX_list[[year]] <- HX
+
       analysis.t2 <- proc.time() 
     }
 
@@ -199,7 +200,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
     # Propagate velocity
-    velocity.list <- lapply(ens.list, 
+    velocity.list <- mclapply(ens.list, 
                               function(v) { 
                                 # secpera <- 31556926
                                 # fric_scale <- 1e6 * secpera^(1 / 3)  
@@ -214,17 +215,12 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                                 
                                 return(u)
                                 
-                              }) #, 
-                              # mc.cores = 6L)
+                              }, 
+                               mc.cores = 10L)
     
     # Convert velocity list to matrix
     prev_velocity <- matrix(unlist(velocity.list), nrow = J, ncol = Ne)
     mean_prev_velocity <- rowMeans(prev_velocity)
-    
-    # if (sum(is.na(prev_velocity)) > 0 || sum(prev_velocity < 0) > 0) {
-    #   print("Error: unrealistic velocity value")
-    #   browser()
-    # }
     
     ## Save velocities
     enkf_velocities[[year]] <- prev_velocity
@@ -243,6 +239,8 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
                          bed = beds, #[, 1], # all beds are the same anyway
                          friction_coef = friction_coefs, #[, 1], # same with friction
                          log_likelihood = log_likelihood, 
+                         K = K_list, 
+                         HX = HX_list,
                          time = mc.t2 - mc.t1))  
 }
 

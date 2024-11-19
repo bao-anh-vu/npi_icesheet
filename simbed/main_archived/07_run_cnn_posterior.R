@@ -34,7 +34,7 @@ if (length(gpus) > 0) {
 rerun_cnn <- T
 sim_beds <- T
 output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
-use_missing_pattern <- T
+use_missing_pattern <- F
 # save_output <- T
 
 source("./source/create_model.R")
@@ -56,24 +56,22 @@ sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-
 print("Reading data...")
 if (use_missing_pattern) {
   train_data_dir <- paste0("./training_data", "/", setsf, "/missing")
 } else {
   train_data_dir <- paste0("./training_data", "/", setsf, "/nonmissing")
 }
-
-# # system.time({
-#   train_data <- readRDS(file = paste0(train_data_dir, "/train_data_", data_date, ".rds"))
-#   val_data <- readRDS(file = paste0(train_data_dir, "/val_data_", data_date, ".rds"))
-#   test_data <- readRDS(file = paste0(train_data_dir, "/test_data_", data_date, ".rds"))
-# # })
 system.time({
   train_data <- qread(file = paste0(train_data_dir, "/train_data_", data_date, ".qs"))
   val_data <- qread(file = paste0(train_data_dir, "/val_data_", data_date, ".qs"))
   test_data <- qread(file = paste0(train_data_dir, "/test_data_", data_date, ".qs"))
 })
+# system.time({
+  # qsave(train_data, file = paste0(train_data_dir, "/train_data_", data_date, ".qs"))
+  # qsave(val_data, file = paste0(train_data_dir, "/val_data_", data_date, ".qs"))
+  # qsave(test_data, file = paste0(train_data_dir, "/test_data_", data_date, ".qs"))
+# })
 
 train_input <- train_data$input
 val_input <- val_data$input
@@ -87,8 +85,6 @@ test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$ground
 # train_output <- train_data$output
 # val_output <- val_data$output
 # test_output <- test_data$output
-
-t1 <- proc.time()
 
 # if (rerun_cnn) {
 print("Creating model...")
@@ -119,7 +115,7 @@ summary(model)
 
 # Create a callback that saves the model's weights
 if (use_missing_pattern) {
-  output_dir <- paste0("./output/posterior/", setsf, "/missing_test")
+  output_dir <- paste0("./output/posterior/", setsf, "/missing")
 } else {
   output_dir <- paste0("./output/posterior/", setsf, "/nonmissing")
 }
@@ -159,21 +155,47 @@ if (rerun_cnn) {
   )
 
   
-  # saveRDS(history, file = paste0(output_dir, "/history_", data_date, ".rds"))
+  saveRDS(history, file = paste0(output_dir, "/history_", data_date, ".rds"))
 
   # Save the entire model as a SavedModel.
-  # save_model_tf(model, paste0(output_dir, "/model_", data_date))
+  save_model_tf(model, paste0(output_dir, "/model_", data_date))
 } else {
   model <- load_model_tf(paste0(output_dir, "/model_", data_date))
   history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
 }
 
-t2 <- proc.time()
-
 loss_plot <- history %>%
   plot() +
   coord_cartesian(xlim = c(1, epochs))
 # ## Plot the loss
-# png(paste0("plots/posterior/loss_", data_date, ".png"))
-# print(loss_plot)
-# dev.off()
+png(paste0("plots/posterior/loss_", data_date, ".png"))
+print(loss_plot)
+dev.off()
+# ## Get rid of first training loss
+# plot(history$metrics$loss[2:60],type = "l")
+# lines(history$metrics$val_loss[2:60], col = "red")
+
+# browser()
+
+# ## Predict friction coefficients on test set
+# pred_coefs_new <- model %>% predict(test_input)
+# saveRDS(pred_coefs_new, file = paste0("./output/pred_coefs_", setf, "_", data_date, ".rds"))
+
+# results <- model %>% evaluate(test_input, test_output, batch_size = batch_size)
+# cat("test loss, test acc:", results)
+
+# # Save the entire model as a SavedModel.
+# save_model_tf(model, "output/my_model")
+
+# restored_model <- load_model_tf('output/my_model')
+
+# # Re-evaluate the model
+# new <- restored_model %>% fit(
+#     train_input, 
+#     train_output,
+#     epochs = 10,
+#     batch_size = 64,
+#     validation_data = list(val_input, val_output),
+#     callbacks = list(cp_callback)
+# )
+

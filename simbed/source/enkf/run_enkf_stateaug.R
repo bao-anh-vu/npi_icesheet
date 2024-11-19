@@ -150,6 +150,7 @@ run_enkf <- function(domain, years, steps_per_yr, ini_thickness, ini_bed,
       ## Update ensemble
       
       # noise <- rmvn(Ne, rep(0, 2*J), R) # takes 0.4s
+      # set.seed(1)
       noise <- matrix(rnorm(2*J*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
       
       ##### CHANGED HERE #######

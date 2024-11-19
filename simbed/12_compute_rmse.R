@@ -2,6 +2,7 @@
 library(ggplot2)
 library(mvtnorm)
 library(qs)
+library(gridExtra)
 
 setwd("/home/babv971/SSA_model/CNN/simbed/")
 rm(list = ls())
@@ -18,6 +19,7 @@ use_cov_taper <- F
 # plot_bed <- T
 # plot_friction <- T
 # plot_gl <- T
+save_plots <- T
 
 rmse <- function(estimated, true) {
     stopifnot(length(estimated) == length(true))
@@ -25,7 +27,7 @@ rmse <- function(estimated, true) {
 }
 
 ## 1. Read samples
-sample_ind <- 1:5 # test samples to compare
+sample_ind <- 1:10 # test samples to compare
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
@@ -53,6 +55,26 @@ true_velocities <- test_data$true_velocity_test
 true_bed <- test_data$true_bed
 true_fric <- exp(test_data$true_fric)
 true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
+
+true_bed <- true_bed[s, ]
+true_fric <- true_fric[s, ]
+true_gl <- true_gl[s, ]
+
+## Choose only the samples that we are interested in
+true_thicknesses_ini <- true_thicknesses[s, , save_points[1]]
+true_thicknesses_mid <- true_thicknesses[s, , save_points[2]]
+true_thicknesses_fin <- true_thicknesses[s, , save_points[3]]
+true_velocities_ini <- true_velocities[s, , save_points[1]]
+true_velocities_mid <- true_velocities[s, , save_points[2]]
+true_velocities_fin <- true_velocities[s, , save_points[3]]
+
+## Read SSA model domain
+ssa_steady <- readRDS(file = paste("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
+domain <- ssa_steady$domain
+
+## To calculate RMSE for friction, need true gl for each sample
+true_gl_pos <- true_gl[, years] * 1000 # Take GL position at last time point for each sample
+true_gl_ind <- sapply(1:length(true_gl_pos), function(x) which(domain == true_gl_pos[x]))#floor(true_gl_pos / 800 * 2001) # Convert to grid index
 
 ## Read CNN predictions
 if (use_missing_pattern) {
@@ -100,9 +122,9 @@ vel_files <- lapply(sample_ind, function(s) paste0(cnn_enkf.output_dir[s], "/enk
 cnn.velocity <- lapply(vel_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
 
 # CNN prediction of bed, friction, GL
-cnn.bed <- pred_bed[, s]
-cnn.fric <- pred_fric[, s]
-cnn.gl <- pred_gl[s, ]
+cnn.bed <- t(pred_bed[, s])
+cnn.fric <- t(pred_fric[, s])
+cnn.gl <- t(pred_gl[s, ])
 
 ## Note: cnn.thickness is a list of samples, each sample is a list of ensembles at 3 time points
 ## So the structure is cnn.thickness[[sample]][[time]]
@@ -124,12 +146,12 @@ cnn.mean_vel_fin <- lapply(cnn.mean_velocity, function(s) s[[3]])
 ## Reorganise these lists so that it has the structure
 ## cnn.thickness[[time]][grid_pt][sample] 
 
-cnn.mean_thickness_ini_mat <- matrix(unlist(cnn.mean_thickness_ini), nrow = length(cnn.mean_thickness_ini[[1]]), byrow = F)
-cnn.mean_thickness_mid_mat <- matrix(unlist(cnn.mean_thickness_mid), nrow = length(cnn.mean_thickness_mid[[1]]), byrow = F)
-cnn.mean_thickness_fin_mat <- matrix(unlist(cnn.mean_thickness_fin), nrow = length(cnn.mean_thickness_fin[[1]]), byrow = F)
-cnn.mean_vel_ini_mat <- matrix(unlist(cnn.mean_vel_ini), nrow = length(cnn.mean_vel_ini[[1]]), byrow = F)
-cnn.mean_vel_mid_mat <- matrix(unlist(cnn.mean_vel_mid), nrow = length(cnn.mean_vel_mid[[1]]), byrow = F)
-cnn.mean_vel_fin_mat <- matrix(unlist(cnn.mean_vel_fin), nrow = length(cnn.mean_vel_fin[[1]]), byrow = F)
+cnn.mean_thickness_ini_mat <- t(matrix(unlist(cnn.mean_thickness_ini), nrow = length(cnn.mean_thickness_ini[[1]]), byrow = F))
+cnn.mean_thickness_mid_mat <- t(matrix(unlist(cnn.mean_thickness_mid), nrow = length(cnn.mean_thickness_mid[[1]]), byrow = F))
+cnn.mean_thickness_fin_mat <- t(matrix(unlist(cnn.mean_thickness_fin), nrow = length(cnn.mean_thickness_fin[[1]]), byrow = F))
+cnn.mean_vel_ini_mat <- t(matrix(unlist(cnn.mean_vel_ini), nrow = length(cnn.mean_vel_ini[[1]]), byrow = F))
+cnn.mean_vel_mid_mat <- t(matrix(unlist(cnn.mean_vel_mid), nrow = length(cnn.mean_vel_mid[[1]]), byrow = F))
+cnn.mean_vel_fin_mat <- t(matrix(unlist(cnn.mean_vel_fin), nrow = length(cnn.mean_vel_fin[[1]]), byrow = F))
 
 ## Calculate RMSE (over all samples) for each grid point
 cnn.thickness_rmse_ini <- c()
@@ -138,59 +160,55 @@ cnn.thickness_rmse_fin <- c()
 cnn.vel_rmse_ini <- c()
 cnn.vel_rmse_mid <- c()
 cnn.vel_rmse_fin <- c()
-for (grid_pt in 1:nrow(cnn.mean_vel_ini_mat)) {
-    cnn.thickness_rmse_ini[grid_pt] <- rmse(cnn.mean_thickness_ini_mat[grid_pt, ], true_thicknesses[s, grid_pt, save_points[1]])
-    cnn.thickness_rmse_mid[grid_pt] <- rmse(cnn.mean_thickness_mid_mat[grid_pt, ], true_thicknesses[s, grid_pt, save_points[2]])
-    cnn.thickness_rmse_fin[grid_pt] <- rmse(cnn.mean_thickness_fin_mat[grid_pt, ], true_thicknesses[s, grid_pt, save_points[3]])
-    cnn.vel_rmse_ini[grid_pt] <- rmse(cnn.mean_vel_ini_mat[grid_pt, ], true_velocities[s, grid_pt, save_points[1]])
-    cnn.vel_rmse_mid[grid_pt] <- rmse(cnn.mean_vel_mid_mat[grid_pt, ], true_velocities[s, grid_pt, save_points[2]])
-    cnn.vel_rmse_fin[grid_pt] <- rmse(cnn.mean_vel_fin_mat[grid_pt, ], true_velocities[s, grid_pt, save_points[3]])
+for (grid_pt in 1:ncol(cnn.mean_vel_ini_mat)) {
+    cnn.thickness_rmse_ini[grid_pt] <- rmse(cnn.mean_thickness_ini_mat[, grid_pt], true_thicknesses_ini[, grid_pt])
+    cnn.thickness_rmse_mid[grid_pt] <- rmse(cnn.mean_thickness_mid_mat[, grid_pt], true_thicknesses_mid[, grid_pt])
+    cnn.thickness_rmse_fin[grid_pt] <- rmse(cnn.mean_thickness_fin_mat[, grid_pt], true_thicknesses_fin[, grid_pt])
+    cnn.vel_rmse_ini[grid_pt] <- rmse(cnn.mean_vel_ini_mat[, grid_pt], true_velocities_ini[, grid_pt])
+    cnn.vel_rmse_mid[grid_pt] <- rmse(cnn.mean_vel_mid_mat[, grid_pt], true_velocities_mid[, grid_pt])
+    cnn.vel_rmse_fin[grid_pt] <- rmse(cnn.mean_vel_fin_mat[, grid_pt], true_velocities_fin[, grid_pt])
 }
 
 ## RMSE for bed and friction
 cnn.bed_rmse <- c()
 cnn.fric_rmse <- c()
-for (grid_pt in 1:nrow(cnn.bed)) {
-    cnn.bed_rmse[grid_pt] <- rmse(cnn.bed[grid_pt, ], true_bed[s, grid_pt])
-    cnn.fric_rmse[grid_pt] <- rmse(cnn.fric[grid_pt, ], true_fric[s, grid_pt])
+for (grid_pt in 1:ncol(cnn.bed)) {
+    cnn.bed_rmse[grid_pt] <- rmse(cnn.bed[, grid_pt], true_bed[, grid_pt])
+    cnn.fric_rmse[grid_pt] <- rmse(cnn.fric[, grid_pt], true_fric[, grid_pt])
 }
 
-## Then calculate RMSE over all samples for each time point and each grid point
+## Save plots of RMSE for CNN
+if (save_plots) {
 
-png("./plots/temp/test.png")
-plot(cnn.mean_thickness_fin_mat[, 1], type = "l")
-lines(true_thicknesses[s[1], , 21], col = "red")
-dev.off()
+    # png("./plots/combined/test.png")
+    # plot(cnn.mean_thickness_fin_mat[, 1], type = "l")
+    # lines(true_thicknesses[s[1], , 21], col = "red")
+    # dev.off()
 
-png("./plots/temp/rmse_thickness.png", width = 1000, height = 500)
-plot_range <- 1:1000# 2001
-plot(cnn.thickness_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
-lines(cnn.thickness_rmse_mid[plot_range], col = "salmon")
-lines(cnn.thickness_rmse_fin[plot_range], col = "red")
-legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
-dev.off()
+    # png("./plots/combined/rmse_thickness.png", width = 1000, height = 500)
+    # plot_range <- 1:1000# 2001
+    # plot(cnn.thickness_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
+    # lines(cnn.thickness_rmse_mid[plot_range], col = "salmon")
+    # lines(cnn.thickness_rmse_fin[plot_range], col = "red")
+    # legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
+    # dev.off()
 
-png("./plots/temp/rmse_vel.png", width = 1000, height = 500)
-plot_range <- 1:2001
-plot(cnn.vel_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
-lines(cnn.vel_rmse_mid[plot_range], col = "salmon")
-lines(cnn.vel_rmse_fin[plot_range], col = "red")
-legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
-dev.off()
+    # png("./plots/combined/rmse_vel.png", width = 1000, height = 500)
+    # plot_range <- 1:2001
+    # plot(cnn.vel_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
+    # lines(cnn.vel_rmse_mid[plot_range], col = "salmon")
+    # lines(cnn.vel_rmse_fin[plot_range], col = "red")
+    # legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
+    # dev.off()
 
-png("./plots/temp/rmse_bed.png", width = 1000, height = 500)
-plot(cnn.bed_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
-dev.off()
+    # png("./plots/combined/rmse_bed.png", width = 1000, height = 500)
+    # plot(cnn.bed_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
+    # dev.off()
 
-png("./plots/temp/rmse_fric.png", width = 1000, height = 500)
-plot(cnn.fric_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
-dev.off()
-# cnn.bed_q <- apply(bed_samples_ls[[s]], 1, quantile, probs = c(0.025, 0.975))
-# cnn.fric_q <- apply(fric_samples_ls[[s]], 1, quantile, probs = c(0.025, 0.975))
-# cnn.bed_lq <- cnn.bed_q[1, ]
-# cnn.bed_uq <- cnn.bed_q[2, ]
-# cnn.fric_lq <- cnn.fric_q[1, ]
-# cnn.fric_uq <- cnn.fric_q[2, ]
+    # png("./plots/combined/rmse_fric.png", width = 1000, height = 500)
+    # plot(cnn.fric_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
+    # dev.off()
+}
 
 ## Read EnKF-StateAug results
 print("Reading posterior samples from EnKF-StateAug...")
@@ -201,8 +219,6 @@ thickness_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "
 enkfsa.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
 vel_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
 enkfsa.velocity <- lapply(vel_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
-
-
 
 enkfsa.thickness <- lapply(enkfsa.thickness, function(s) lapply(s, as.matrix))
 enkfsa.mean_thickness <- lapply(enkfsa.thickness, function(s) lapply(s, rowMeans))
@@ -220,14 +236,13 @@ enkfsa.mean_vel_mid <- lapply(enkfsa.mean_velocity, function(s) s[[2]])
 enkfsa.mean_vel_fin <- lapply(enkfsa.mean_velocity, function(s) s[[3]])
 
 ## Reorganise these lists so that it has the structure
-## cnn.thickness[[time]][grid_pt][sample] 
-
-enkfsa.mean_thickness_ini_mat <- matrix(unlist(enkfsa.mean_thickness_ini), nrow = length(cnn.mean_thickness_ini[[1]]), byrow = F)
-enkfsa.mean_thickness_mid_mat <- matrix(unlist(enkfsa.mean_thickness_mid), nrow = length(cnn.mean_thickness_mid[[1]]), byrow = F)
-enkfsa.mean_thickness_fin_mat <- matrix(unlist(enkfsa.mean_thickness_fin), nrow = length(cnn.mean_thickness_fin[[1]]), byrow = F)
-enkfsa.mean_vel_ini_mat <- matrix(unlist(enkfsa.mean_vel_ini), nrow = length(cnn.mean_vel_ini[[1]]), byrow = F)
-enkfsa.mean_vel_mid_mat <- matrix(unlist(enkfsa.mean_vel_mid), nrow = length(cnn.mean_vel_mid[[1]]), byrow = F)
-enkfsa.mean_vel_fin_mat <- matrix(unlist(enkfsa.mean_vel_fin), nrow = length(cnn.mean_vel_fin[[1]]), byrow = F)
+## cnn.thickness_<time>[grid_pt][sample] 
+enkfsa.mean_thickness_ini_mat <- t(matrix(unlist(enkfsa.mean_thickness_ini), nrow = length(cnn.mean_thickness_ini[[1]]), byrow = F))
+enkfsa.mean_thickness_mid_mat <- t(matrix(unlist(enkfsa.mean_thickness_mid), nrow = length(cnn.mean_thickness_mid[[1]]), byrow = F))
+enkfsa.mean_thickness_fin_mat <- t(matrix(unlist(enkfsa.mean_thickness_fin), nrow = length(cnn.mean_thickness_fin[[1]]), byrow = F))
+enkfsa.mean_vel_ini_mat <- t(matrix(unlist(enkfsa.mean_vel_ini), nrow = length(cnn.mean_vel_ini[[1]]), byrow = F))
+enkfsa.mean_vel_mid_mat <- t(matrix(unlist(enkfsa.mean_vel_mid), nrow = length(cnn.mean_vel_mid[[1]]), byrow = F))
+enkfsa.mean_vel_fin_mat <- t(matrix(unlist(enkfsa.mean_vel_fin), nrow = length(cnn.mean_vel_fin[[1]]), byrow = F))
 
 ## Calculate RMSE (over all samples) for each grid point
 enkfsa.thickness_rmse_ini <- c()
@@ -236,72 +251,209 @@ enkfsa.thickness_rmse_fin <- c()
 enkfsa.vel_rmse_ini <- c()
 enkfsa.vel_rmse_mid <- c()
 enkfsa.vel_rmse_fin <- c()
-for (grid_pt in 1:nrow(cnn.mean_vel_ini_mat)) {
-    enkfsa.thickness_rmse_ini[grid_pt] <- rmse(enkfsa.mean_thickness_ini_mat[grid_pt, ], true_thicknesses[s, grid_pt, save_points[1]])
-    enkfsa.thickness_rmse_mid[grid_pt] <- rmse(enkfsa.mean_thickness_mid_mat[grid_pt, ], true_thicknesses[s, grid_pt, save_points[2]])
-    enkfsa.thickness_rmse_fin[grid_pt] <- rmse(enkfsa.mean_thickness_fin_mat[grid_pt, ], true_thicknesses[s, grid_pt, save_points[3]])
-    enkfsa.vel_rmse_ini[grid_pt] <- rmse(enkfsa.mean_vel_ini_mat[grid_pt, ], true_velocities[s, grid_pt, save_points[1]])
-    enkfsa.vel_rmse_mid[grid_pt] <- rmse(enkfsa.mean_vel_mid_mat[grid_pt, ], true_velocities[s, grid_pt, save_points[2]])
-    enkfsa.vel_rmse_fin[grid_pt] <- rmse(enkfsa.mean_vel_fin_mat[grid_pt, ], true_velocities[s, grid_pt, save_points[3]])
+for (grid_pt in 1:ncol(cnn.mean_vel_ini_mat)) {
+    enkfsa.thickness_rmse_ini[grid_pt] <- rmse(enkfsa.mean_thickness_ini_mat[, grid_pt], true_thicknesses_ini[, grid_pt])
+    enkfsa.thickness_rmse_mid[grid_pt] <- rmse(enkfsa.mean_thickness_mid_mat[, grid_pt], true_thicknesses_mid[, grid_pt])
+    enkfsa.thickness_rmse_fin[grid_pt] <- rmse(enkfsa.mean_thickness_fin_mat[, grid_pt], true_thicknesses_fin[, grid_pt])
+    enkfsa.vel_rmse_ini[grid_pt] <- rmse(enkfsa.mean_vel_ini_mat[, grid_pt], true_velocities_ini[, grid_pt])
+    enkfsa.vel_rmse_mid[grid_pt] <- rmse(enkfsa.mean_vel_mid_mat[, grid_pt], true_velocities_mid[, grid_pt])
+    enkfsa.vel_rmse_fin[grid_pt] <- rmse(enkfsa.mean_vel_fin_mat[, grid_pt], true_velocities_fin[, grid_pt])
 }
 
-png("./plots/temp/compare_rmse_thickness.png", width = 1000, height = 500)
-plot_range <- 1:1000# 2001
-plot(enkfsa.thickness_rmse_fin[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
-lines(cnn.thickness_rmse_fin[plot_range], col = "salmon")
-legend("topright", legend = c("EnKFSA", "CNN"), col = c("black", "salmon"), lty = 1)
-dev.off()
+if (save_plots) {
+    png("./plots/combined/compare_rmse_thickness.png", width = 1000, height = 500)
+    plot_range <- 1:2001
+    plot(enkfsa.thickness_rmse_fin[plot_range], type = "l", lwd = 2,
+            xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
+    lines(cnn.thickness_rmse_fin[plot_range], col = "salmon", lwd = 2)
+    legend("topright", legend = c("Aug EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    dev.off()
 
-png("./plots/temp/compare_rmse_vel.png", width = 1000, height = 500)
-plot_range <- 1:2001
-plot(enkfsa.vel_rmse_fin[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
-lines(cnn.vel_rmse_fin[plot_range], col = "salmon")
-legend("topright", legend = c("EnKFSA", "CNN"), col = c("black", "salmon"), lty = 1)
-dev.off()
+    png("./plots/combined/compare_rmse_vel.png", width = 1000, height = 500)
+    plot_range <- 1:2001
+    plot(enkfsa.vel_rmse_fin[plot_range], type = "l", lwd = 2,
+    xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
+    lines(cnn.vel_rmse_fin[plot_range], col = "salmon", lwd = 2)
+    legend("topright", legend = c("Aug EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    dev.off()
 
+}
 
+## Read bed and friction output from EnKFSA
 bed_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
 enkfsa.bed <- lapply(bed_files, qread) #(file = paste0(enkfsa.output_dir, "/enkf_bed_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+enkfsa.bed_ini <- lapply(enkfsa.bed, function(s) s[[1]])
+enkfsa.bed_mid <- lapply(enkfsa.bed, function(s) s[[2]])
 enkfsa.bed_fin <- lapply(enkfsa.bed, function(s) s[[3]])
+enkfsa.mean_bed_ini <- lapply(enkfsa.bed_ini, rowMeans)
+enkfsa.mean_bed_mid <- lapply(enkfsa.bed_mid, rowMeans)
 enkfsa.mean_bed_fin <- lapply(enkfsa.bed_fin, rowMeans)
 
 fric_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
 enkfsa.fric <- lapply(fric_files, qread) #(file = paste0(enkfsa.output_dir, "/enkf_friction_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+enkfsa.fric_ini <- lapply(enkfsa.fric, function(s) s[[1]])
+enkfsa.fric_mid <- lapply(enkfsa.fric, function(s) s[[2]])
 enkfsa.fric_fin <- lapply(enkfsa.fric, function(s) s[[3]])
+enkfsa.fric_ini <- lapply(enkfsa.fric_ini, exp)
+enkfsa.fric_mid <- lapply(enkfsa.fric_mid, exp)
 enkfsa.fric_fin <- lapply(enkfsa.fric_fin, exp)
+enkfsa.mean_fric_ini <- lapply(enkfsa.fric_ini, rowMeans)
+enkfsa.mean_fric_mid <- lapply(enkfsa.fric_mid, rowMeans)
 enkfsa.mean_fric_fin <- lapply(enkfsa.fric_fin, rowMeans)
 
-enkfsa.mean_bed_fin_mat <- matrix(unlist(enkfsa.mean_bed_fin), nrow = length(enkfsa.mean_bed_fin[[1]]), byrow = F)
-enkfsa.mean_fric_fin_mat <- matrix(unlist(enkfsa.mean_fric_fin), nrow = length(enkfsa.mean_fric_fin[[1]]), byrow = F)
+## Matrices containing the mean bed and friction coefficients per sample
+## basically each row is one sample
+enkfsa.mean_bed_ini_mat <- t(matrix(unlist(enkfsa.mean_bed_ini), nrow = length(enkfsa.mean_bed_ini[[1]]), byrow = F))
+enkfsa.mean_bed_mid_mat <- t(matrix(unlist(enkfsa.mean_bed_mid), nrow = length(enkfsa.mean_bed_mid[[1]]), byrow = F))
+enkfsa.mean_bed_fin_mat <- t(matrix(unlist(enkfsa.mean_bed_fin), nrow = length(enkfsa.mean_bed_fin[[1]]), byrow = F))
 
-# png("./plots/temp/compare_rmse_bed.png", width = 1000, height = 500)
+enkfsa.mean_fric_ini_mat <- t(matrix(unlist(enkfsa.mean_fric_ini), nrow = length(enkfsa.mean_fric_ini[[1]]), byrow = F))
+enkfsa.mean_fric_mid_mat <- t(matrix(unlist(enkfsa.mean_fric_mid), nrow = length(enkfsa.mean_fric_mid[[1]]), byrow = F))
+enkfsa.mean_fric_fin_mat <- t(matrix(unlist(enkfsa.mean_fric_fin), nrow = length(enkfsa.mean_fric_fin[[1]]), byrow = F))
+
+# png("./plots/combined/compare_rmse_bed.png", width = 1000, height = 500)
 # plot(enkfsa.mean_bed_fin_mat[, 1], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
 # dev.off()
 
 ## RMSE for bed and friction
 enkfsa.bed_rmse <- c()
 enkfsa.fric_rmse <- c()
-for (grid_pt in 1:nrow(enkfsa.mean_bed_fin_mat)) {
-    enkfsa.bed_rmse[grid_pt] <- rmse(enkfsa.mean_bed_fin_mat[grid_pt, ], true_bed[s, grid_pt])
-    enkfsa.fric_rmse[grid_pt] <- rmse(enkfsa.mean_fric_fin_mat[grid_pt, ], true_fric[s, grid_pt])
+for (grid_pt in 1:ncol(enkfsa.mean_bed_fin_mat)) {
+    enkfsa.bed_rmse[grid_pt] <- rmse(enkfsa.mean_bed_fin_mat[, grid_pt], true_bed[, grid_pt])
+    enkfsa.fric_rmse[grid_pt] <- rmse(enkfsa.mean_fric_fin_mat[, grid_pt], true_fric[, grid_pt])
 }
 
-png("./plots/temp/compare_rmse_bed.png", width = 1000, height = 500)
-plot(enkfsa.bed_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
-lines(cnn.bed_rmse, col = "salmon")
-legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1)
-dev.off()
+if (save_plots) {
 
-png("./plots/temp/compare_rmse_fric.png", width = 1000, height = 500)
-plot(enkfsa.fric_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
-lines(cnn.fric_rmse, col = "salmon")
-legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1)
-dev.off()
+    bed_rmse_df <- data.frame(domain = domain/1000, cnn = cnn.bed_rmse,
+                                enkfsa = enkfsa.bed_rmse)
+    fric_rmse_df <- data.frame(domain = domain/1000, cnn = cnn.fric_rmse,
+                                enkfsa = enkfsa.fric_rmse) 
+    thickness_rmse_df <- data.frame(domain = domain/1000, 
+                                    cnn = cnn.thickness_rmse_fin,
+                                    enkfsa = enkfsa.thickness_rmse_fin)   
+    
+    bed_rmse_plot <- ggplot(bed_rmse_df, aes(x = domain)) +
+        geom_line(aes(y = cnn, color = "CNN-EnKF"), size = 1) +
+        geom_line(aes(y = enkfsa, color = "Aug EnKF"), size = 1) +
+        labs(x = "Domain (km)", y = "RMSE", title = "RMSE of bed elevation") +
+        theme_bw() +
+        theme(legend.position = "top") +
+        theme(text = element_text(size = 30)) +
+        scale_color_manual(values = c("CNN-EnKF" = "red", "Aug EnKF" = "#00BFC4"))
+    
+    fric_rmse_plot <- ggplot(fric_rmse_df, aes(x = domain)) +
+        geom_line(aes(y = cnn, color = "CNN-EnKF"), size = 1) +
+        geom_line(aes(y = enkfsa, color = "Aug EnKF"), size = 1) +
+        labs(x = "Domain (km)", y = "RMSE", title = "RMSE of friction coefficient") +
+        theme_bw() +
+        xlim(0, min(true_gl)) +
+        ylim(0, 0.03) +
+        theme(legend.position = "top") +
+        theme(text = element_text(size = 30)) +
+        scale_color_manual(values = c("CNN-EnKF" = "red", "Aug EnKF" = "#00BFC4"))
+    
+    png("./plots/combined/compare_rmse_per_gridpt_params.png", width = 1000, height = 1000)
+    grid.arrange(bed_rmse_plot, fric_rmse_plot, nrow = 2)
+    dev.off()
 
-png("./plots/temp/compare_fric.png", width = 1000, height = 500)
-plot(enkfsa.mean_fric_fin_mat[,1], col = "blue", type = "l")
-lines(cnn.fric[,1], col = "red")
-lines(true_fric[s[1], ], col = "black")
-dev.off()
+    thickness_rmse_plot <- ggplot(thickness_rmse_df, aes(x = domain)) +
+        geom_line(aes(y = cnn, color = "CNN-EnKF"), size = 1) +
+        geom_line(aes(y = enkfsa, color = "Aug EnKF"), size = 1) +
+        labs(x = "Domain (km)", y = "RMSE", title = "RMSE of ice thickness") +
+        theme_bw() +
+        theme(legend.position = "top") +
+        theme(text = element_text(size = 30)) +
+        scale_color_manual(values = c("CNN-EnKF" = "red", "Aug EnKF" = "#00BFC4"))
 
-# Note: modify plot for friction so that RMSE is calculated only up to the grounding line
+    png("./plots/combined/compare_rmse_per_gridpt_state.png", width = 1000, height = 500)
+    # grid.arrange(bed_rmse_plot, fric_rmse_plot, thickness_rmse_plot, nrow = 3)
+    print(thickness_rmse_plot)
+    dev.off()
+
+    # png("./plots/combined/compare_rmse_bed.png", width = 1000, height = 500)
+    # plot(enkfsa.bed_rmse, type = "l", lwd = 2,
+    # xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
+    # lines(cnn.bed_rmse, col = "salmon", lwd = 2)
+    # legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    # dev.off()
+
+    # png("./plots/combined/compare_rmse_fric.png", width = 1000, height = 500)
+    # plot(enkfsa.fric_rmse[1:min(true_gl_ind)], type = "l", lwd = 2, 
+    #     xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
+    # lines(cnn.fric_rmse[1:min(true_gl_ind)], col = "salmon", lwd = 2)
+    # legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    # dev.off()
+
+    # png("./plots/combined/compare_fric.png", width = 1000, height = 500)
+    # plot(enkfsa.mean_fric_fin_mat[,1], col = "blue", type = "l")
+    # lines(cnn.fric[,1], col = "red")
+    # lines(true_fric[1, ], col = "black")
+    # dev.off()
+}
+
+## Calculate overall RMSE
+print("Calculating overall RMSE...")
+## Dissect the RMSE in a different way: calculate RMSE per-sample then average over samples
+cnn.thickness_rmse_per_sample <- c()
+enkfsa.thickness_rmse_per_sample <- c()
+cnn.vel_rmse_per_sample <- c()
+enkfsa.vel_rmse_per_sample <- c()
+for (r in 1:length(s)) {
+    cnn.thickness_rmse_per_sample[r] <- rmse(cnn.mean_thickness_fin_mat[r, ], true_thicknesses_fin[r, ])
+    enkfsa.thickness_rmse_per_sample[r] <- rmse(enkfsa.mean_thickness_ini_mat[r, ], true_thicknesses_ini[r, ])
+    cnn.vel_rmse_per_sample[r] <- rmse(cnn.mean_vel_fin_mat[r, ], true_velocities_fin[r, ])
+    enkfsa.vel_rmse_per_sample[r] <- rmse(enkfsa.mean_vel_ini_mat[r, ], true_velocities_ini[r, ])
+}
+
+## Or maybe do RMSE averaged over all samples and all grid points?
+cnn.thickness_rmse_ini <- rmse(cnn.mean_thickness_ini_mat, true_thicknesses_ini)
+enkfsa.thickness_rmse_ini <- rmse(enkfsa.mean_thickness_ini_mat, true_thicknesses_ini)
+cnn.vel_rmse_ini <- rmse(cnn.mean_vel_ini_mat, true_velocities_ini)
+enkfsa.vel_rmse_ini <- rmse(enkfsa.mean_vel_ini_mat, true_velocities_ini)
+
+cnn.thickness_rmse_mid <- rmse(cnn.mean_thickness_mid_mat, true_thicknesses_mid)
+enkfsa.thickness_rmse_mid <- rmse(enkfsa.mean_thickness_mid_mat, true_thicknesses_mid)
+cnn.vel_rmse_mid <- rmse(cnn.mean_vel_mid_mat, true_velocities_mid)
+enkfsa.vel_rmse_mid <- rmse(enkfsa.mean_vel_mid_mat, true_velocities_mid)
+
+cnn.thickness_rmse_fin <- rmse(cnn.mean_thickness_fin_mat, true_thicknesses_fin)
+enkfsa.thickness_rmse_fin <- rmse(enkfsa.mean_thickness_fin_mat, true_thicknesses_fin)
+cnn.vel_rmse_fin <- rmse(cnn.mean_vel_fin_mat, true_velocities_fin)
+enkfsa.vel_rmse_fin <- rmse(enkfsa.mean_vel_fin_mat, true_velocities_fin)
+
+cnn.bed_rmse <- rmse(cnn.bed, true_bed)
+enkfsa.bed_rmse_ini <- rmse(enkfsa.mean_bed_ini_mat, true_bed)
+enkfsa.bed_rmse_mid <- rmse(enkfsa.mean_bed_mid_mat, true_bed)
+enkfsa.bed_rmse_fin <- rmse(enkfsa.mean_bed_fin_mat, true_bed)
+
+cnn.fric_rmse_per_sample <- c()
+enkfsa.ini_fric_rmse_per_sample <- c()
+enkfsa.mid_fric_rmse_per_sample <- c()
+enkfsa.fin_fric_rmse_per_sample <- c()
+for (r in 1:length(s)) {
+    cnn.fric_rmse_per_sample[r] <- rmse(cnn.fric[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
+    enkfsa.ini_fric_rmse_per_sample[r] <- rmse(enkfsa.mean_fric_ini_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
+    enkfsa.mid_fric_rmse_per_sample[r] <- rmse(enkfsa.mean_fric_mid_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
+    enkfsa.fin_fric_rmse_per_sample[r] <- rmse(enkfsa.mean_fric_fin_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
+}
+
+## How to calculate the overall RMSE for friction?
+cnn.fric_rmse <- mean(cnn.fric_rmse_per_sample) #rmse(t(cnn.fric), true_fric[s, ])
+enkfsa.fric_rmse_ini <- mean(enkfsa.ini_fric_rmse_per_sample) #rmse(t(enkfsa.mean_fric_fin_mat), true_fric[s, ])
+enkfsa.fric_rmse_mid <- mean(enkfsa.mid_fric_rmse_per_sample) #rmse(t(enkfsa.mean_fric_fin_mat), true_fric[s, ])
+enkfsa.fric_rmse_fin <- mean(enkfsa.fin_fric_rmse_per_sample) #rmse(t(enkfsa.mean_fric_fin_mat), true_fric[s, ])
+
+## RMSE table
+rmse_table <- data.frame(
+    method = c("CNN", "Aug EnKF"),
+    thickness_ini = c(cnn.thickness_rmse_ini, enkfsa.thickness_rmse_ini),
+    thickness_mid = c(cnn.thickness_rmse_mid, enkfsa.thickness_rmse_mid),
+    thickness_fin = c(cnn.thickness_rmse_fin, enkfsa.thickness_rmse_fin),
+    velocity_ini = c(cnn.vel_rmse_ini, enkfsa.vel_rmse_ini),
+    velocity_mid = c(cnn.vel_rmse_mid, enkfsa.vel_rmse_mid),
+    velocity_fin = c(cnn.vel_rmse_fin, enkfsa.vel_rmse_fin),
+    bed = c(cnn.bed_rmse, enkfsa.bed_rmse_fin),
+    friction = c(cnn.fric_rmse, enkfsa.fric_rmse)
+)
+print(rmse_table)

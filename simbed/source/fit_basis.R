@@ -1,5 +1,5 @@
 fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F,
-                                lengthscale = 10e3) {
+                                lengthscale = 5e3) {
     ## Place basis function centres along domain
     # basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis+2)
     # basis_centres <- basis_centres[2:(length(basis_centres)-1)] 
@@ -115,7 +115,7 @@ fit_bed_basis <- function(nbasis, domain, bed_arr) {
 
 # plot(fric_arr[1,], type = "l")
 # lines(fitted_values[1, ], col = "red")
-    return(list(#true_vals = bed_arr,
+    return(list(true_vals = bed_arr,
                 basis_coefs = basis_coefs, 
                 basis_mat = basis_mat,
                 fitted_values = fitted_values))

@@ -12,12 +12,12 @@ set.seed(2024)
 chosen_test_samples <- sample(1:500, 50) # choose 50 samples from the test set
 set.seed(NULL)
 
-s <- 7
+s <- 1
 Ne <- 500
 years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
 output_date <- "20240320" # "20240518"
-use_missing_pattern <- T
+use_missing_pattern <- F
 # add_process_noise <- T
 use_cov_taper <- F # use covariance taper
 inflate_cov <- F

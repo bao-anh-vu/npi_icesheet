@@ -46,7 +46,7 @@ create_ref <- function(use_stored_steady_state = TRUE,
     H0 <- 2000 # (m)
     
     # Discretise domain
-    J <- 1000 # number of steps
+    J <- 2000 # number of steps
     dx <- L / J # increments
     x <- seq(x0, L, dx)
     

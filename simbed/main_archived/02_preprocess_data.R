@@ -4,51 +4,48 @@ setwd("~/SSA_model/CNN/simbed/")
 
 rm(list = ls())
 
-# library(keras)
-# reticulate::use_condaenv("myenv", required = TRUE)
-# library(tensorflow)
-library(ggplot2)
+library(keras)
+reticulate::use_condaenv("myenv", required = TRUE)
+library(tensorflow)
 library(abind)
 library(parallel)
-library(qs)
-
 ## Flags
 # sim_beds <- T
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
-save_data <- F
+save_data <- T
 standardise_output <- T
-use_missing_pattern <- T
+use_missing_pattern <- F
 
 # library(tensorflow)
 # reticulate::use_condaenv("myenv", required = TRUE)
 
 source("./source/seq_mean_var.R")
 
-# # List physical devices
-# gpus <- tf$config$experimental$list_physical_devices('GPU')
+# List physical devices
+gpus <- tf$config$experimental$list_physical_devices('GPU')
 
-# if (length(gpus) > 0) {
-#   tryCatch({
-#     # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
-#     tf$config$experimental$set_virtual_device_configuration(
-#       gpus[[1]],
-#       list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
-#     )
+if (length(gpus) > 0) {
+  tryCatch({
+    # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
+    tf$config$experimental$set_virtual_device_configuration(
+      gpus[[1]],
+      list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
+    )
     
-#     logical_gpus <- tf$config$experimental$list_logical_devices('GPU')
+    logical_gpus <- tf$config$experimental$list_logical_devices('GPU')
     
-#     print(paste0(length(gpus), " Physical GPUs,", length(logical_gpus), " Logical GPUs"))
-#   }, error = function(e) {
-#     # Virtual devices must be set before GPUs have been initialized
-#     print(e)
-#   })
-# }
+    print(paste0(length(gpus), " Physical GPUs,", length(logical_gpus), " Logical GPUs"))
+  }, error = function(e) {
+    # Virtual devices must be set before GPUs have been initialized
+    print(e)
+  })
+}
 
 ## Read data
 data_date <- "20240320" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1#:50 #c(1,3,5) #1:5 #10
+sets <- 1:50 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -57,7 +54,7 @@ train_data_dir <- "./training_data"
 ## Read thickness and velocity data
 print("Reading surface data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/surface_obs_arr_", x, "_", data_date, ".rds"))
-system.time({surface_obs_list <- mclapply(files, readRDS, mc.cores = 10L)})
+surface_obs_list <- lapply(files, readRDS)
 surface_obs_arr <- abind(surface_obs_list, along = 1)
 
 if (use_missing_pattern) {
@@ -77,47 +74,16 @@ if (use_missing_pattern) {
     system.time({
         surface_obs_arr <- abind(surface_obs_list_missing, along = 0)
     })
+    
+    # surf_elev_tf <- tf$constant(surface_obs_arr)
 
-    ## Plot missing pattern
-    se_mp_c <- c(surf_elev_missing_pattern)
-    J <- dim(surface_obs_arr)[2]
-    se_mp_df <- data.frame(gridpt = rep(1:J, ncol(surf_elev_missing_pattern)), 
-                            nonmissing = se_mp_c, 
-                            year = rep(0:(ncol(surf_elev_missing_pattern)-1), each = J))
+    # missing_pattern_tf <- tf$constant(missing_patterns)
+    # missing_patterns_tf <- tf$reshape(missing_pattern_tf, shape = c(1L, dim(missing_pattern_tf)))
+    # missing_patterns_tf <- tf$tile(missing_patterns_tf, multiples = c(as.integer(dim(surface_obs_arr)[1]), 1L, 1L, 1L))
 
-    ## Plot missing surface elevation pattern over space-time
-    se_st_plot <- ggplot(se_mp_df) + 
-        geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
-        scale_fill_manual(values=c("grey", "turquoise")) +
-        scale_y_reverse() +
-        theme_bw() + 
-        labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
-        # ggtitle("Thwaites Glacier Surface Elevation Over Time") + 
-        theme(text = element_text(hjust = 0.5, size = 30))
+    # surf_obs_tf <- tf$math$multiply(surf_elev_tf, missing_patterns_tf)
 
-    png("./plots/surf_elev_missing_pattern.png", width = 800, height = 600)
-    print(se_st_plot)
-    dev.off()
-
-    vel_mp_c <- c(vel_missing_pattern)
-    vel_mp_df <- data.frame(gridpt = rep(1:J, ncol(vel_missing_pattern)), 
-                            nonmissing = vel_mp_c, 
-                            year = rep(0:(ncol(vel_missing_pattern)-1), each = J))
-
-    ## Plot missing velocity pattern over space-time
-    vel_st_plot <- ggplot(vel_mp_df) + 
-        geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
-        scale_fill_manual(values=c("grey", "turquoise")) +
-        scale_y_reverse() +
-        theme_bw() + 
-        labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
-        # ggtitle("Thwaites Glacier Velocity Over Time") + 
-        theme(text = element_text(hjust = 0.5, size = 30))
-
-    png("./plots/vel_missing_pattern.png", width = 800, height = 600)
-    print(vel_st_plot)
-    dev.off()
-
+    # surface_obs_arr <- as.array(surf_obs_tf)
 }
 
 # compute mean and sd of surface elevation and velocity
@@ -140,23 +106,21 @@ if (dim(surface_obs_arr)[1] <= 10000) {
 
 rm(surface_obs_list)
 
-print("Reading ground truth...")
 ## Read true surface elevation data
 files <- lapply(setf, function(x) paste0(train_data_dir, "/true_surface_elevs_", x, "_", data_date, ".rds"))
-t1 <- system.time({true_surface_list <- mclapply(files, readRDS, mc.cores = 10L)})
-
+true_surface_list <- lapply(files, readRDS)
 true_surface_arr <- abind(true_surface_list, along = 1)
 rm(true_surface_list)
 
 ## Read true thickness data
 files <- lapply(setf, function(x) paste0(train_data_dir, "/true_thicknesses_", x, "_", data_date, ".rds"))
-true_thickness_list <- mclapply(files, readRDS, mc.cores = 10L)
+true_thickness_list <- lapply(files, readRDS)
 true_thickness_arr <- abind(true_thickness_list, along = 1)
 rm(true_thickness_list)
 
 ## Read true velocity data
 files <- lapply(setf, function(x) paste0(train_data_dir, "/true_velocities_", x, "_", data_date, ".rds"))
-true_velocity_list <- mclapply(files, readRDS, mc.cores = 10L)
+true_velocity_list <- lapply(files, readRDS)
 true_velocity_arr <- abind(true_velocity_list, along = 1)
 rm(true_velocity_list)
 
@@ -225,6 +189,28 @@ rm(std_z, std_u)
 ## Standardise output
 # print("Standardising output...")
 
+# if (output_var == "friction") {
+#     output <- basis_coefs
+# } else if (output_var == "grounding_line") {
+#     output <- drop(gl_arr)
+# } else if (output_var == "bed") {
+#     output <- basis_coefs
+# } else {
+#     stop("Invalid output_var")
+# }
+
+# output_mean <- mean(output)
+# output_sd <- sd(output)
+# std_output <- (output - output_mean) / output_sd
+
+# fric_mean <- mean(fric_basis_coefs)
+# fric_sd <- sd(fric_basis_coefs)
+# std_fric <- (fric_basis_coefs - fric_mean) / fric_sd
+
+# fric_mean <- mean(fric_basis_coefs)
+# fric_sd <- sd(fric_basis_coefs)
+# std_fric <- (fric_basis_coefs - fric_mean) / fric_sd
+
 ## Now split into train/validation/test sets (89/10/1)
 print("Splitting data into train/val/test...")
 set.seed(2024)
@@ -287,7 +273,7 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)]) # formatC(sets, width=
 if (use_missing_pattern) {
     data_dir <- paste0(train_data_dir, "/", setsf, "/missing")
 } else {
-    data_dir <- paste0(train_data_dir, "/", setsf, "/nonmissing")
+    data_dir <- paste0(train_data_dir, "/", setsf,  "/nonmissing")
 }
 
 if (!dir.exists(data_dir)) {
@@ -309,7 +295,11 @@ true_gl_test <- drop(gl_arr[test_ind, ])
 
 train_data <- list(
     input = train_input,
+    # input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
     input_mean = c(surf_elev_mean, velocity_mean), input_sd = c(surf_elev_sd, velocity_sd),
+    # output = train_output,
+    # output_mean = output_mean, output_sd = output_sd,
+    # truth = train_truth,
     bed_coefs = bed_basis_coefs[train_ind, ],
     mean_bed_coefs = mean_bed_coefs,
     sd_bed_coefs = sd_bed_coefs,
@@ -336,6 +326,9 @@ if (save_data) {
 val_data <- list(
     input = val_input,
     input_mean = c(surf_elev_mean, velocity_mean), input_sd = c(surf_elev_sd, velocity_sd),
+    # output = val_output,
+    # output_mean = output_mean, output_sd = output_sd,
+    # truth = val_truth,
     bed_coefs = bed_basis_coefs[val_ind, ],
     mean_bed_coefs = mean_bed_coefs,
     sd_bed_coefs = sd_bed_coefs,
@@ -361,13 +354,18 @@ if (save_data) {
 
 test_data <- list(
     input = test_input,
+    # input_mean = c(velocity_mean, surf_elev_mean), input_sd = c(velocity_sd, surf_elev_sd),
     input_mean = c(surf_elev_mean, velocity_mean), input_sd = c(surf_elev_sd, velocity_sd),
+    # output = test_output,
+    # output_mean = output_mean, output_sd = output_sd,
+    # truth = test_truth,
     bed_coefs = bed_basis_coefs[test_ind, ],
     mean_bed_coefs = mean_bed_coefs,
     sd_bed_coefs = sd_bed_coefs,
     fric_coefs = fric_basis_coefs[test_ind, ],
     mean_fric_coefs = mean_fric_coefs,
     sd_fric_coefs = sd_fric_coefs,
+    
     bed_basis_mat = bed_basis_mat,
     fric_basis_mat = fric_basis_mat,
     grounding_line = drop(gl_arr_std[test_ind, ]),

@@ -3,7 +3,7 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
                      missing_pattern = NULL, run_analysis = TRUE, use_cov_taper = TRUE,
                      inflate_cov = TRUE, 
                      add_process_noise = TRUE, process_noise_info,
-                     use_const_measure_noise = FALSE) {
+                     use_const_measure_error = FALSE) {
   
   print("Running filter...")
   
@@ -95,7 +95,7 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
     # ens.list <- mclapply(ens.list, propagate, mc.cores = 6L, 
     #                      domain = domain, steps_per_yr = steps_per_yr)
 
-    ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
+    ens.list <- mclapply(ens.list, propagate, mc.cores = 10L, 
                          domain = domain, steps_per_yr = steps_per_yr,
                          transformation = "log")
     
@@ -116,7 +116,7 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
     
     if (add_process_noise) { ## Add process noise
       # print("Adding process noise...")
-      set.seed(1)
+      # set.seed(1)
       h_sd <- pmin(0.02 * rowMeans(ens), 20)
       # h_sd <- pmin(0.01 * rowMeans(ens), 10)
       
@@ -152,8 +152,8 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
       # PH <- NULL #matrix(NA, nrow = 3*J, ncol = 2*J)
     
       ## Apply observation operator to every ensemble member
-      HX <- lapply(ens.list, obs_operator,
-                    domain = domain, transformation = "log") #, mc.cores = 6L)
+      HX <- mclapply(ens.list, obs_operator,
+                    domain = domain, transformation = "log", mc.cores = 10L)
       
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
@@ -176,7 +176,7 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
       ## Construct measurement error covariance matrix R (depends on the velocity)
       surf_elev_noise_sd  <- rep(10, J)
       
-      if (use_const_measure_noise) {
+      if (use_const_measure_error) {
         vel_noise_sd <- rep(20, J)
       } else {
         vel_noise_sd <- pmin(0.25 * rowMeans(prev_velocity), 20) #pmin(0.25 * vel_obs, 20)
@@ -190,6 +190,7 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
       ##### Compute likelihood #####
       # test <- dmvn(y - HX[, 1], mu = rep(0, 2*J), 
       #              sigma = HPH + R, log = TRUE)
+      # set.seed(1)
       noise <- matrix(rnorm(length(diag(R))*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
       
       # forecast_mean <- c(rowMeans(ens), beds[, 1], friction_coefs[, 1], rowMeans(prev_velocity))
@@ -252,7 +253,7 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
     # Propagate velocity
-    velocity.list <- lapply(ens.list, 
+    velocity.list <- mclapply(ens.list, 
                               function(v) { 
                                 # secpera <- 31556926
                                 # fric_scale <- 1e6 * secpera^(1 / 3)  
@@ -267,8 +268,8 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
                                 
                                 return(u)
                                 
-                              }) #, 
-                              # mc.cores = 6L)
+                              }, 
+                              mc.cores = 10L)
     
     # Convert velocity list to matrix
     prev_velocity <- matrix(unlist(velocity.list), nrow = J, ncol = Ne)
@@ -290,21 +291,21 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
   print(mc.t2 - mc.t1)
   
   return(enkf_out = list(ens_means = enkf_means,
-                         ens = enkf_ens, 
+                         ens = as.matrix(enkf_ens), 
                          velocity_means = enkf_velocity_means,
-                         velocities = enkf_velocities,
-                         bed = beds, #[, 1], # all beds are the same anyway
-                         friction_coef = friction_coefs, #[, 1], # same with friction
+                         velocities = as.matrix(enkf_velocities),
+                         bed = as.matrix(beds), #[, 1], # all beds are the same anyway
+                         friction_coef = as.matrix(friction_coefs), #[, 1], # same with friction
                          log_likelihood = log_likelihood, 
                          use_cov_taper = use_cov_taper,
                          inflate_cov = inflate_cov,
                          time = mc.t2 - mc.t1))  
 }
 
-wendland <- function(theta, D) {
-  R <- D / theta
-  W <- (R <= 1) * (1 - R)^4 * (1 + 4 * R)
-}
+# wendland <- function(theta, D) {
+#   R <- D / theta
+#   W <- (R <= 1) * (1 - R)^4 * (1 + 4 * R)
+# }
 
 ##########################################
 
@@ -376,6 +377,8 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
   
   mc.t1 <- proc.time()
   
+  K_list <- list()
+  HX_list <- list()
   for (year in 2:(years+1)) {
     
     cat("Forecast step", year - 1, "\n")
@@ -399,15 +402,12 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
     ens <- ens_all[1:J, ]
     prev_velocity <- ens_all[(3*J+1):(4*J), ]
 
-    # if (year >= 15) {
-    #   browser()
-    # }
     # Save the mean velocity
     # mean_prev_velocity <- rowMeans(prev_velocity)
     
     if (add_process_noise) { ## Add process noise
       # print("Adding process noise...")
-      set.seed(1)
+      # set.seed(1)
       h_sd <- pmin(0.02 * rowMeans(ens), 20)
       # h_sd <- pmin(0.01 * rowMeans(ens), 10)
       
@@ -431,9 +431,9 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
       ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i]) 
     }
 
-    png(paste0("./plots/temp/ens_f_", year - 1, ".png"))
-    matplot(ens, type = "l")
-    dev.off()
+    # png(paste0("./plots/temp/ens_f_", year - 1, ".png"))
+    # matplot(ens, type = "l")
+    # dev.off()
 
     # ens <- forecast_ens
     if (run_analysis) {
@@ -468,22 +468,16 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
       diag_R <- c(surf_elev_noise_sd^2, vel_noise_sd^2)
       R <- C_t_ls[[year]] %*% diag(diag_R) %*% t(C_t_ls[[year]]) # apply the missing observation matrix
     
+      # set.seed(1)
       noise <- matrix(rnorm(length(diag(R))*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
 
       ## Apply observation operator to every ensemble member
-      HX <- mclapply(ens.list, obs_operator,
-                    domain = domain, transformation = transformation, mc.cores = 10L)
+      HX <- lapply(ens.list, obs_operator,
+                    domain = domain, transformation = transformation) #, mc.cores = 10L)
       
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
       HX <- C_t_ls[[year]] %*% HX # apply the missing observation matrix
-
-# png("./plots/temp/Y_vs_HX.png")
-# plot(y, type = "l")
-# lines(HX[,1], col = "red")
-# legend("topright", legend = c("Y", "HX"), col = c("black", "red"), lty = 1)
-# dev.off()
-
 
       HA <- HX - 1/Ne * (HX %*% rep(1, Ne)) %*% t(rep(1, Ne)) 
 
@@ -499,9 +493,12 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
       }
 
       A <- ens - 1/Ne * (ens %*% rep(1, Ne)) %*% t(rep(1, Ne))
+      K_list[[year]] <- 1/(Ne - 1) * A %*% t(HA) %*% t(Linv) %*% Linv
       ens <- ens + 1/(Ne - 1) * A %*% t(HA) %*% t(Linv) %*% Linv %*% (Y - HX - noise)
 
       analysis.t2 <- proc.time() 
+
+      
     }
 
 #     png(paste0("./plots/temp/ens_a_", year - 1, ".png"))
@@ -520,7 +517,7 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
     # Propagate velocity
-    velocity.list <- mclapply(ens.list, 
+    velocity.list <- lapply(ens.list, 
                               function(v) { 
                                 # secpera <- 31556926
                                 # fric_scale <- 1e6 * secpera^(1 / 3)  
@@ -535,8 +532,8 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
                                 
                                 return(u)
                                 
-                              }, 
-                              mc.cores = 10L)
+                              }) #, 
+                              # mc.cores = 10L)
     
     # Convert velocity list to matrix
     prev_velocity <- matrix(unlist(velocity.list), nrow = J, ncol = Ne)
@@ -557,19 +554,32 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
   mc.t2 <- proc.time()
   print(mc.t2 - mc.t1)
   
+  # return(enkf_out = list(ens_means = enkf_means,
+  #                        ens = enkf_ens, 
+  #                        velocity_means = enkf_velocity_means,
+  #                        velocities = enkf_velocities,
+  #                        bed = beds, #[, 1], # all beds are the same anyway
+  #                        friction_coef = friction_coefs, #[, 1], # same with friction
+  #                       #  log_likelihood = log_likelihood, 
+  #                        use_cov_taper = use_cov_taper,
+  #                        inflate_cov = inflate_cov,
+  #                        K = K_list,
+  #                        HX = HX_list,
+  #                        time = mc.t2 - mc.t1))  
+
   return(enkf_out = list(ens_means = enkf_means,
-                         ens = enkf_ens, 
-                         velocity_means = enkf_velocity_means,
-                         velocities = enkf_velocities,
-                         bed = beds, #[, 1], # all beds are the same anyway
-                         friction_coef = friction_coefs, #[, 1], # same with friction
-                        #  log_likelihood = log_likelihood, 
-                         use_cov_taper = use_cov_taper,
-                         inflate_cov = inflate_cov,
-                         time = mc.t2 - mc.t1))  
+                        ens = as.matrix(enkf_ens), 
+                        velocity_means = enkf_velocity_means,
+                        velocities = as.matrix(enkf_velocities),
+                        bed = as.matrix(beds), #[, 1], # all beds are the same anyway
+                        friction_coef = as.matrix(friction_coefs), #[, 1], # same with friction
+                        # log_likelihood = log_likelihood, 
+                        use_cov_taper = use_cov_taper,
+                        inflate_cov = inflate_cov,
+                        time = mc.t2 - mc.t1))  
 }
 
-# wendland <- function(theta, D) {
-#   R <- D / theta
-#   W <- (R <= 1) * (1 - R)^4 * (1 + 4 * R)
-# }
+wendland <- function(theta, D) {
+  R <- D / theta
+  W <- (R <= 1) * (1 - R)^4 * (1 + 4 * R)
+}

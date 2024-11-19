@@ -52,8 +52,8 @@ use_missing_pattern <- F
 # ssa_seed <- 123
 # set.seed(ssa_seed)
 
-run_EnKF <- T
-save_enkf_output <- T
+run_EnKF <- F
+save_enkf_output <- F
 # save_bg_output <- F
 
 ## EnKF flags
@@ -77,7 +77,7 @@ Ne <- 500 # Ensemble size
 years <- 20 # 40
 steps_per_yr <- 52 # 100
 n_params <- 1#0 #20 #10 # 20 #number of beds
-# n_bed_obs <- 100
+# n_bed_obs <- 100l
 # smoothing_factor <- 0.5 # for the PF
 test_samples <- 11#0 #00 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
 
@@ -310,12 +310,12 @@ for (s in test_samples) {
                 # ini_ens <- rbind(ini_thickness, matrix(rep(ini_beds[, 1], Ne), J, Ne), ini_friction)
 
                 if (save_enkf_output) {
-                    saveRDS(ini_ens_list, file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".rds", sep = ""))
+                    qsave(ini_ens_list, file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".qs", sep = ""))
                 }
             } 
         }
     } else {
-        ini_ens_list <- readRDS(file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".rds", sep = ""))
+        ini_ens_list <- readRDS(file = paste0(enkf_output_dir, "/ini_ens_list_", output_date, ".qs", sep = ""))
         # ini_ens <- ini_ens[, 1:Ne]
     }
 
@@ -535,17 +535,17 @@ for (s in test_samples) {
         friction_concat <- do.call(cbind, enkf_friction_ls)
     
         if (save_enkf_output) {
-            saveRDS(thickness_concat, file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
-            saveRDS(bed_concat, file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
-            saveRDS(friction_concat, file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
-            saveRDS(velocity_concat, file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
-            saveRDS(error_inds, file = paste0(enkf_output_dir, "/error_inds_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+            qsave(thickness_concat, file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+            qsave(bed_concat, file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+            qsave(friction_concat, file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+            qsave(velocity_concat, file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+            qsave(error_inds, file = paste0(enkf_output_dir, "/error_inds_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
         }
     } else {
-        thickness_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
-        bed_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
-        friction_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
-        velocity_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".rds", sep = ""))
+        thickness_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+        bed_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+        friction_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+        velocity_concat <- readRDS(file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
     }
 
     ################################################################################
