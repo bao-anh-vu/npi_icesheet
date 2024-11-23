@@ -46,7 +46,7 @@ source("./source/enkf/initialise_ice_thickness.R")
 
 # source("ssa_enkf_plots.R")
 
-use_missing_pattern <- F
+use_missing_pattern <- T
 
 ## Seed for generating bed
 # ssa_seed <- 123
@@ -76,7 +76,7 @@ Ne <- 500 # Ensemble size
 years <- 20 # 40
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
 steps_per_yr <- 52 # 100
-n_params <- 1 
+n_params <- 1
 run <- commandArgs(trailingOnly = TRUE)
 # n_bed_obs <- 100
 # smoothing_factor <- 0.5 # for the PF
@@ -155,18 +155,18 @@ if (use_missing_pattern) {
     vel_missing_pattern <- readRDS("./training_data/vel_missing_pattern.rds")
     missing_pattern <- list(surface_elev = surf_elev_missing_pattern, vel = vel_missing_pattern)
 
-    vel_mp_c <- c(vel_missing_pattern)
-    vel_mp_df <- data.frame(gridpt = rep(1:J, ncol(vel_missing_pattern)), 
-                            nonmissing = vel_mp_c, 
-                            year = rep(0:(ncol(vel_missing_pattern)-1), each = J))
+    # vel_mp_c <- c(vel_missing_pattern)
+    # vel_mp_df <- data.frame(gridpt = rep(1:J, ncol(vel_missing_pattern)), 
+    #                         nonmissing = vel_mp_c, 
+    #                         year = rep(0:(ncol(vel_missing_pattern)-1), each = J))
 
-    ## Plot missing velocity pattern over space-time
-    vel_st_plot <- ggplot(vel_mp_df) + 
-        geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
-        # scale_fill_distiller(palette = "BuPu", direction = 1) +
-        theme_bw() + 
-        labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
-        ggtitle("Thwaites Glacier Velocity Over Time") + theme(plot.title = element_text(hjust = 0.5))
+    # ## Plot missing velocity pattern over space-time
+    # vel_st_plot <- ggplot(vel_mp_df) + 
+    #     geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
+    #     # scale_fill_distiller(palette = "BuPu", direction = 1) +
+    #     theme_bw() + 
+    #     labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
+    #     ggtitle("Thwaites Glacier Velocity Over Time") + theme(plot.title = element_text(hjust = 0.5))
 
 
     # png("./plots/temp/vel_mp.png")
@@ -305,6 +305,7 @@ if (use_missing_pattern) {
                         condsim_shelf = F, 
                         process_noise_info = process_noise_info
                     )
+                    
 
                 }
                 ini_ens <- rbind(

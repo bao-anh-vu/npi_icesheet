@@ -1,4 +1,4 @@
-get_obs <- function(reference) {
+get_obs <- function(reference, warmup = 0) {
   
 #   if (get_new_obs) {
     
@@ -24,7 +24,12 @@ get_obs <- function(reference) {
     # plot(interpol_bed$x / 1000, bed_obs, type = "l")
     
     ## 2. Velocity observations ##
-    all_ref_velocities <- reference$all_velocities
+    if (warmup == 0) {
+      all_ref_velocities <- reference$all_velocities
+    } else {
+      all_ref_velocities <- reference$all_velocities[, -(1:warmup)]
+    }
+    
     obs_velocities <- all_ref_velocities # extract velocity vectors at annual resolution
     n_vel_obs <- length(obs_velocities[, 1])
     
@@ -50,7 +55,11 @@ get_obs <- function(reference) {
     # plot(obs_velocities[, ncol(obs_velocities)], type = "l", main = "Velocity at t = 50a")
     
     ## 3. Top surface elevation observations ##
-    all_top_surface <- reference$all_top_surface
+    if (warmup == 0) {
+      all_top_surface <- reference$all_top_surface
+    } else {
+      all_top_surface <- reference$all_top_surface[, -(1:warmup)]
+    }
     # cov_surface <- diag(10^2, length(ref_top_surface)) # measurement noise for the top surface
     n_surface_obs <- nrow(all_top_surface) * ncol(all_top_surface)
     

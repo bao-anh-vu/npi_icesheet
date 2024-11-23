@@ -41,14 +41,6 @@ source("./source/create_model.R")
 # source("./source/custom_loss_function.R")
 source("./source/posterior_loss.R")
 
-# if (output_var == "friction") {
-#   source("./source/create_model.R")
-# } else if (output_var == "grounding_line") {
-#   source("./source/create_cnn_gl.R")
-# } else if (output_var == "bed") {
-#   source("./source/create_model.R")
-# }
-
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
@@ -64,11 +56,6 @@ if (use_missing_pattern) {
   train_data_dir <- paste0("./training_data", "/", setsf, "/nonmissing")
 }
 
-# # system.time({
-#   train_data <- readRDS(file = paste0(train_data_dir, "/train_data_", data_date, ".rds"))
-#   val_data <- readRDS(file = paste0(train_data_dir, "/val_data_", data_date, ".rds"))
-#   test_data <- readRDS(file = paste0(train_data_dir, "/test_data_", data_date, ".rds"))
-# # })
 system.time({
   train_data <- qread(file = paste0(train_data_dir, "/train_data_", data_date, ".qs"))
   val_data <- qread(file = paste0(train_data_dir, "/val_data_", data_date, ".qs"))
@@ -83,11 +70,6 @@ train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$gr
 val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
-
-# train_output <- train_data$output
-# val_output <- val_data$output
-# test_output <- test_data$output
-
 t1 <- proc.time()
 
 # if (rerun_cnn) {
@@ -100,26 +82,17 @@ n_mean_elements <- n_basis_funs * 2 + n_gl
 n_chol_elements <- (n_basis_funs * 2 + n_gl) + (n_basis_funs - 1) * 2 + (n_gl - 1) # diagonal + lower-diag elements
 output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE TOTAL NUMBER OF BASIS FUNCTIONS + COVARIANCE PARAMETERS
 
-
-# if (output_var == "friction") {
-#   model <- create_model(input_dim = input_dim, output_dim = output_dim)
-# } else if (output_var == "grounding_line") {
-#   model <- create_model(input_dim = input_dim, output_dim = output_dim)
-# } else if (output_var == "bed") { ## bed
-#   model <- create_model_bed(input_dim = input_dim, output_dim = output_dim)
-# } else { ## all variables
-  model <- create_model_posterior(input_dim = input_dim, 
-                                  output_dim = output_dim,
-                                  n_basis_funs = n_basis_funs,
-                                  n_gl = n_gl)
-# }
+model <- create_model_posterior(input_dim = input_dim, 
+                                output_dim = output_dim,
+                                n_basis_funs = n_basis_funs,
+                                n_gl = n_gl)
 
 # Display the model's architecture
 summary(model)
 
 # Create a callback that saves the model's weights
 if (use_missing_pattern) {
-  output_dir <- paste0("./output/posterior/", setsf, "/missing_test")
+  output_dir <- paste0("./output/posterior/", setsf, "/missing")
 } else {
   output_dir <- paste0("./output/posterior/", setsf, "/nonmissing")
 }
@@ -134,7 +107,7 @@ checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 20
+epochs <- 30
 
 if (rerun_cnn) {
   print("Training CNN...")
@@ -159,13 +132,14 @@ if (rerun_cnn) {
   )
 
   
-  # saveRDS(history, file = paste0(output_dir, "/history_", data_date, ".rds"))
+  qsave(history, file = paste0(output_dir, "/history_", data_date, ".qs"))
 
   # Save the entire model as a SavedModel.
   # save_model_tf(model, paste0(output_dir, "/model_", data_date))
+
 } else {
-  model <- load_model_tf(paste0(output_dir, "/model_", data_date))
-  history <- readRDS(file = paste0(output_dir, "/history_", data_date, ".rds"))
+  # model <- load_model_tf(paste0(output_dir, "/model_", data_date))
+  history <- qread(file = paste0(output_dir, "/history_", data_date, ".qs"))
 }
 
 t2 <- proc.time()

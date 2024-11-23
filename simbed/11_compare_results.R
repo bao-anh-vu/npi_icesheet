@@ -40,13 +40,14 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
-sample_ind <- 2 #commandArgs(trailingOnly = TRUE) # sample index
+sample_ind <- 1 #commandArgs(trailingOnly = TRUE) # sample index
 s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
 
 years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
 
 Ne <- 1000 # Ensemble size for EnKFSA
+Ne_enkf <- 500 # Ensemble size for EnKF-CNN
 
 ## Read test data
 if (use_missing_pattern) {
@@ -109,8 +110,8 @@ gl_samples_ls <- qread(file = paste0(cnn.output_dir, "/gl_post_samples_", output
 # fric_scale <- 1e6 * secpera^(1 / 3)
 
 ## Read EnKF-CNN results
-cnn.thickness <- qread(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
-cnn.velocity <- qread(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
+cnn.thickness <- qread(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne", Ne_enkf, "_", output_date, ".qs", sep = ""))
+cnn.velocity <- qread(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne", Ne_enkf, "_", output_date, ".qs", sep = ""))
 
 cnn.thickness <- lapply(cnn.thickness, as.matrix)
 cnn.velocity <- lapply(cnn.velocity, as.matrix)
@@ -144,10 +145,6 @@ enkfsa.velocity <- lapply(enkfsa.velocity, as.matrix)
 #############################
 ##    Plotting results     ## 
 #############################
-
-# palette.colors(palette = "Tableau 10")
-palette.colors(palette = "ggplot2")
-
 
 if (use_missing_pattern) {
     plot_dir <- paste0("./plots/combined/Ne", Ne, "/missing/sample", sample_ind)
@@ -209,7 +206,7 @@ if (plot_ice_thickness) {
             geom_ribbon(
                 # data = thickness.df,
                 aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-                fill = "#00BFC4", alpha = 0.2
+                fill = "blue", alpha = 0.2
             ) +
             geom_ribbon(
                 # data = thickness.df,
@@ -218,7 +215,7 @@ if (plot_ice_thickness) {
             ) +
             theme_bw() +
             geom_line(data = true_thickness.df, aes(domain, thickness)) +
-            geom_line(data = thickness.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
+            geom_line(data = thickness.df, aes(domain, enkfsa_mean), colour = "blue") +
             geom_line(data = thickness.df, aes(domain, cnn_mean), colour = "red") +
             xlab("Domain (km)") +
             ylab("Ice thickness (m)") +
@@ -275,7 +272,7 @@ if (plot_velocity) {
         velocity_plot <- ggplot(velocities.df) +
             geom_ribbon(
                 aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-                fill = "#00BFC4", alpha = 0.2
+                fill = "blue", alpha = 0.2
             ) +
             geom_ribbon(
                 aes(domain, ymin = cnn_lower, ymax = cnn_upper),
@@ -283,7 +280,7 @@ if (plot_velocity) {
             ) +
             theme_bw() +
             geom_line(data = true_velocities.df, aes(domain, velocity)) +
-            geom_line(data = velocities.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
+            geom_line(data = velocities.df, aes(domain, enkfsa_mean), colour = "blue") +
             geom_line(data = velocities.df, aes(domain, cnn_mean), colour = "red") +
             xlab("Domain (km)") +
             ylab("Velocity (m)") +
@@ -317,9 +314,9 @@ if (plot_gl) {
     plot(true_gl[s, ], type = "l", col = "black", lwd = 2, ylim = c(360, 363),
         xlab = "Time (years)", ylab = "Grounding line (km)")
     lines(cnn.gl, col = "red", lwd = 2) # CNN prediction
-    lines(enkfsa.gl, col = "#00BFC4", lwd = 2) # EnKF-SA prediction
+    lines(enkfsa.gl, col = "blue", lwd = 2) # EnKF-SA prediction
     lines(enkf_cnn.gl, col = "goldenrod", lwd = 2) # EnKF-CNN prediction
-    legend("bottomright", legend = c("True GL", "CNN", "EnKF-SA", "EnKF-CNN"), col = c("black", "red", "#00BFC4", "goldenrod"), lwd = 2)
+    legend("bottomright", legend = c("True GL", "CNN", "EnKF-SA", "EnKF-CNN"), col = c("black", "red", "blue", "goldenrod"), lwd = 2)
     dev.off()
 }
 
@@ -364,7 +361,7 @@ if (plot_bed) {
     bed_plot <- ggplot() +
         # geom_ribbon(
         #     aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-        #     fill = "#00BFC4", alpha = 0.2
+        #     fill = "blue", alpha = 0.2
         # ) +
         # geom_ribbon(
         #     aes(domain, ymin = cnn_lower, ymax = cnn_upper),
@@ -376,16 +373,16 @@ if (plot_bed) {
         geom_line(data = bed.df, aes(domain, cnn_s3), colour = "red", alpha = 0.3, lwd = 0.5) +
         geom_line(data = bed.df, aes(domain, cnn_s4), colour = "red", alpha = 0.3, lwd = 0.5) +
         geom_line(data = bed.df, aes(domain, cnn_s5), colour = "red", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s1), colour = "#00BFC4", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s2), colour = "#00BFC4", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s3), colour = "#00BFC4", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s4), colour = "#00BFC4", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s5), colour = "#00BFC4", alpha = 0.3, lwd = 0.5) +
+        geom_line(data = bed.df, aes(domain, enkf_s1), colour = "blue", alpha = 0.3, lwd = 0.5) +
+        geom_line(data = bed.df, aes(domain, enkf_s2), colour = "blue", alpha = 0.3, lwd = 0.5) +
+        geom_line(data = bed.df, aes(domain, enkf_s3), colour = "blue", alpha = 0.3, lwd = 0.5) +
+        geom_line(data = bed.df, aes(domain, enkf_s4), colour = "blue", alpha = 0.3, lwd = 0.5) +
+        geom_line(data = bed.df, aes(domain, enkf_s5), colour = "blue", alpha = 0.3, lwd = 0.5) +
         geom_line(data = true_bed.df, aes(domain, bed)) +
-        geom_line(data = bed.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
+        geom_line(data = bed.df, aes(domain, enkfsa_mean), colour = "blue") +
         geom_line(data = bed.df, aes(domain, cnn_mean), colour = "red") +
         geom_vline(xintercept = true_gl[s, years], lty = 2, colour = "black") +
-        geom_point(data = bed_obs_df, aes(location, bed_elev), colour = "black", size = 0.75) +
+        geom_point(data = bed_obs_df, aes(location, bed_elev), colour = "turquoise") +
         xlab("Domain (km)") +
         ylab("Bed elevation (m)") +
         ggtitle(title) +
@@ -449,7 +446,7 @@ if (plot_friction) {
     friction_plot <- ggplot(friction.df) +
         # geom_ribbon(
         #     aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-        #     fill = "#00BFC4", alpha = 0.2
+        #     fill = "blue", alpha = 0.2
         # ) +
         # geom_ribbon(
         #     aes(domain, ymin = cnn_lower, ymax = cnn_upper),
@@ -461,16 +458,17 @@ if (plot_friction) {
         geom_line(data = friction.df, aes(domain, cnn_s3), colour = "red", alpha = 0.2, lwd = 0.5) +
         geom_line(data = friction.df, aes(domain, cnn_s4), colour = "red", alpha = 0.2, lwd = 0.5) +
         geom_line(data = friction.df, aes(domain, cnn_s5), colour = "red", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s1), colour = "#00BFC4", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s2), colour = "#00BFC4", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s3), colour = "#00BFC4", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s4), colour = "#00BFC4", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s5), colour = "#00BFC4", alpha = 0.2, lwd = 0.5) +
+        geom_line(data = friction.df, aes(domain, enkf_s1), colour = "blue", alpha = 0.2, lwd = 0.5) +
+        geom_line(data = friction.df, aes(domain, enkf_s2), colour = "blue", alpha = 0.2, lwd = 0.5) +
+        geom_line(data = friction.df, aes(domain, enkf_s3), colour = "blue", alpha = 0.2, lwd = 0.5) +
+        geom_line(data = friction.df, aes(domain, enkf_s4), colour = "blue", alpha = 0.2, lwd = 0.5) +
+        geom_line(data = friction.df, aes(domain, enkf_s5), colour = "blue", alpha = 0.2, lwd = 0.5) +
         geom_line(data = true_fric.df, aes(domain, fric)) +
-        geom_line(data = friction.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
+        geom_line(data = friction.df, aes(domain, enkfsa_mean), colour = "blue") +
         geom_line(data = friction.df, aes(domain, cnn_mean), colour = "red") +
         geom_vline(xintercept = true_gl[s, years], lty = 2, colour = "black") +
         xlim(0, 400) +
+        ylim(0, 0.2) +
         xlab("Domain (km)") +
         ylab(bquote("Friction (M Pa m"^{-1/3}~"a"^{1/3}~")")) +
         ggtitle(title) +

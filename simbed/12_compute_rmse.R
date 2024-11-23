@@ -2,7 +2,6 @@
 library(ggplot2)
 library(mvtnorm)
 library(qs)
-library(gridExtra)
 
 setwd("/home/babv971/SSA_model/CNN/simbed/")
 rm(list = ls())
@@ -27,7 +26,7 @@ rmse <- function(estimated, true) {
 }
 
 ## 1. Read samples
-sample_ind <- 1:10 # test samples to compare
+sample_ind <- 1#:10 # test samples to compare
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
@@ -37,7 +36,7 @@ years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
 
 ## Read test data
-sets <- 1:50 # datasets
+sets <- 1:20 # datasets
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 if (use_missing_pattern) {
@@ -179,35 +178,34 @@ for (grid_pt in 1:ncol(cnn.bed)) {
 
 ## Save plots of RMSE for CNN
 if (save_plots) {
+    png("./plots/combined/test.png")
+    plot(cnn.mean_thickness_fin_mat[, 1], type = "l")
+    lines(true_thicknesses[s[1], , 21], col = "red")
+    dev.off()
 
-    # png("./plots/combined/test.png")
-    # plot(cnn.mean_thickness_fin_mat[, 1], type = "l")
-    # lines(true_thicknesses[s[1], , 21], col = "red")
-    # dev.off()
+    png("./plots/combined/rmse_thickness.png", width = 1000, height = 500)
+    plot_range <- 1:1000# 2001
+    plot(cnn.thickness_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
+    lines(cnn.thickness_rmse_mid[plot_range], col = "salmon")
+    lines(cnn.thickness_rmse_fin[plot_range], col = "red")
+    legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
+    dev.off()
 
-    # png("./plots/combined/rmse_thickness.png", width = 1000, height = 500)
-    # plot_range <- 1:1000# 2001
-    # plot(cnn.thickness_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
-    # lines(cnn.thickness_rmse_mid[plot_range], col = "salmon")
-    # lines(cnn.thickness_rmse_fin[plot_range], col = "red")
-    # legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
-    # dev.off()
+    png("./plots/combined/rmse_vel.png", width = 1000, height = 500)
+    plot_range <- 1:2001
+    plot(cnn.vel_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
+    lines(cnn.vel_rmse_mid[plot_range], col = "salmon")
+    lines(cnn.vel_rmse_fin[plot_range], col = "red")
+    legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
+    dev.off()
 
-    # png("./plots/combined/rmse_vel.png", width = 1000, height = 500)
-    # plot_range <- 1:2001
-    # plot(cnn.vel_rmse_ini[plot_range], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
-    # lines(cnn.vel_rmse_mid[plot_range], col = "salmon")
-    # lines(cnn.vel_rmse_fin[plot_range], col = "red")
-    # legend("topright", legend = c("Initial", "Middle", "Final"), col = c("black", "salmon", "red"), lty = 1)
-    # dev.off()
+    png("./plots/combined/rmse_bed.png", width = 1000, height = 500)
+    plot(cnn.bed_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
+    dev.off()
 
-    # png("./plots/combined/rmse_bed.png", width = 1000, height = 500)
-    # plot(cnn.bed_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
-    # dev.off()
-
-    # png("./plots/combined/rmse_fric.png", width = 1000, height = 500)
-    # plot(cnn.fric_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
-    # dev.off()
+    png("./plots/combined/rmse_fric.png", width = 1000, height = 500)
+    plot(cnn.fric_rmse, type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
+    dev.off()
 }
 
 ## Read EnKF-StateAug results
@@ -266,7 +264,7 @@ if (save_plots) {
     plot(enkfsa.thickness_rmse_fin[plot_range], type = "l", lwd = 2,
             xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
     lines(cnn.thickness_rmse_fin[plot_range], col = "salmon", lwd = 2)
-    legend("topright", legend = c("Aug EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    legend("topright", legend = c("EnKFSA", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
     png("./plots/combined/compare_rmse_vel.png", width = 1000, height = 500)
@@ -274,7 +272,7 @@ if (save_plots) {
     plot(enkfsa.vel_rmse_fin[plot_range], type = "l", lwd = 2,
     xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
     lines(cnn.vel_rmse_fin[plot_range], col = "salmon", lwd = 2)
-    legend("topright", legend = c("Aug EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    legend("topright", legend = c("EnKFSA", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
 }
@@ -324,72 +322,25 @@ for (grid_pt in 1:ncol(enkfsa.mean_bed_fin_mat)) {
 }
 
 if (save_plots) {
-
-    bed_rmse_df <- data.frame(domain = domain/1000, cnn = cnn.bed_rmse,
-                                enkfsa = enkfsa.bed_rmse)
-    fric_rmse_df <- data.frame(domain = domain/1000, cnn = cnn.fric_rmse,
-                                enkfsa = enkfsa.fric_rmse) 
-    thickness_rmse_df <- data.frame(domain = domain/1000, 
-                                    cnn = cnn.thickness_rmse_fin,
-                                    enkfsa = enkfsa.thickness_rmse_fin)   
-    
-    bed_rmse_plot <- ggplot(bed_rmse_df, aes(x = domain)) +
-        geom_line(aes(y = cnn, color = "CNN-EnKF"), size = 1) +
-        geom_line(aes(y = enkfsa, color = "Aug EnKF"), size = 1) +
-        labs(x = "Domain (km)", y = "RMSE", title = "RMSE of bed elevation") +
-        theme_bw() +
-        theme(legend.position = "top") +
-        theme(text = element_text(size = 30)) +
-        scale_color_manual(values = c("CNN-EnKF" = "red", "Aug EnKF" = "#00BFC4"))
-    
-    fric_rmse_plot <- ggplot(fric_rmse_df, aes(x = domain)) +
-        geom_line(aes(y = cnn, color = "CNN-EnKF"), size = 1) +
-        geom_line(aes(y = enkfsa, color = "Aug EnKF"), size = 1) +
-        labs(x = "Domain (km)", y = "RMSE", title = "RMSE of friction coefficient") +
-        theme_bw() +
-        xlim(0, min(true_gl)) +
-        ylim(0, 0.03) +
-        theme(legend.position = "top") +
-        theme(text = element_text(size = 30)) +
-        scale_color_manual(values = c("CNN-EnKF" = "red", "Aug EnKF" = "#00BFC4"))
-    
-    png("./plots/combined/compare_rmse_per_gridpt_params.png", width = 1000, height = 1000)
-    grid.arrange(bed_rmse_plot, fric_rmse_plot, nrow = 2)
+    png("./plots/combined/compare_rmse_bed.png", width = 1000, height = 500)
+    plot(enkfsa.bed_rmse, type = "l", lwd = 2,
+    xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
+    lines(cnn.bed_rmse, col = "salmon", lwd = 2)
+    legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
-    thickness_rmse_plot <- ggplot(thickness_rmse_df, aes(x = domain)) +
-        geom_line(aes(y = cnn, color = "CNN-EnKF"), size = 1) +
-        geom_line(aes(y = enkfsa, color = "Aug EnKF"), size = 1) +
-        labs(x = "Domain (km)", y = "RMSE", title = "RMSE of ice thickness") +
-        theme_bw() +
-        theme(legend.position = "top") +
-        theme(text = element_text(size = 30)) +
-        scale_color_manual(values = c("CNN-EnKF" = "red", "Aug EnKF" = "#00BFC4"))
-
-    png("./plots/combined/compare_rmse_per_gridpt_state.png", width = 1000, height = 500)
-    # grid.arrange(bed_rmse_plot, fric_rmse_plot, thickness_rmse_plot, nrow = 3)
-    print(thickness_rmse_plot)
+    png("./plots/combined/compare_rmse_fric.png", width = 1000, height = 500)
+    plot(enkfsa.fric_rmse[1:min(true_gl_ind)], type = "l", lwd = 2, 
+        xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
+    lines(cnn.fric_rmse[1:min(true_gl_ind)], col = "salmon", lwd = 2)
+    legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
-    # png("./plots/combined/compare_rmse_bed.png", width = 1000, height = 500)
-    # plot(enkfsa.bed_rmse, type = "l", lwd = 2,
-    # xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
-    # lines(cnn.bed_rmse, col = "salmon", lwd = 2)
-    # legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
-    # dev.off()
-
-    # png("./plots/combined/compare_rmse_fric.png", width = 1000, height = 500)
-    # plot(enkfsa.fric_rmse[1:min(true_gl_ind)], type = "l", lwd = 2, 
-    #     xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
-    # lines(cnn.fric_rmse[1:min(true_gl_ind)], col = "salmon", lwd = 2)
-    # legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
-    # dev.off()
-
-    # png("./plots/combined/compare_fric.png", width = 1000, height = 500)
-    # plot(enkfsa.mean_fric_fin_mat[,1], col = "blue", type = "l")
-    # lines(cnn.fric[,1], col = "red")
-    # lines(true_fric[1, ], col = "black")
-    # dev.off()
+    png("./plots/combined/compare_fric.png", width = 1000, height = 500)
+    plot(enkfsa.mean_fric_fin_mat[,1], col = "blue", type = "l")
+    lines(cnn.fric[,1], col = "red")
+    lines(true_fric[1, ], col = "black")
+    dev.off()
 }
 
 ## Calculate overall RMSE
@@ -446,7 +397,7 @@ enkfsa.fric_rmse_fin <- mean(enkfsa.fin_fric_rmse_per_sample) #rmse(t(enkfsa.mea
 
 ## RMSE table
 rmse_table <- data.frame(
-    method = c("CNN", "Aug EnKF"),
+    method = c("CNN", "EnKFSA"),
     thickness_ini = c(cnn.thickness_rmse_ini, enkfsa.thickness_rmse_ini),
     thickness_mid = c(cnn.thickness_rmse_mid, enkfsa.thickness_rmse_mid),
     thickness_fin = c(cnn.thickness_rmse_fin, enkfsa.thickness_rmse_fin),

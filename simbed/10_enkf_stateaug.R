@@ -49,7 +49,7 @@ source("./source/enkf/initialise_ice_thickness.R")
 run_EnKF <- T
 save_enkf_output <- T
 # save_bg_output <- F
-use_missing_pattern <- F
+use_missing_pattern <- T
 
 ## EnKF flags
 add_process_noise <- T
@@ -78,7 +78,7 @@ steps_per_yr <- 52 # 100
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
-sample_ind <- 16# 1:15
+sample_ind <- 2# 1:15
 test_samples <- chosen_test_samples[sample_ind] # test sample
 
 # n_params <- 1 # 20 #number of beds

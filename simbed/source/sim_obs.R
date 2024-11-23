@@ -1,5 +1,7 @@
-sim_obs <- function(param_list, years = 20,
+sim_obs <- function(param_list, years = 20, warmup = 0,
                     steady_state, log_transform = T) { # , bed_obs) {
+    
+
     # N <- nsims
     # # years <- 20
     # ssa_steady <- steady_state
@@ -78,12 +80,13 @@ sim_obs <- function(param_list, years = 20,
     fric_scale <- 1e6 * secpera^(1 / 3)
 
     # if (sim_beds) {
+simt1 <- proc.time()
 
     # sim_results <- lapply(param_list, function(param, log_transform) {
     sim_results <- mclapply(param_list, function(param, log_transform) {
 
         ## Artificial error for debugging purposes
-        # s <- sample(1:2)
+        # s <- sample(c(0, 1), 1)
         # stopifnot(s == 1)
 
         if (log_transform) {
@@ -106,13 +109,19 @@ sim_obs <- function(param_list, years = 20,
         )
 
         ## Get surface observations (with noise added)
-        surface_obs <- get_obs(reference)
+        surface_obs <- get_obs(reference, warmup = warmup)
 
         ## Save true thickness and velocity for comparison
-        true_surface_elevs <- reference$all_top_surface
-        true_thicknesses <- reference$all_thicknesses
-        true_velocities <- reference$all_velocities
-
+        if (warmup == 0) {
+            true_surface_elevs <- reference$all_top_surface
+            true_thicknesses <- reference$all_thicknesses
+            true_velocities <- reference$all_velocities
+        } else {
+            true_surface_elevs <- reference$all_top_surface[, -(1:warmup)]
+            true_thicknesses <- reference$all_thicknesses[, -(1:warmup)]
+            true_velocities <- reference$all_velocities[, -(1:warmup)]
+        }
+        
         # thickness_velocity_obs <- array(
         # surface_obs <- array(
         #     data = cbind(
@@ -123,7 +132,7 @@ sim_obs <- function(param_list, years = 20,
         #     dim = c(length(domain), years, 2)
         # )
 
-        gl <- reference$grounding_line
+        gl <- reference$grounding_line[-(1:warmup)]
         # )
 
         simulated_data <- list(
@@ -141,9 +150,10 @@ sim_obs <- function(param_list, years = 20,
     },
     log_transform = log_transform,
     mc.cores = 50L,
-    # mc.allow.fatal = TRUE,
     mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
     )
+
+simt2 <- proc.time()
 
 
     # inherits(r[[3]], "try-error")
@@ -158,7 +168,8 @@ sim_obs <- function(param_list, years = 20,
         log_transform = log_transform,
         results = sim_results,
         bad_sims = bad_sims,
-        errors = errors
+        errors = errors,
+        sim_time = simt2 - simt1
     ))
 
     # t2 <- proc.time()

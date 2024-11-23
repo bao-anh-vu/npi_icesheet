@@ -397,8 +397,11 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   i <- 1
   u_curr <- u_ini # initial guess for horizontal velocity
   H_curr <- H_ini
-  GL_position <- c()
 
+  ## Initial GL position
+  GL_position <- c()
+  GL_position <- gl_migrate(H_curr, b, z0, rho, rho_w)
+      
   # Set tolerance for fixed point iteration
   u_diff <- 999999
   H_diff <- 999999
@@ -457,7 +460,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       H_diff <- max(abs(H_new - H_curr))
       # cat("Iter", i, ": ")
       # if (i %% 1000 == 0) {
-      #   cat("Change in H (m): ", H_diff, "\n")
+      #   cat("Change in H (m): ", H_diff * steps_per_yr, "\n")
       # }
       
       H_curr <- H_new
@@ -470,7 +473,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       
       # Calculate difference between new u and old u
       u_diff <- max(abs(u_new - u_curr))
-      # cat("Change in u (m/a): ", u_diff * secpera, "\n")
+      # cat("Change in u (m/a): ", u_diff * secpera / steps_per_yr, "\n")
 
       # Set new velocity to current velocity
       u_curr <- u_new

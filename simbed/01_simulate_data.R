@@ -20,7 +20,8 @@ library(abind)
 library("ggplot2")
 # library("plotly")
 library("gridExtra")
-library("FRK")
+library(FRK)
+library(qs)
 
 source("./source/sim_params.R")
 # source("./source/run_sims.R")
@@ -38,10 +39,11 @@ source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 
-## Some flagsn,
+## Some flags
 regenerate_sims <- F
-refit_basis <- F
-save_sims <- F
+reprocess_sim_results <- T
+refit_basis <- T
+save_sims <- T
 log_transform <- T
 # sim_beds <- T
 
@@ -49,10 +51,10 @@ train_data_dir <- "./training_data"
 
 ## Presets
 data_date <- "20240320" # "20220329"
-N <- 2 # number of simulations per set
-warmup <- 10
+N <- 1000 # number of simulations per set
+warmup <- 0
 years <- 20 + warmup
-sets <- 1 #2:5 #1:5h
+sets <- 1:50 #11:20
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -60,7 +62,7 @@ setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 nbasis <- 150
 
 # 0. Load ice sheet at steady state
-ssa_steady <- readRDS(file = paste0("./training_data/initial_conds/ssa_steady_20220329.rds", sep = ""))
+ssa_steady <- readRDS(file = paste0(train_data_dir, "/initial_conds/ssa_steady_20220329.rds", sep = ""))
 domain <- ssa_steady$domain
 
 # png(paste0("./plots/temp/steady_state.png"), width = 800, height = 800)
@@ -80,20 +82,17 @@ bed_obs <- list(locations = obs_ind, obs = obs_bed)
 rm(.Random.seed, envir = globalenv())
 
 if (save_sims) {
-  saveRDS(bed_obs, file = paste0(train_data_dir, "/bed_obs_", data_date, ".rds"))
+  qsave(bed_obs, file = paste0(train_data_dir, "/bed_obs_", data_date, ".qs"))
 }
-
 
 ## Scaling units for friction coefficients
 secpera <- 31556926
 fric_scale <- 1e6 * secpera^(1 / 3)
 
-t1 <- proc.time()
+sim_results_list <- list()
+flags <- c()
+
 if (regenerate_sims) {
-
-t1 <- proc.time()
-
-    flags <- c()
 
   for (i in 1:length(sets)) {
     set <- sets[i]
@@ -107,50 +106,52 @@ t1 <- proc.time()
     ## Then fit basis here
     cat("Fitting basis functions for set", set, "\n")
     setf <- formatC(set, width = 2, flag = "0")
-    # friction_arr_s <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
-    # bed_arr_s <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
 
     ## Fit basis to log(friction)
     friction_basis <- fit_friction_basis(
-      nbasis = nbasis,
+      nbasis = 150,
       domain = domain,
       fric_arr = sim_param_list$friction,
-      log_transform = log_transform
+      log_transform = log_transform, 
+      lengthscale = 8e3
     )
 
     plot_domain <- 1:1000
     plot(friction_basis$true_vals[1, plot_domain], type = "l")
     lines(friction_basis$fitted_values[1, plot_domain], col  = "red")
 
+    png(file = paste0("./plots/friction_basis_", setf, "_", data_date, ".png"), width = 800, height = 800)
+    matplot(t(friction_basis$basis_coefs), type = "l")
+    dev.off()
+
     ## De-trend the bedrock
-    # df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$obs)
-    # bed.fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.25,
-    #                 control = loess.control(surface = "direct"))
-    # bed_mean <- predict(bed.fit, newdata = data.frame(obs_locations = domain))
+    df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$obs)
+    bed.fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.25,
+                    control = loess.control(surface = "direct"))
+    bed_mean <- predict(bed.fit, newdata = data.frame(obs_locations = domain))
     bed_arr_s <- sim_param_list$bedrock
-    bed_mean <- colMeans(bed_arr_s)
+
+    # bed_mean <- colMeans(bed_arr_s)
     mean_mat <- matrix(rep(bed_mean, nrow(bed_arr_s)), nrow = nrow(bed_arr_s), ncol = length(bed_mean), byrow = T)
     bed_arr_demean <- bed_arr_s - mean_mat
 
     ## Fit basis to bedrock
-    bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, bed_arr = bed_arr_demean)
+    bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, bed_arr = bed_arr_demean,
+                                lengthscale = 5e3)
     # bed_fit <- list(mean = bed_mean, basis = bed_basis)
     bed_basis$mean <- bed_mean
 
+    plot_domain <- 1:2001
+    plot(bed_mean + bed_basis$true_vals[1, plot_domain], type = "l")
+    lines(bed_mean + bed_basis$fitted_values[1, plot_domain], col  = "red")
+
     if (save_sims) {
-      saveRDS(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
-      saveRDS(bed_basis, file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
+      setf <- formatC(set, width = 2, flag = "0")
+      qsave(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".qs"))
+      qsave(bed_basis, file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".qs"))
     }
 
     ## Pair the bed-friction observations into a list
-    # if (log_transform) {
-    #   fitted_param_list <- lapply(1:N, function(r) {
-    #     list(
-    #       friction = exp(friction_basis$fitted_values[r, ]),
-    #       bedrock = bed_basis$fitted_values[r, ] + bed_mean
-    #     )
-    #   })
-    # } else {
       fitted_param_list <- lapply(1:N, function(r) {
         list(
           # friction = exp(friction_basis$fitted_values[r, ]),
@@ -161,52 +162,107 @@ t1 <- proc.time()
     # }
 
     ## Generate observations based on the simulated bed and friction
-    test <- try(
+    test <- try({
       # sim_results <- run_sims(nsims = N, years = years, sim_beds = T,
       #                         bed_obs = bed_obs, steady_state = ssa_steady)
       sim_results <- sim_obs(
         param_list = fitted_param_list,
         years = years, # sim_beds = T,
         # bed_obs = bed_obs,
+        warmup = warmup,
         steady_state = ssa_steady,
         log_transform = log_transform
       )
-    )
 
-    calc <- if(length(sim_results$errors) > 0) {
-      flags[i] <- 1
-      next
-    } else {
-      flags[i] <- 0
-    }
+      sim_results_list[[i]] <- sim_results
+    
+      })
 
     if (save_sims) {
-      saveRDS(sim_results, file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".rds"))
+      qsave(sim_results, file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".qs"))
+    }
+  }
+
+} else {
+
+
+  sim_results_list <- mclapply(sets, function(set) {
+    setf <- formatC(set, width = 2, flag = "0")
+    sim_results <- qread(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".qs"))
+  }, mc.cores = 10L)
+    # sim_results_list[[i]] <- sim_results
+    
+  flags <- lapply(sim_results_list, function(sim_results) {
+
+    if (length(sim_results$errors) > 0) {
+      flag <- 1
+    } else {
+      flag <- 0
     }
 
-    # sim_results <- readRDS(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".rds"))
+    return(flag)
+    }
+  )
 
+
+browser()
+  # flags <- c()
+  # for (i in 1:length(sets)) {
+  #   set <- sets[i]
+  #   cat("Loading set", set, "\n")
+  #   setf <- formatC(set, width = 2, flag = "0")
+  #   sim_results <- qread(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".qs"))
+  #   sim_results_list[[i]] <- sim_results
+    
+  #   if (length(sim_results$errors) > 0) {
+  #     flags[i] <- 1
+  #   } else {
+  #     flags[i] <- 0
+  #   }
+  # }
+
+  # bad_sets <- sets[which(flags == 1)]
+
+browser()
+  # bad_sets <- sets[which(flags == 1)]
+  # sink("bad_sets.txt")
+  # print(bad_sets)
+  # sink()
+}
+
+##########################################
+##      Process simulation results      ##
+##########################################
+
+if (reprocess_sim_results) {
+  for (i in 1:length(sets)) {
+    set <- sets[i]
+
+    sim_results <- sim_results_list[[i]]
+    
     ## Need to get rid of the simulations that failed here
     bad_sims <- sim_results$bad_sims
-    # sim_results$errors[[1]]
-    # ind <- bad_sims[1]
-    # bad_bed <- sim_results$params[[ind]]$bedrock
-    # bad_fric <- sim_results$params[[ind]]$friction
     if (length(bad_sims) > 0) {
       cat("Some simulations failed in set", set, "\n")
       good_sims <- sim_results$results[-bad_sims]
+
+      ## Delete corresponding bad simulations from the fitted basis
+      friction_basis$basis_coefs <- friction_basis$basis_coefs[-bad_sims, ]
+      friction_basis$true_vals <- friction_basis$true_vals[-bad_sims, ]
+      friction_basis$fitted_values <- friction_basis$fitted_values[-bad_sims, ]
+
+      bed_basis$basis_coefs <- bed_basis$basis_coefs[-bad_sims, ]
+      bed_basis$fitted_values <- bed_basis$fitted_values[-bad_sims, ]
+      bed_basis$true_vals <- bed_basis$true_vals[-bad_sims, ]
+
     } else {
       good_sims <- sim_results$results
     }
 
     generated_data <- process_sim_results(sims = good_sims)
 
-    # thickness_velocity_arr_s <- generated_data$thickness_velocity_arr
     surface_obs_arr_s <- generated_data$surface_obs
     friction_arr_s <- generated_data$friction_arr
-
-    ## Should scale the friction values here
-    # friction_arr_s <- friction_arr_s/fric_scale
 
     true_surface_elevs <- generated_data$true_surface_elevs
     true_thicknesses <- generated_data$true_thicknesses
@@ -215,118 +271,65 @@ t1 <- proc.time()
     gl_arr_s <- generated_data$gl_arr
     bed_arr_s <- generated_data$bed_arr
 
+    ## Should scale the friction values here
+    # friction_arr_s <- friction_arr_s/fric_scale
+
     # ## Basis function representation of the friction coefficients
     # fitted_friction_s <- fit_basis(nbasis = nbasis, domain = domain, friction_arr = friction_arr_s)
 
     if (save_sims) {
       setf <- formatC(set, width = 2, flag = "0")
-      # saveRDS(thickness_velocity_arr_s, file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
-      saveRDS(surface_obs_arr_s, file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".rds"))
-      saveRDS(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
-      saveRDS(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
-      saveRDS(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
-      saveRDS(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".rds"))
-      saveRDS(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".rds"))
-      saveRDS(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".rds"))
+      # qsave(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".qs"))
+      # qsave(bed_basis, file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".qs"))
+      qsave(surface_obs_arr_s, file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".qs"))
+      qsave(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
+      qsave(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".qs"))
+      qsave(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".qs"))
+      qsave(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".qs"))
+      qsave(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".qs"))
+      qsave(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".qs"))
     }
   }
 
-  t2 <- proc.time()
-} else {
-
-  # flags <- c()
-  # for (s in 1:length(sets)) {
-  #   set <- sets[s]
-  #   cat("Checking set", set, "\n")
-  #   setf <- formatC(set, width = 2, flag = "0")
-  #   sim_results <- readRDS(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".rds"))
-
-  #   if (length(sim_results$errors) > 0) {
-  #     flags[s] <- 1
-  #   } else {
-  #     flags[s] <- 0
-  #   }
-  # }
-
-  # bad_sets <- sets[which(flags == 1)]
-
-  # bad_sets <- sets[which(flags == 1)]
-  # sink("bad_sets.txt")
-  # print(bad_sets)
-  # sink()
 }
 
 
-t2 <- proc.time()
 
-## Basis function representation of the friction coefficients
-# if (refit_basis) {
+##############################################
+##      Plot some simulations to check      ##
+##############################################
 
-#   for (set in sets) {
-#     cat("Fitting basis functions for set", set, "\n")
-#     setf <- formatC(set, width=2, flag="0")
-#     friction_arr_s <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
-#     bed_arr_s <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
-
-#     friction_basis <- fit_friction_basis(nbasis = nbasis, domain = domain, sample_arr = friction_arr_s)
-
-#     ## De-trend the bedrock
-#     df <- data.frame(obs_locations = domain[bed_obs$locations], bed_elev = bed_obs$obs)
-#     bed.fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.25,
-#                     control = loess.control(surface = "direct"))
-#     bed_mean <- predict(bed.fit, newdata = data.frame(obs_locations = domain))
-
-#     mean_mat <- matrix(rep(bed_mean, nrow(bed_arr_s)), nrow = nrow(bed_arr_s), ncol = length(bed_mean), byrow = T)
-#     bed_arr_demean <- bed_arr_s - mean_mat
-
-#     ## Fit basis to bedrock
-#     bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, sample_arr = bed_arr_demean)
-#     bed_fit <- list(mean = bed_mean, basis = bed_basis)
-
-#     if (save_sims) {
-#       saveRDS(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
-#       saveRDS(bed_fit, file = paste0(train_data_dir, "/bed_fit_", setf, "_", data_date, ".rds"))
-#     }
-#   }
-# }
-
-# library(abind)
-# f1 <- readRDS(file = paste0("./training_data/friction_basis_", "01", "_", data_date, ".rds"))$fitted_values
-# f2 <- readRDS(file = paste0("./training_data/friction_basis_", "02", "_", data_date, ".rds"))$fitted_values
-# f12 <- abind(f1, f2, along = 1)
-## Now re-scale friction and plot it with the original friction
-
-
-## Plot some simulations to check
 set <- sets[1]
 setf <- formatC(set, width = 2, flag = "0")
 
 ### True thickness, friction, bed, grounding line
 # thickness_velocity_arr <- readRDS(file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
-surface_obs_arr <- readRDS(file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".rds"))
-friction_arr <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
-bed_arr <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
-gl_arr <- readRDS(file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".rds"))
+surface_obs_arr <- qread(file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".qs"))
+friction_arr <- qread(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
+bed_arr <- qread(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".qs"))
+gl_arr <- qread(file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".qs"))
 
 ## Fitted friction and bed
-friction_basis <- readRDS(file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".rds"))
+friction_basis <- qread(file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".qs"))
 # bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
 
-bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
+bed_basis <- qread(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".qs"))
 # bed_arr <- bed_data$basis$fitted_values
 # bed_basis <- bed_data$basis
 
+friction_arr <- friction_basis$true_vals
 fitted_friction <- friction_basis$fitted_values
+bed_arr <- bed_basis$true_vals
 fitted_bed <- bed_basis$fitted_values
 bed_mean <- bed_basis$mean
 
 plots <- list()
 
-nsamples <- 2
+nsamples <- 4
 sims <- sample(1:N, size = nsamples)
 
 space <- domain / 1000
-time <- 1:(years + 1) # 1:dim(thickness_velocity_arr)[3]
+time <- 1:(years + 1 - warmup) # 1:dim(thickness_velocity_arr)[3]
 grid_test <- expand.grid(space, time)
 head(grid_test)
 names(grid_test) <- c("space", "time")
@@ -353,8 +356,8 @@ for (s in 1:nsamples) {
   # geom_tile(aes(space, time, fill = thickness)) +
   surface_elev_plot <- ggplot(grid_test) +
     geom_tile(aes(space, time, fill = surface_elev)) +
-    scale_fill_distiller(palette = "Blues", direction = 1) +
     scale_y_reverse() +
+    scale_fill_distiller(palette = "Blues", direction = 1) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
     # labs(fill="Thickness (m)")
@@ -362,11 +365,12 @@ for (s in 1:nsamples) {
 
   velocity_plot <- ggplot(grid_test) +
     geom_tile(aes(space, time, fill = velocity)) +
-    theme_bw() +
     scale_y_reverse() +
+    theme_bw() +
     theme(text = element_text(size = 24)) +
     scale_fill_distiller(palette = "Reds", direction = 1) +
     labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")"))
+
 
   if (log_transform) {
     fitted_fric_sim <- exp(fitted_friction[sim, 1:gl])
@@ -382,19 +386,19 @@ for (s in 1:nsamples) {
   )
   friction_plot <- ggplot(df, aes(x = domain, y = friction)) +
     geom_line(lwd = 1) +
-    # geom_line(aes(x = domain, y = fitted_fric), col = "red", lwd = 1) +
+    geom_line(aes(x = domain, y = fitted_fric), col = "red", lwd = 1) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
     xlab("Domain (km)") +
     ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")"))
 
-  bed_sim <- bed_arr[sim, ]
+  bed_sim <- bed_arr[sim, ] + bed_mean
   fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
   bed_df <- data.frame(domain = ssa_steady$domain / 1000, bed = bed_sim, fitted_bed = fitted_bed_sim)
   
   bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) +
     geom_line(lwd = 1) +
-    # geom_line(aes(x = domain, y = fitted_bed), col = "red", lwd = 1) +
+    geom_line(aes(x = domain, y = fitted_bed), col = "red", lwd = 1) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
     xlab("Domain (km)") +
@@ -408,8 +412,8 @@ for (s in 1:nsamples) {
 
 }
 
-png(file = paste0("./plots/simulations_truth_", setf, "_", data_date, ".png"), 
-          width = 2400, height = 800)
+png(file = paste0("./plots/simulations_", setf, "_", data_date, ".png"), 
+          width = 2400, height = 400 * nsamples)
 grid.arrange(grobs = plots, nrow = nsamples, ncol = 4)
 dev.off()
 
@@ -490,4 +494,6 @@ dev.off()
 #   # legend("topright", legend = c("original friction", "local basis rep"), col = c("black", "red"), lty = 1, lwd = 1.5)
 
 # }
+
+
 

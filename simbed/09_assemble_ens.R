@@ -17,7 +17,7 @@ Ne <- 500
 years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
 output_date <- "20240320" # "20240518"
-use_missing_pattern <- F
+use_missing_pattern <- T
 # add_process_noise <- T
 use_cov_taper <- F # use covariance taper
 inflate_cov <- F
@@ -46,12 +46,15 @@ bed_concat <- list()
 fric_concat <- list()
 velocity_concat <- list()
 
+thickness_ens <- lapply(thickness_files, qread) 
+velocity_ens <- lapply(velocity_files, qread)
+
+# thickness_year <- lapply(thickness_ens, function(ens) as.matrix(ens[[1]]))
 for (p in 1:length(save_points)) {
-    thickness_ens <- lapply(thickness_files, qread) 
     thickness_year <- lapply(thickness_ens, function(x) as.matrix(x[[p]]))
     thickness_concat[[p]] <- abind(thickness_year, along = 2)
 
-    velocity_ens <- lapply(velocity_files, qread)
+    
     velocity_year <- lapply(velocity_ens, function(x) as.matrix(x[[p]]))
     velocity_concat[[p]] <- abind(velocity_year, along = 2)
 }
