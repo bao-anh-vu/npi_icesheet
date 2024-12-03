@@ -28,21 +28,28 @@ sim_params <- function(nsims, domain, bed_obs) {
     ## Simulate beds
     print("Simulating beds...")
     
-    bed_sims <- simulate_bed(N, domain = domain, 
+    bed_sim_output <- simulate_bed(N, domain = domain, 
                             obs_locations = bed_obs$ind, 
                             obs = bed_obs$bed_elev) 
+    bed_sims <- bed_sim_output$sims
+    bed_mean <- bed_sim_output$mean
+
+    # out <- cond_sim_gp(1, x_test = bed_obs$loc[bed_obs$chosen == 0], 
+    #                     x_train = bed_obs$loc[bed_obs$chosen == 1],
+    #                     obs = bed_obs$bed_elev[bed_obs$chosen == 1], 
+    #                     obs_sd = bed_obs$bed_sd[bed_obs$chosen == 1])
+    # bed_sims <- out$sims[-(1:2), ]
 
     sim_param_list <- list(
         friction = t(simulated_friction),
         bedrock = t(bed_sims)
     )
 
-
     ## DELETE LATER: (just creating an artificial error for debugging purposes)
     # sim_param_list[[2]] <- 0
     # sim_param_list[[3]] <- 0
     
-    return(sim_param_list)
+    return(list(sim_param_list = sim_param_list, bed_mean = bed_mean))
 
 }
 

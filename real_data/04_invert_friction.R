@@ -1,2 +1,0 @@
-## Invert for initial friction
-

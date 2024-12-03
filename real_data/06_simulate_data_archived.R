@@ -26,6 +26,8 @@ library(qs)
 source("./source/sim_params.R")
 # source("./source/run_sims.R")
 source("./source/sim_obs.R")
+source("./source/cond_sim_gp.R")
+source("./source/get_ini_thickness.R")
 source("./source/process_sim_results.R")
 source("./source/fit_basis.R")
 source("./source/surface_elev.R")
@@ -39,19 +41,20 @@ source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 
+
 ## Some flagsn,
-regenerate_sims <- F
-refit_basis <- F
-save_sims <- F
+regenerate_sims <- T
+refit_basis <- T
+save_sims <- T
 log_transform <- T
 # sim_beds <- Tv
 
 train_data_dir <- "./data/training_data"
 
 ## Presets
-data_date <- "20241103" # "20220329"
-N <- 1000#0 # number of simulations per set
-sets <- 1#:20
+data_date <- "20241111" #"20241103" 
+N <- 1000 # number of simulations per set
+sets <- 1#:50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -59,31 +62,19 @@ setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 nbasis <- 70 #150
 
 # 0. Load ice sheet at steady state
-ssa_steady <- qread(file = paste0(train_data_dir, "/steady_state_", data_date, ".qs"))
-surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+ssa_steady <- qread(file = paste0(train_data_dir, "/steady_state/steady_state_", data_date, ".qs"))
+surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
 ## 0. Flowline
 flowline <- readRDS("./data/flowline_regrid.rds")
-J <- 2001
-flowline <- flowline[1:J, ]
+# J <- 2001
+# flowline <- flowline[1:J, ]
+J <- nrow(flowline)
 flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
 domain <- c(0, cumsum(na.omit(flowline_dist)))
 
 # 0. Read bed observations
-# bed_obs <- readRDS(file = "./data/bedmap_obs.rds")
-# bed_sd <- unlist(readRDS(file = "./data/bedmap_sd.rds"))
-# bed_obs <- bed_obs[1:J] 
-# bed_avail_ind <- which(!is.na(bed_obs))
-# set.seed(1)
-# n_bed_obs <- 100
-# bed_obs_ind <- sort(sample(bed_avail_ind, n_bed_obs))
-# # bed_obs_ind <- sort(c(1, sample(bed_avail_ind, 48), length(bed)))# take first and last obs, and 48 points in between
-# chosen_bed_obs <- bed_obs[bed_obs_ind] 
-# chosen_bed_sd <- bed_sd[bed_obs_ind]
-# chosen_bed_sd[is.na(chosen_bed_sd)] <- mean(chosen_bed_sd, na.rm = T)
 bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
-bed_obs <- bed_obs_df %>% filter(chosen == 1) 
-
 
 years <- 20
 domain <- ssa_steady$domain
@@ -97,21 +88,28 @@ if (regenerate_sims) {
 
   flags <- c()
 
+  bed_sim_list <- list()
+  fric_sim_list <- list()
+
   for (i in 1:length(sets)) {
     set <- sets[i]
     cat("Generating set", set, "\n")
     
-    sim_param_list <- sim_params(
+    sim_param_output <- sim_params(
       nsims = N, domain = ssa_steady$domain,
-      bed_obs = bed_obs
+      bed_obs = bed_obs_df[bed_obs_df$chosen == 1, ]
     )
 
     # print("Simulating bed elevations...")
     # bed_sims <- simulate_bed(N, domain = domain, 
     #                         obs_locations = bed_obs$ind, 
     #                         obs = bed_obs$bed_elev) 
+    sim_param_list <- sim_param_output$sim_param_list
     bed_sims <- sim_param_list$bedrock
     fric_sims <- sim_param_list$friction
+
+    bed_sim_list[[i]] <- bed_sims
+    fric_sim_list[[i]] <- fric_sims
 
     ## Plot conditional bed simulations
     bed_sims_df <- data.frame(domain = domain, 
@@ -124,14 +122,14 @@ if (regenerate_sims) {
                               obs_loc = bed_obs_df$loc) #,
                               # chosen = bed_obs_df$chosen)
 
-    png(file = paste0("./plots/bed/bed_sims_", setf, "_", data_date, ".png"))
+    png(file = paste0("./plots/bed/bed_sims_", setf, "_", data_date, ".png"), width = 1000, height = 500)
     bed_sim_plot <- bed_sims_df %>% ggplot() + 
       geom_line(aes(x = domain, y = bed1), col = "grey") +
       geom_line(aes(x = domain, y = bed2), col = "grey") +
       geom_line(aes(x = domain, y = bed3), col = "grey") +
       geom_line(aes(x = domain, y = bed4), col = "grey") +
       geom_line(aes(x = domain, y = bed5), col = "grey") +
-      geom_point(data = bed_obs, aes(x = loc, y = bed_elev)) +
+      geom_point(data = bed_obs_df, aes(x = loc, y = bed_elev)) +
       theme_bw()
     print(bed_sim_plot)
     dev.off()
@@ -140,12 +138,21 @@ if (regenerate_sims) {
       qsave(bed_sims, file = paste0(train_data_dir, "/bed_sims_", data_date, ".qs"))
       qsave(fric_sims, file = paste0(train_data_dir, "/fric_sims_", data_date, ".qs"))
     }
+  }
 
-    ## Then fit basis here
+  ## Concatenate the bed simulations and take the mean
+  bed_sims_arr <- abind(bed_sim_list, along = 1)
+  # fric_sims_arr <- abind(fric_sim_list, along = 1)
+  bed_mean <- colMeans(bed_sims_arr)
+    
+  ## Then fit basis here  
+  for (i in 1:length(sets)) {
+    set <- sets[i]
     cat("Fitting basis functions for set", set, "\n")
     setf <- formatC(set, width = 2, flag = "0")
-    # friction_arr_s <- readRDS(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".rds"))
-    # bed_arr_s <- readRDS(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".rds"))
+
+    bed_sims <- bed_sim_list[[i]] 
+    fric_sims <- fric_sim_list[[i]] 
 
     ## Fit basis to log(friction)
     friction_basis <- fit_friction_basis(
@@ -157,7 +164,7 @@ if (regenerate_sims) {
     )
 
     ## De-trend the bedrock
-    bed_mean <- colMeans(bed_sims)
+    # bed_mean <- colMeans(bed_sims)
     mean_mat <- matrix(rep(bed_mean, nrow(bed_sims)), nrow = nrow(bed_sims), ncol = length(bed_mean), byrow = T)
     bed_arr_demean <- bed_sims - mean_mat
 
@@ -176,10 +183,10 @@ if (regenerate_sims) {
 
     png(file = paste0("./plots/bed/bed_basis_", setf, "_", data_date, ".png"))
     plot_domain <- 1:J #1000
-    # plot(domain[plot_domain], bed_basis$true_vals[2, plot_domain], type = "l")
+    plot(domain[plot_domain], bed_mean + bed_basis$true_vals[2, plot_domain], type = "l")
     # matplot(domain[plot_domain], t(bed_sims), type = "l")
-    plot(domain[plot_domain], bed_sims[1, ], type = "l")
-    lines(domain[plot_domain], bed_sims[5, ], col  = "red")
+    plot(domain[plot_domain], bed_mean + bed_sims[2, ], type = "l")
+    # lines(domain[plot_domain], bed_sims[5, ], col  = "red")
     # lines(domain[plot_domain], bed_mean + bed_basis$fitted_values[8, plot_domain], col  = "red")
     dev.off()
 
@@ -192,6 +199,31 @@ if (regenerate_sims) {
       )
     })
 
+    # 0. Velocity and ice thickness data
+    ## Initial thickness
+    # se_grounded <- na.omit(surf_elev_mat[, 21]) # Use surface elevation at the final time to initialise ice thickness
+    # H_ini <- se_grounded - bed_sims[, 1:length(se_grounded)]
+    # missing <- which(is.na(surf_elev_mat[, 21]))
+    # rho <- 910.0
+    # rho_w <- 1028.0
+    # thickness_at_tail <- - bed_sims[missing, ] * rho_w / rho # worked out based on grounding line conditions
+    # H_ini_new <- c(H_ini, thickness_at_tail) #+ offset
+    # H_ini_new <- H_ini_new + offset
+
+    ini_thickness <- #lapply(1:N, function(r) {
+      get_ini_thickness(surf_elev = surf_elev_mat[, 21], bed = colMeans(bed_sims))
+    # })
+
+# png("./plots/temp/ini_thickness.png")
+# plot(domain, ini_thickness, type = "l")
+# dev.off()
+
+    ## Velocity
+    vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+    vel_curr <- vel_mat[, ncol(vel_mat)]
+    ## Smooth the velocity out with loess
+    vel_curr_smooth <- loess(vel_curr ~ domain, span = 0.1)
+
     ## Generate observations based on the simulated bed and friction
     test <- try(
       # sim_results <- run_sims(nsims = N, years = years, sim_beds = T,
@@ -200,7 +232,9 @@ if (regenerate_sims) {
         param_list = fitted_param_list,
         years = years, # sim_beds = T,
         # bed_obs = bed_obs,
-        steady_state = ssa_steady,
+        # steady_state = ssa_steady,
+        ini_thickness = ini_thickness,
+        ini_velocity = vel_curr_smooth$fitted,
         log_transform = log_transform
       )
     )
@@ -297,7 +331,15 @@ if (regenerate_sims) {
 
 t2 <- proc.time()
 
+## Check if the generated data is close to real data here
+surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs")
 
+png("./plots/temp/surf_elev.png")
+matplot(surface_obs_arr[1,,,1], type = "l", col = "grey")
+matlines(surf_elev_mat, col = "red", lty = 2)
+dev.off()
+
+browser()
 ## Plot some simulations to check
 set <- sets[1]
 setf <- formatC(set, width = 2, flag = "0")
@@ -305,12 +347,14 @@ setf <- formatC(set, width = 2, flag = "0")
 ### True thickness, friction, bed, grounding line
 # thickness_velocity_arr <- readRDS(file = paste0(train_data_dir, "/thickness_velocity_arr_", setf, "_", data_date, ".rds"))
 surface_obs_arr <- qread(file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".qs"))
+
 # friction_arr <- qread(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
 # bed_arr <- qread(file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".qs"))
 gl_arr <- qread(file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".qs"))
 
 ## Fitted friction and bed
 friction_basis <- qread(file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".qs"))
+
 # bed_basis <- readRDS(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".rds"))
 
 bed_basis <- qread(file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".qs"))
@@ -416,8 +460,8 @@ dev.off()
 
 
 png(file = paste0("./plots/cnn/test.png"))
-matplot(surface_obs_arr[1,,,1], type = "l", col = "grey")
-matlines(surf_elev_data, col = "red")
+matplot(surface_obs_arr[2,,,1], type = "l", col = "grey")
+matlines(surf_elev_mat, col = "red")
 dev.off()
 
 

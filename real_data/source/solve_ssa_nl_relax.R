@@ -23,7 +23,6 @@
 #' @param steps_per_yr number of timesteps per year. The timestep is calculated as dt = number of seconds per year / steps_per_yr
 #' @param measure_freq frequency at which the output for surface elevation, surface velocity and ice thickness are recorded
 #' @param seed the seed used in random midpoint displacement for generating bedrock roughness
-#' @param save_model_output TRUE if saving output for surface elevation, surface velocity and ice thickness
 #' @param include_GL TRUE if the grounding line should be included (the whole ice sheet will be floating if FALSE)
 #' @param B_variable TRUE if the ice hardness is spatially variable
 #' @param M_variable TRUE if the surface mass balance (SMB) (accumulation rate minus melt rate) is spatially variable
@@ -73,7 +72,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          ini_velocity = NULL, ini_thickness = NULL,
                          tol = 1e-06, years = 4000, steps_per_yr = 26,
                          measure_freq = 1, seed = 123,
-                         save_model_output = TRUE, include_GL = TRUE,
+                         include_GL = TRUE,
                          B_variable = FALSE, M_variable = FALSE,
                          B_bueler = FALSE, M_bueler = FALSE,
                          evolve_thickness = TRUE, evolve_velocity = TRUE,
@@ -83,8 +82,8 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          add_process_noise = TRUE,
                          process_noise_info = NULL,
                          use_relaxation = FALSE,
-                         basal_melt = 0, smb = 0.5
-                         ) {
+                         relax_rate = 0,
+                         basal_melt = 0, smb = 0.5) {
 
   t1 <- proc.time()
   
@@ -118,8 +117,10 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   ############################### Domain ###############################
   x <- domain
   L <- x[length(x)]
-  dx <- x[2] - x[1]
-  J <- L / dx
+  # dx <- x[2] - x[1]
+  dx <- mean(x[2:length(x)] - x[1:(length(x)-1)]) 
+  J <- round(L / dx)
+
   ## Ice shelf specifications
   # L = 800e3 # length of domain
 
@@ -136,13 +137,13 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   # dx <- L / J # increments
   # x <- seq(x0, L, dx)
 
-  if (M_bueler) {
-    Mg <- - 4.290 / secpera #(m/s) # SMB at GL
-  } else {
-    as <- smb / secpera # surface accumulation rate (m/s)
-    ab <- basal_melt / secpera # melt rate (m/a)
-    Mg <- as - ab # surface mass balance
-  }
+#  if (M_bueler) {
+#     Mg <- - 4.290 / secpera #(m/s) # SMB at GL
+#   } else {
+#     as <- smb / secpera # surface accumulation rate (m/s)
+#     ab <- basal_melt / secpera # melt rate (m/a)
+#     Mg <- as - ab # surface mass balance
+#   }
 
   if (B_bueler) {
     Bg <- 4.614e8 # ice hardness at GL
@@ -210,8 +211,8 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     H_ini <- ini_thickness
   } else {
     elev_at_tail <- 500 
-    # H_ini <- H0 - (H0 - elev_at_tail)/(L - 0) * x
-    H_ini <- H0 - (H0 - elev_at_tail)/L^2 * x^2
+    H_ini <- H0 - (H0 - elev_at_tail)/(L - 0) * x
+    # H_ini <- H0 - (H0 - elev_at_tail)/L^2 * x^2
   }
 
   u_ini <- NULL
@@ -219,14 +220,14 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   if (!is.null(ini_velocity)) {
     u_ini <- ini_velocity #/ secpera
   } else {
-    u_ini <- u0 + 0.001 / secpera * x
+    u_ini <- u0 + 0.001 * x
   }
 
   ###################### Finite difference ########################
 
   ## Predefine B(x), M(x), z(x)
   B <- c() #rep(Bg, length(x))
-  M <- rep(Mg, length(x))
+  # M <- rep(Mg, length(x))
   z <- c()
 
   ## The equation we're trying to solve is of the form
@@ -261,35 +262,29 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   H_mat[, 1] <- as.vector(H_ini)
   zs_mat[, 1] <- get_surface_elev(H_ini, b)
 
-# png("./plots/temp/z_curr0.png")
-# plot(zs_mat[,1], ylim = c(-2000, 2000), type = "l")
-# lines(b)
-# dev.off()
 
-# png("./plots/temp/u_curr0.png")
-# plot(u_curr, type = "l")
-# dev.off()
+GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
+z_b_0 <- zs_mat[, 1] - H_curr
+png("./plots/steady_state/z_curr0.png")
+plot(x/1000, zs_mat[,1], ylim = c(-2000, 2000), type = "l")
+lines(x/1000, z_b_0, col = "black")
+lines(x/1000, b, col = "grey")
+abline(h = 0, col = "turquoise", lty = 2)
+abline(v = x[GL]/1000, col = "red", lty = 2)
+dev.off()
+
+png("./plots/steady_state/u_curr0.png")
+plot(u_curr, type = "l")
+dev.off()
+
+# browser()
 
   ## Years to save output
   obs_ind <- seq(0, years * steps_per_yr, steps_per_yr) # measure_freq = # times to measure per year
 
   while (i <= (years * steps_per_yr) && H_diff > tol) {
     
-    if (i %% 50 == 0) {
-      cat("i: ", i, "\t")
-      z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
-      png(paste0("./plots/temp/z_curr", i, ".png"))
-      plot(z_curr, type = "l", ylim = c(-2000, 2000), xlab = "x", ylab = "z")
-      abline(h = 0, col = "red", lty = 2)
-      lines(b)
-
-      dev.off()
-
-      png(paste0("./plots/temp/u_curr", i, ".png"))
-      plot(u_curr, type = "l")
-      dev.off()
-    }
-     
+    
     if (include_GL) {
       GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
       # GL_position <- c(GL_position, GL) #/ J * L / 1000
@@ -302,12 +297,47 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       }
     }
     
+if (i %% 500 == 0) {
+  
+      cat("i: ", i, "\t")
+      z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
+      z_b_curr <- z_curr - H_curr
+      png(paste0("./plots/steady_state/z_curr", i, ".png"))
+      plot(x/1000, z_curr, type = "l", ylim = c(-2000, 2000), 
+            xlab = "Domain (km)", ylab = "Elevation (m)", main = paste("Year", ceiling(i / steps_per_yr)))
+      lines(x/1000, z_b_curr, col = "black")
+      lines(x/1000, zs_mat[, 1], col = "salmon")
+      # lines(x/1000, z_b_0, col = "salmon")
+      abline(v = x[GL]/1000, col = "black", lty = 2)
+      abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2)
+      abline(h = 0, col = "turquoise", lty = 2)
+      lines(x/1000, b, col = "grey")
+      dev.off()
+
+      png(paste0("./plots/steady_state/u_curr", i, ".png"))
+      plot(u_curr, type = "l")
+      dev.off()
+    }
+     
+
     # Now use this velocity to solve the mass balance equation
     if (evolve_thickness) {
+
+      # if (i / steps_per_yr <= 100) {
+      #   smb_rate = 10 * smb
+      #   dS_dt = 0
+      # } else {
+      #   smb_rate = 5 * smb
+      #   dS_dt = relax_rate
+      # }
+
       # H_new <- solve_thickness_og(u_curr, H_curr)
-      H_new <- solve_thickness(u_curr, H_curr, x, b, 
-                              steps_per_yr = steps_per_yr,
-                              as = as, ab = ab)
+      H_new <- solve_thickness(u_curr, H_curr, x, b, steps_per_yr = steps_per_yr,
+                                # use_relaxation = use_relaxation, 
+                                # relax_thickness = H_ini, 
+                                # relax_rate = dS_dt,
+                                as = smb, ab = basal_melt)
+
       if (add_process_noise && i %in% obs_ind) {
         # H_sd <- c(rep(20, GL), rep(10, length(H_new) - GL))
         H_sd <- pmin(0.02 * H_new, 20)
@@ -348,7 +378,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     }
     
     ## Store surface velocity, ice thickness and surface elevation
-    if (save_model_output && i %in% obs_ind) {
+    if (i %in% obs_ind) {
       # u_mat[, ceiling(i / steps_per_yr)] <- as.vector(u_curr)
       # H_mat[, ceiling(i / steps_per_yr)] <- as.vector(H_curr)
       

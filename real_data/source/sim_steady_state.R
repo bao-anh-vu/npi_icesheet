@@ -26,8 +26,13 @@
 sim_steady_state <- function(
                        add_process_noise_in_ref = FALSE,
                        domain, 
+                       years = 1000,
+                       ini_thickness,
+                       ini_velocity,
                        friction_coef,
-                       bedrock) {
+                       bedrock,
+                       relax_rate,
+                       smb, basal_melt) {
 
   # if (!use_stored_steady_state) {
 
@@ -44,7 +49,7 @@ sim_steady_state <- function(
     ## Boundary conditions at the ice divide (x = 0)
     x0 <- 0
     u0 <- 100 / secpera # (m/s)
-    H0 <- 3000 # (m)
+    H0 <- 2000 # (m)
     
     # Discretise domain
     J <- 2000 # number of steps
@@ -60,13 +65,17 @@ sim_steady_state <- function(
     # ssa_out <- solve_ssa_nl(domain = x, bedrock = b, friction_coef = C, tol = 0.01, steps_per_yr = 26,
     #                         seed = ssa_seed, save_obs = TRUE, perturb_hardness = FALSE)
     ssa_out <- solve_ssa_nl(domain = x, bedrock = b, friction_coef = C, 
-                            tol = 1e-04, 
-                            # years = 10000,
+                            # tol = 1e-04, 
+                            years = years,
                             steps_per_yr = 52, 
                             save_model_output = TRUE, 
                             perturb_hardness = FALSE, 
                             add_process_noise = add_process_noise_in_ref,
-                            thickness_bc = H0
+                            # ini_thickness = ini_thickness,
+                            # ini_velocity = ini_velocity,
+                            relax_rate = relax_rate,
+                            smb = smb,
+                            basal_melt = basal_melt
                             )
 
     t2 <- proc.time()  

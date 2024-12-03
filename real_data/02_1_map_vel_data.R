@@ -16,7 +16,7 @@ library(parallel)
 setwd("~/SSA_model/CNN/real_data/")
 
 reread_data <- F
-remap_vel <- F
+remap_vel <- T
 
 data_dir <- "./data"
 

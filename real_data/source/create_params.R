@@ -14,18 +14,19 @@ create_bed <- function(x, bed_mean = NULL, random_bed = TRUE) {
   if (!is.null(bed_mean)) {
     bed_mean <- bed_mean
   } else {
-    left <- (x <= 450e3)
-    right <- (x > 450e3)
-    bed_mean[left] <- - 600 + x[left] / 1000
-    bed_mean[right] <- - 150 - 5 * (x[right] / 1000 - 450)
-    # bed_mean <- bed_mean + 500
+    left <- (x <= 150e3)
+    right <- (x > 150e3)
+    bed_mean[left] <- - 1000 + x[left] / 1000
+    bed_mean[right] <- - 850 - 2 * (x[right] / 1000 - 150)
+    # bed_mean <- bed_mean - 500
   } #else {
   #   bed_mean <- rep(-650, length(x))
   # }
-  
+
   ## b_r (random midpoint displacement to generate roughness of the bed)
   
   if (random_bed) {
+    set.seed(2024)
     K <- 2
     br <- rep(0, K)
     mu <- 0

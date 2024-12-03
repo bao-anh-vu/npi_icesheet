@@ -33,8 +33,6 @@ simulate_bed <- function(nsim, domain, obs_locations, obs, obs_sd = NULL,
   # points(domain[obs_locations], obs, col = "red")
   # dev.off()
 
-  # browser()
-
   # Unconditional simulation
   bed_sims <- matrix(0, nrow = length(domain), ncol = nsim) #matrix to store simulations
   
@@ -97,15 +95,7 @@ simulate_bed <- function(nsim, domain, obs_locations, obs, obs_sd = NULL,
   # )
   # bed.sims.mean <- rowMeans(bed.sims) # mean of all simulated beds
   
-  # par(mfrow = c(1,1))
-  # # plot(x/1000, b, type = "l")
-  # plot(x/1000, bed.sims[, 1], type = "l", col = "lightblue") # first member
-  # lines(x/1000, bed.sims.mean, lty = 2, col = "red") # conditional sim
-  # points(x[obs_locations]/1000, obs, col = "cyan", bg = "cyan", pch = 20)
-  # legend("topright", legend = c("True bed", "Mean simulated bed", "First ensemble member"),
-  #        col = c("black", "red", "lightblue"), lty = 1:2, cex = 0.5)
-  # 
-  return(bed.sims)
+  return(list(sims = bed.sims, mean = bed_mean))
 }
 
 bed_cov <- function(sill, nugget, range, si, sj) { 

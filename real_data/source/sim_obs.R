@@ -1,5 +1,8 @@
 sim_obs <- function(param_list, years = 20,
-                    steady_state, log_transform = T) { # , bed_obs) {
+                    # steady_state, 
+                    ini_velocity,
+                    ini_thickness, 
+                    log_transform = T) { # , bed_obs) {
     # N <- nsims
     # # years <- 20
     # ssa_steady <- steady_state
@@ -77,11 +80,10 @@ sim_obs <- function(param_list, years = 20,
     secpera <- 31556926
     fric_scale <- 1e6 * secpera^(1 / 3)
 
-    # if (sim_beds) {
+    sim_results <- lapply(param_list, function(param, log_transform) {
+    # sim_results <- mclapply(param_list, function(param, log_transform) {
 
-    # sim_results <- lapply(param_list, function(param, log_transform) {
-    sim_results <- mclapply(param_list, function(param, log_transform) {
-
+        # print("Simulating data...")
         ## Artificial error for debugging purposes
         # s <- sample(1:2)
         # stopifnot(s == 1)
@@ -96,11 +98,13 @@ sim_obs <- function(param_list, years = 20,
             domain = ssa_steady$domain,
             bedrock = param$bedrock,
             friction_coef = fric * fric_scale,
-            ini_velocity = ssa_steady$current_velocity,
-            ini_thickness = ssa_steady$current_thickness,
+            # ini_velocity = ssa_steady$current_velocity,
+            # ini_thickness = ssa_steady$current_thickness,
+            ini_velocity = ini_velocity,
+            ini_thickness = ini_thickness,
             years = years, steps_per_yr = 52,
             # save_model_output = TRUE,
-            perturb_hardness = TRUE,
+            perturb_hardness = FALSE,
             add_process_noise = T,
             process_noise_info = process_noise_info
         )
@@ -139,13 +143,11 @@ sim_obs <- function(param_list, years = 20,
         # simulated_data <- obs
         return(simulated_data)
     },
-    log_transform = log_transform,
-    mc.cores = 50L,
+    log_transform = log_transform
+    # mc.cores = 50L,
     ## mc.allow.fatal = TRUE,
-    mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
+    # mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
     )
-
-
 
     # inherits(r[[3]], "try-error")
 

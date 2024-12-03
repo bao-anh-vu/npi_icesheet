@@ -26,8 +26,8 @@ test_on_train <- F
 use_missing_pattern <- T
 
 ## Read data
-data_date <- "20241103"
-sets <- 1:20 #6:20
+data_date <- "20241110" #"20241103"
+sets <- 1:10 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -53,27 +53,29 @@ if (use_missing_pattern) {
 
 ssa_steady <- qread(file = paste("./data/training_data/steady_state.qs", sep = ""))
 domain <- ssa_steady$domain
+test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
 
 surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
 
-mean_surf_elev <- mean(surf_elev_data, na.rm = T)
-sd_surf_elev <- sd(surf_elev_data, na.rm = T)
+input_mean <- test_data$input_mean
+input_sd <- test_data$input_sd
+mean_surf_elev <- input_mean[1] #mean(surf_elev_data, na.rm = T)
+sd_surf_elev <- input_sd[1] #sd(surf_elev_data, na.rm = T)
 surf_elev_data_std <- (surf_elev_data - mean_surf_elev) / sd_surf_elev
 
-mean_velocity <- mean(velocity_data, na.rm = T)
-sd_velocity <- sd(velocity_data, na.rm = T)
+mean_velocity <- input_mean[2] #mean(velocity_data, na.rm = T)
+sd_velocity <- input_sd[2] #sd(velocity_data, na.rm = T)
 velocity_data_std <- (velocity_data - mean_velocity) / sd_velocity
 
 real_data <- abind(surf_elev_data_std, velocity_data_std, along = 3)
 real_data <- array(real_data, dim = c(1L, dim(real_data)))
 
 ## Have to standardise the input
-test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
 test_input <- test_data$input
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
-png("./plots/cnn/test.png"), width = 2000, height = 1200)
+png("./plots/cnn/test_vs_real.png", width = 2000, height = 1200)
 matplot(real_data[1,,,1], type = "l")
 matlines(test_data$input[1,,,1], col = "red")
 dev.off()

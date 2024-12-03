@@ -12,105 +12,44 @@ library(Matrix)
 # library("expm")
 library(R.utils)
 # library("sp")
-library(fields)
 # library("tidyr")
-library(dplyr)
 library(matrixStats) # for the rowMaxs() function
 library(mvtnorm)
 library(FRK)
 library(qs)
 # library(sf)
+
 source("./source/create_params.R")
+source("./source/cond_sim_gp.R")
 source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/sim_steady_state.R")
-source("./source/solve_ssa_nl.R")
+source("./source/solve_ssa_nl_relax.R")
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
 source("./source/surface_elev.R")
 source("./source/fit_basis.R")
-source("./source/create_params.R")
 
 data_dir <- "./data/"
-data_date <- "20241103"
+data_date <- "20241111" #"20241103"
 
 ## Flags
 simulate_steady_state <- T
-use_basis_funs <- F
-save_steady_state <- T
+# smooth_bed <- F
+save_steady_state <- F
 
 ## Flowline data
 flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-J <- 2001 # number of grid points
-flowline <- flowline[1:J, ]
+J <- nrow(flowline) # number of grid points
+# flowline <- flowline[1:J, ]
 flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
 flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 
 ## 1. Read bed data
-# bed_old <- readRDS(file = "./data/bed_elev_nearest.rds")
-bed <- readRDS(file = "./data/bedmap_obs.rds")
-bed_sd <- unlist(readRDS(file = "./data/bedmap_sd.rds"))
-bed <- bed[1:J] 
-bed_sd <- bed_sd[1:J]
+bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
 
-bed_obs_df <- data.frame(ind = 1:J, loc = flowline_dist, bed_elev = bed, bed_sd = bed_sd)
-bed_avail_ind <- which(!is.na(bed))
-bed_sd_avail_ind <- which(!is.na(bed_sd))
-common_avail_ind <- intersect(bed_avail_ind, bed_sd_avail_ind)
-## Choose the first and last 25 observations, then randomly choose another 50 in between
-chosen_bed_ind_head <- common_avail_ind[1:25] #Choose the first 50 bed observations
-chosen_bed_ind_tail <- common_avail_ind[(length(common_avail_ind) - 24):length(common_avail_ind)] #Choose the first 50 bed observations
-chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_tail)
-set.seed(2024)
-chosen_bed_ind_mid <- sample(setdiff(common_avail_ind, chosen_bed_ind), 50) #then randomly select another 50 bed observations after
-chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_mid, chosen_bed_ind_tail)
-
-# if index is in chosen_bed_ind, then chosen = 1, else 0
-bed_obs_df$chosen <- ifelse(bed_obs_df$ind %in% chosen_bed_ind, 1, 0)
-
-qsave(bed_obs_df, file = paste0(data_dir, "/bed_obs_df.qs"))
-
-## Mark GL position
-gl_pos <- readRDS(file = paste0(data_dir, "/grounding_line/gl_pos.rds"))
-delta <- 500
-pts_near_gl <- flowline %>% filter(
-        x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
-        y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta)
-        ) %>%
-        mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) %>%
-        # arrange(dist) %>%
-        slice_min(dist, n = 1) #%>%
-
-gl_ind <- which(flowline$x == pts_near_gl$x)
-
-chosen_bed_df <- bed_obs_df %>% filter(chosen == 1) %>% na.omit()
-
-bed_sim <- simulate_bed(1, domain = flowline_dist, 
-                        obs_locations = chosen_bed_df$ind, 
-                        obs = chosen_bed_df$bed_elev, obs_sd = chosen_bed_df$bed_sd)
-
-
-png(paste0("./plots/bed/bed_sim.png"), width = 1000, height = 500)
-bed_obs_df %>% ggplot(aes(x = loc, y = bed_elev)) +
-        geom_line() + 
-        geom_point(aes(col = factor(chosen))) +
-        geom_vline(xintercept = flowline_dist[gl_ind], lty = 2) +
-        geom_line(data = data.frame(x = flowline_dist, y = bed_sim), aes(x = x, y = y), col = "gray") +
-        theme_bw()
-dev.off()
-
-
+## Simulate friction coefficient
 print("Simulating friction coefficient...")
-
-fric.sill <- 8e-5
-fric.nugget <- 0
-fric.range <- 10e3
-
-fric_sim <- simulate_friction2(
-nsim = 1, domain = flowline_dist,
-sill = fric.sill, nugget = fric.nugget,
-range = fric.range
-) 
 
 secpera <- 31556926 #seconds per annum
 n <- 3.0 # exponent in Glen's flow law
@@ -119,28 +58,102 @@ x <- flowline_dist
 L <- flowline_dist[J] - flowline_dist[1]
 fric_sim <- create_fric_coef(x, L) * 1e6 * (secpera)^m
 
-# png(paste0("./plots/friction/fric_steady_state.png"), width = 800, height = 800)
-# plot(flowline_dist, fric_sim, type = "l")
+## Grounding line pos
+# gl_pos <- readRDS(file = "./data/grounding_line/gl_pos.rds")
+
+## Surface elevation
+surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs") # this is on grounded ice only
+
+## Change in surface elevation (used for relaxation)
+se_change <- rowMeans(surf_elev_mat[, 2:21] - surf_elev_mat[, 1:20]) # 2001 to 2020
+
+## Change in shelf height
+shelf_height_change <- qread(file = paste0(data_dir, "/SMB/flowline_shelf_height_change.qs"))
+avg_shelf_height_change <- colMeans(shelf_height_change, na.rm = T)
+
+## Fill in missing surface elevation change with shelf height change    
+missing <- which(is.na(se_change))
+se_change[missing] <- avg_shelf_height_change[missing] #-0.1 #tail(se_change[nonmissing], 1)
+se_change[is.na(se_change)] <- mean(avg_shelf_height_change, na.rm = T) ## fill in the rest of the missing values with the mean change in shelf height
+
+## Now smooth this elevation change out with loess()
+se_change_smooth <- loess(se_change ~ flowline_dist, span = 0.08)$fitted
+
+plot(flowline_dist/1000, se_change, type = "l", xlab = "Domain (km)", ylab = "Elevation change (m/a)")
+lines(flowline_dist/1000, se_change_smooth, col = "cyan")
+abline(v = flowline_dist[missing[1]]/1000, col = "red", lty = 2) # grounding line
+
+## Initial thickness
+se_grounded <- na.omit(surf_elev_mat[, 21]) # Use surface elevation at the final time to initialise ice thickness
+H_ini <- se_grounded - bed_sim[1:length(se_grounded)]
+tail(H_ini)
+missing <- which(is.na(surf_elev_mat[, 21]))
+rho <- 910.0
+rho_w <- 1028.0
+thickness_at_gl <- - bed_sim[missing][1] * rho_w / rho
+thickness_at_tail <- rep(400, length(missing)-1) #- bed_sim[missing] * rho_w / rho # worked out based on grounding line conditions
+
+H_ini_new <- c(H_ini, thickness_at_gl, thickness_at_tail) #+ offset
+# H_ini_new <- H_ini_new + offset
+
+## Velocity
+vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+vel_curr <- rowMeans(vel_mat[, 15:ncol(vel_mat)])
+
+## Smooth the velocity out with loess
+vel_curr_smooth <- loess(vel_curr ~ flowline_dist, span = 0.1)$fitted
+
+# png(paste0("./plots/steady_state/vel_curr.png"), width = 800, height = 600)
+# plot(vel_curr, type = "l")
+# lines(fitted(vel_curr_smooth), col = "red")
 # dev.off()
 
-# H0 <- 1000
-# L <- flowline_dist[J] - flowline_dist[1]
-# x <- flowline_dist
-# H_ini <- H0 - (H0 - 0)/(L - 0) * x
-# # elev_at_tail <- 100
-# # H_ini <- H0 - (H0 - elev_at_tail)/(L^2) * x^2
+# png(paste0("./plots/steady_state/H_ini.png"), width = 1000, height = 500)
+# plot(H_ini_new, type = "l")
+# dev.off()
 
-# plot(bed_sim, type = "l", ylim = c(-2000, 2000))
-# lines(H_ini)
+## SMB data
+smb_data_racmo <- qread(file = paste0(data_dir, "/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
+smb_shelf_data <- qread(file = paste0(data_dir, "/SMB/flowline_shelf_smb.qs")) ## from 1992 to 2017
+melt_data <- qread(file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
 
+smb_avg <- colMeans(smb_data_racmo, na.rm = T)
+smb_shelf_avg <- colMeans(smb_shelf_data, na.rm = T)
+melt_avg <- colMeans(melt_data, na.rm = T)
+melt_avg[is.na(melt_avg)] <- 0
 
 ## Run model to steady state based on bed_sim
 if (simulate_steady_state) {
         print("Simulating steady state...")
-        steady_state <- sim_steady_state(domain = flowline_dist,
-                                bedrock = bed_sim,
-                                friction = fric_sim
-                                )
+        # steady_state <- sim_steady_state(domain = flowline_dist,
+        #                         years = 100,
+        #                         bedrock = bed_sim,
+        #                         friction = fric_sim,
+        #                         # ini_thickness = H_ini_new,
+        #                         # ini_velocity = vel_curr_smooth$fitted,
+        #                         # ini_velocity = 0.001 / secpera * flowline_dist,
+        #                         # relax_rate = se_change_smooth,
+        #                         smb = smb_avg,
+        #                         basal_melt = 0 #melt_avg
+        #                         )
+
+        steady_state <- solve_ssa_nl(domain = flowline_dist, 
+                                bedrock = bed_sim, 
+                                friction_coef = fric_sim, 
+                                tol = 1e-03, 
+                                #     years = 50,
+                                steps_per_yr = 100, 
+                                #     save_model_output = TRUE, 
+                                perturb_hardness = FALSE, 
+                                add_process_noise = F,
+                                thickness_bc = 3000,
+                                # ini_thickness = H_ini_new,
+                                ini_velocity = vel_curr_smooth,
+                                # relax_rate = se_change_smooth,
+                                smb = smb_avg,
+                                basal_melt = 0 #basal_melt
+                            )
+
         if (save_steady_state) {
                 # saveRDS(steady_state, file = paste0("./data/training_data/steady_state_", date, ".rds"))
                 qsave(steady_state, file = paste0(data_dir, "/steady_state_", data_date, ".qs"))
@@ -160,10 +173,11 @@ bedrock <- steady_state$bedrock
 top_surface_elev <- steady_state$top_surface
 bottom_surface_elev <- steady_state$bottom_surface
 
-png(paste0("./plots/steady_state.png"), width = 800, height = 800)
+png(paste0("./plots/steady_state_", data_date, ".png"), width = 800, height = 800)
 plot(domain, top_surface_elev, type = 'l', ylim = c(-2000, 2000))
 lines(domain, bottom_surface_elev)
 lines(domain, bedrock)
+lines(domain, surf_elev_mat[, 21])
 dev.off()
 
 gl <- steady_state$grounding_line

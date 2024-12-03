@@ -27,8 +27,8 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   ## Domain
   x <- domain
   L <- x[length(x)]
-  dx <- x[2] - x[1]
-  J <- L / dx
+  dx <- mean(x[2:length(x)] - x[1:(length(x)-1)]) #x[2] - x[1]
+  J <- round(L / dx)
   
   C <- friction 
   b <- bed
@@ -60,11 +60,10 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
     # cat("GL position: ",  GL / J * L / 1000,  "\n")
     ## Ice hardness
     if (perturb_hardness) {
-      Bg <- 0.3 * 1e6 * secpera ^ m
+      Bg <- 0.7 * 1e6 * secpera ^ m
       # Bg <- 0.25 * 1e6 * secpera ^ m
     }
     B <- rep(Bg, length(x))
-    #print(Bg)
     
     if (B_variable) {
       # Calculate T(xg)
@@ -82,7 +81,6 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   
   if (GL > 1) {
     B_stag <- 0.5 * (B[2:(J+1)] + B[1:J])
-    
     # and calculate W(x) using the current iteration of du/dx
     W[1:J] <- 2 * B_stag[1:J] * H_stag * abs(du_dx_reg[1:J])^((1/n)-1)
     W[J+1] <- W[J] # technically these are W_{J+3/2} and W_{J+1/2}
@@ -193,7 +191,50 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
     A_sparse <- A_mat
     
     # 6. Solve for the velocity
-    u_new <- solve(A_sparse, rhs)
+
+    u_new <- tryCatch({
+      # Attempt to solve without regularization
+      solve(A_sparse, rhs)
+    }, error = function(e) {
+      # If an error occurs, apply regularization
+      cat("Direct solve failed, applying regularization...\n")
+      # Add a small regularization term to the diagonal of A
+      A_reg <- A_sparse + 1e-06 * diag(nrow(A_sparse))
+      # Attempt to solve again with regularization
+      solve(A_reg, b)
+    })
+
+    # ### First check if the matrix is singular
+    # test <- system.time({
+    #   cond_number <- kappa(A_sparse, exact = FALSE)  # Set `exact = TRUE` for an exact (but slower) computation
+    # })
+
+    # if (cond_number > 1e10) {
+    #   # print("Matrix is singular, using SVD to solve")
+    #   # # Perform SVD on A
+    #   # svd_result <- svd(A_sparse)
+    #   # Umat <- svd_result$u
+    #   # S <- svd_result$d
+    #   # Vmat <- svd_result$v
+
+    #   # # Set a threshold for small singular values
+    #   # threshold <- 1e-6
+    #   # S_inv <- ifelse(S > threshold, 1 / S, 0)
+
+    #   # # Construct the pseudoinverse of A using SVD components
+    #   # A_pinv <- Vmat %*% diag(S_inv) %*% t(Umat)
+
+    #   # # Solve for x
+    #   # u_new <- as.vector(A_pinv %*% b)
+
+    #   print("Matrix is singular, adding some small regularisation...")
+    #   A_sparse <- A_sparse + 1e-6 * diag(nrow(A_sparse))
+
+    # } #else {
+
+    #   u_new <- solve(A_sparse, rhs)
+    
+    # # }
     
   } else {
     u_new <- u

@@ -122,11 +122,10 @@ plot_flowline <- ggplot(thwaites_vel) +
                 aes(x = x, y = y), color = "cyan", linewidth = 2) +
     theme_bw()
 
-print("Saving flowline plot...")
-png(paste0("./plots/flowline2.png"), width = 800, height = 800)
-print(plot_flowline)
-plot(flowline_x, flowline_y, type = "l", col = "blue", xlab = "x", ylab = "y")
-
+# print("Saving flowline plot...")
+# png(paste0("./plots/flowline2.png"), width = 800, height = 800)
+# print(plot_flowline)
+# plot(flowline_x, flowline_y, type = "l", col = "blue", xlab = "x", ylab = "y")
 # dev.off()
 
 ## Re-grid
@@ -173,6 +172,9 @@ if (regrid_flowline) {
 
   flowline_regrid <- data.frame(x = x_new, y = y_new)
   flowline_regrid <- na.omit(flowline_regrid)
+
+  ## Truncate flowline to 2001 points
+  flowline_regrid <- flowline_regrid[1:2001, ]
 
   # saveRDS(flowline_regrid, paste0(data_dir, "/flowline_regrid.rds"))
 } else {

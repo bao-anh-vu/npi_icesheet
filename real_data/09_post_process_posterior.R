@@ -14,6 +14,7 @@ reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
 library(ggplot2)
 library(qs)
+library(dplyr)
 
 ## Flags
 save_pred <- T
@@ -23,8 +24,8 @@ test_on_train <- F
 use_missing_pattern <- T
 
 ## Read data
-data_date <- "20241103"
-sets <- 1:20 #6:20
+data_date <- "20241110" #"20241103"
+sets <- 1:10 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -52,6 +53,13 @@ dev.off()
 
 ssa_steady <- qread(file = paste("./data/training_data/steady_state.qs", sep = ""))
 domain <- ssa_steady$domain
+
+## Bed observations
+bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
+bed_obs <- bed_obs_df %>% filter(chosen == 1) 
+
+bed_basis <- qread(file = paste0("./data/training_data/bed_basis_", setf, "_", data_date, ".qs"))
+bed_mean <- bed_basis$mean 
 
 ## Load the model
 test_input <- test_data$input
@@ -183,14 +191,14 @@ if (test_on_train) {
 
 ### Reconstruct bed elevation by adding bed trend to the predicted oscillations
 # bed_obs <- readRDS(file = paste0("./data/training_data/bed_obs_", data_date, ".rds"))
-bed_obs <- readRDS(file = "./data/bed_elev_nearest.rds")
-bed_obs <- bed_obs[1:2001]
+# bed_obs <- readRDS(file = "./data/bed_elev_nearest.rds")
+# bed_obs <- bed_obs[1:2001]
 
-bed_df <- data.frame(obs_locations = domain, bed_elev = bed_obs)
-bed_df <- na.omit(bed_df)
-bed.fit <- loess(bed_elev ~ obs_locations, data = bed_df, span = 0.25, 
-                    control = loess.control(surface = "direct")) 
-bed_mean <- predict(bed.fit, newdata = data.frame(obs_locations = domain))
+# bed_df <- data.frame(obs_locations = domain, bed_elev = bed_obs)
+# bed_df <- na.omit(bed_df)
+# bed.fit <- loess(bed_elev ~ loc, data = bed_obs, span = 0.25, 
+#                     control = loess.control(surface = "direct")) 
+# bed_mean <- predict(bed.fit, newdata = data.frame(loc = domain))
 bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = ncol(pred_bed_demean))
 
 pred_bed <- pred_bed_demean + bed_mean_mat
@@ -399,17 +407,17 @@ if (save_plots) {
         gl <- test_data$grounding_line[s] / 800 * 2001
 
         plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", 
-            ylab = "Friction (unit)", xlab = "Domain (km)", 
+            ylab = "Friction (unit)", xlab = "Domain (km)", lwd = 3,
             cex.axis = 3, cex.lab = 4)
         matlines(domain[plot_domain]/1000, fric_samples_ls[[s]][plot_domain, 1:3], 
-                    lty = 1, lwd = 3, col = adjustcolor("mediumpurple", alpha = 0.5))
+                    lty = 1, lwd = 2, col = adjustcolor("mediumpurple", alpha = 0.5))
         # lines(domain[plot_domain]/1000, true_fric[i, ], col = "red")
-        lines(domain[plot_domain]/1000, pred_fric[plot_domain, s], col = "red")
-        lines(domain[plot_domain]/1000, fric_lq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
-        lines(domain[plot_domain]/1000, fric_uq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
+        lines(domain[plot_domain]/1000, pred_fric[plot_domain, s], lwd = 3, col = "red")
+        lines(domain[plot_domain]/1000, fric_lq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
+        lines(domain[plot_domain]/1000, fric_uq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         
         
-        abline(v = test_data$true_gl[s, 1], lty = 2, lwd = 3)
+        abline(v = test_data$true_gl[s, ncol(test_data$true_gl)], lty = 2, lwd = 3)
     }
 
     dev.off()
@@ -425,17 +433,18 @@ if (save_plots) {
         par(mar = c(6, 8, 4, 2))
         # gl <- test_data$grounding_line[i] / 800 * 2001
         plot(domain[plot_domain] / 1000, test_bed[plot_domain, s],
-            type = "l", lwd = 2, col = "black",
+            type = "l", lwd = 3, col = "black",
             ylab = "Bed (m)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
         )
         # lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
         matlines(domain[plot_domain]/1000, bed_samples_ls[[s]][plot_domain, 1:3], 
-                lty = 1, lwd = 3, col = adjustcolor("mediumpurple", alpha = 0.5))
+                lty = 1, lwd = 2, col = adjustcolor("mediumpurple", alpha = 0.5))
         lines(domain[plot_domain] / 1000, pred_bed[plot_domain, s], lwd = 3, col = "red")
-        lines(domain[plot_domain] / 1000, bed_lq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
-        lines(domain[plot_domain] / 1000, bed_uq[[s]][plot_domain], lty = 1, lwd = 3, col = "grey")
+        points(domain[bed_obs$loc] / 1000, bed_obs$bed_elev, pch = 20, cex = 0.5)
+        lines(domain[plot_domain] / 1000, bed_lq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
+        lines(domain[plot_domain] / 1000, bed_uq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         
-        abline(v = test_data$true_gl[s, 1], lty = 2, lwd = 3)
+        abline(v = test_data$true_gl[s, ncol(test_data$true_gl)], lty = 2, lwd = 3)
     }
     dev.off()
 
@@ -451,14 +460,14 @@ if (save_plots) {
         # gl <- test_data$grounding_line[i] / 800 * 2001
         plot_domain <- 1:length(domain) # ceiling(gl)
         plot(true_gl[s, ], 1:20,
-            type = "l", lwd = 2, 
+            type = "l", lwd = 3, 
             xlab = "Grounding line (km)", ylab = "Time (year)", cex.axis = 3, cex.lab = 4
         )
-        matlines(gl_samples_ls[[s]][, 1:3], 1:20, lty = 1, lwd = 3, col = adjustcolor("mediumpurple", alpha = 0.5))
+        matlines(gl_samples_ls[[s]][, 1:3], 1:20, lty = 1, lwd = 2, col = adjustcolor("mediumpurple", alpha = 0.5))
         # lines(domain[plot_domain] / 1000, test_fric[i, ], lwd = 2, col = "blue")
-        lines(pred_gl[s, ], 1:20, lwd = 2, col = "red")
-        lines(gl_lq[[s]], 1:20, lty = 1, lwd = 3, col = "grey")
-        lines(gl_uq[[s]], 1:20, lty = 1, lwd = 3, col = "grey")
+        lines(pred_gl[s, ], 1:20, lwd = 3, col = "red")
+        lines(gl_lq[[s]], 1:20, lty = 1, lwd = 3, col = "salmon")
+        lines(gl_uq[[s]], 1:20, lty = 1, lwd = 3, col = "salmon")
         
         # abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
     }

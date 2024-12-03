@@ -43,16 +43,16 @@ if (length(gpus) > 0) {
 }
 
 ## Read data
-data_date <- "20241103" # "20220329"
+data_date <- "20241110" #"20241103" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:20 #c(1,3,5) #1:5 #10
+sets <- 1:2 #50 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
 train_data_dir <- "./data/training_data"
 
-## Read thickness and velocity data
+## Read thickness and velocity hdata
 print("Reading surface data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/surface_obs_arr_", x, "_", data_date, ".qs"))
 surface_obs_list <- lapply(files, qread)

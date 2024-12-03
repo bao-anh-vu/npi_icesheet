@@ -88,11 +88,11 @@ fit_bed_basis <- function(nbasis, domain, bed_arr,
     # matplot(domain/1000, basis_mat, type = "l", col= "salmon", lty = 1, lwd = 1.5,
     #         xlab = "Domain (km)", xlim = c(0, 200))
 
-    # if (is.null(dim(bed_arr))) {
-    #     N <- 1
-    # } else {
+    if (is.null(dim(bed_arr))) {
+        N <- 1
+    } else {
         N <- dim(bed_arr)[1]
-    # }
+    }
 
     if (parallelise) {
         ## Parallel ver
@@ -116,10 +116,18 @@ fit_bed_basis <- function(nbasis, domain, bed_arr,
         # test1 <- system.time({
         basis_coefs <- matrix(NA, N, nbasis)
         fitted_values <- matrix(NA, N, length(domain))
+        
         for (sim in 1:N) { # parallelise
-            df_local <- as.data.frame(cbind(bed_arr[sim, ], basis_mat))
-            colnames(df_local) <- c("fric", sapply(1:nbasis, function(x) paste0("eof", x)))
-            lmfit_local <- lm(fric ~ . - 1, data = df_local) # no intercept for now so -1
+
+            if (N == 1) {
+                df_local <- as.data.frame(cbind(t(bed_arr), basis_mat))
+                
+            } else {
+                df_local <- as.data.frame(cbind(bed_arr[sim, ], basis_mat))
+            }
+            # df_local <- as.data.frame(cbind(bed_arr[sim, ], basis_mat))
+            colnames(df_local) <- c("bed", sapply(1:nbasis, function(x) paste0("eof", x)))
+            lmfit_local <- lm(bed ~ . - 1, data = df_local) # no intercept for now so -1
             basis_coefs[sim, ] <- as.vector(lmfit_local$coefficients)
             fitted_values[sim, ] <- as.vector(lmfit_local$fitted.values)
         }

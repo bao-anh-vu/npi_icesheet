@@ -35,7 +35,7 @@ bed_obs_df <- data.frame(location = domain[bed_obs$locations] / 1000, bed_elev =
 ## Read bed and friction from NN output
 sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
-s <- 3 #500 # test sample index
+s <- 1 #500 # test sample index
 
 years <- 10
 Ne <- 1000 # Ensemble size
@@ -47,7 +47,7 @@ if (use_missing_pattern) {
     data_dir <- paste0("./training_data/", setsf)
 }
 
-test_data <- readRDS(file = paste0(data_dir, "/test_data_", output_date, ".rds"))
+test_data <- qread(file = paste0(data_dir, "/test_data_", output_date, ".qs"))
 
 true_surface_elevs <- test_data$true_surface_elevs_test
 true_thicknesses <- test_data$true_thickness_test
@@ -61,12 +61,12 @@ true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
 ## Read CNN predictions
 if (use_missing_pattern) {
     cnn.output_dir <- paste0("./output/posterior/", setsf, "/missing")
-    cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/sample", s, "/missing")
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis/sample", s, "/missing")    
+    cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/missing/sample", s)
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/missing/sample", s)    
 } else {
     cnn.output_dir <- paste0("./output/posterior/", setsf)
-    cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/sample", s, "/nonmissing")
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/basis/sample", s, "/nonmissing")    
+    cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/nonmissing/sample", s)
+    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/nonmissing/sample", s)    
 }
 
 if (use_cov_taper) {
@@ -77,9 +77,9 @@ if (use_cov_taper) {
     enkfsa.output_dir <- paste0(enkfsa.output_dir, "/no_taper")
 }
 
-pred_fric <- readRDS(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".rds"))
-pred_bed <- readRDS(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".rds"))
-pred_gl <- readRDS(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".rds"))
+pred_fric <- qread(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".qs"))
+pred_bed <- qread(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".qs"))
+pred_gl <- qread(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".qs"))
 
 print("Reading posterior samples from CNN...")
 # fric_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".rds"))
@@ -122,6 +122,7 @@ enkfsa.velocity <- readRDS(file = paste0(enkfsa.output_dir, "/enkf_velocities_sa
 ##    RMSE (time series)    ##
 ##############################
 
+palette.colors(palette = "Okabe-Ito")
 
 print("Calculating RMSE...")
 rmse <- function(estimated, true) {
