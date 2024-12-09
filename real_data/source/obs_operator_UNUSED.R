@@ -24,7 +24,7 @@ obs_operator <- function(state, domain, transformation = "log10", rho = 910, rho
   
   u <- as.vector(solve_velocity(prev_velocity = velocity, h, domain = domain, 
                                 bed = b, friction = C,
-                                perturb_hardness = TRUE))
+                                increase_hardness = F))
   
   obs <- c(z, u)
   

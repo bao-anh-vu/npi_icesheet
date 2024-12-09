@@ -30,11 +30,10 @@ obs_operator <- function(state, domain, missing_pattern = NULL,
   
   u <- as.vector(solve_velocity(prev_velocity = velocity, h, domain = domain, 
                                 bed = b, friction = C,
-                                perturb_hardness = TRUE))
-  
+                                increase_hardness = F))
 
   obs <- c(z, u)
-  
+
   if (!is.null(missing_pattern)) {
     obs[missing_pattern] <- 0 
   }

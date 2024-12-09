@@ -38,7 +38,7 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
                                          domain = domain,
                                          bed = bed,
                                          friction = friction,
-                                         perturb_hardness = TRUE))
+                                         increase_hardness = FALSE))
     
     # png("./plots/velocity.png")
     # plot(prev_velocity, type = "l", main = "Velocity")

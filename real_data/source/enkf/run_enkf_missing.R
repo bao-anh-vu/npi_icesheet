@@ -90,6 +90,7 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
     # Convert ensemble from matrix to list
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
+
     # Apply the propagate function to every ensemble member
     ens.list <- lapply(ens.list, propagate, #mc.cores = 6L, 
                          domain = domain, steps_per_yr = steps_per_yr,
@@ -367,10 +368,9 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
     ens <- ens_all[1:J, ]
     prev_velocity <- ens_all[(3*J+1):(4*J), ]
 
-  #   png(paste0("plots/temp/ens_", year - 1, ".png"))
-  #   matplot(ens, type = "l")
-  #   dev.off()
-  # browser()
+    png(paste0("plots/temp/ens_", year - 1, ".png"))
+    matplot(ens, type = "l")
+    dev.off()
 
     # Save the mean velocity
     # mean_prev_velocity <- rowMeans(prev_velocity)
@@ -429,11 +429,12 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
       noise <- matrix(rnorm(length(diag(R))*Ne, mean = 0, sd = sqrt(diag(R))), ncol = Ne) # takes 0.05s
 
       ## Apply observation operator to every ensemble member
-      HX <- mclapply(ens.list, obs_operator,
-                    domain = domain, transformation = "log", mc.cores = 6L)
-      
+      HX <- lapply(ens.list, obs_operator,
+                    domain = domain, transformation = "log") #, mc.cores = 10L)
       
       HX <- matrix(unlist(HX), nrow = 2*J, ncol = Ne)
+browser()
+
       HX <- C_t_ls[[year]] %*% HX # apply the missing observation matrix
 
       HA <- HX - 1/Ne * (HX %*% rep(1, Ne)) %*% t(rep(1, Ne)) 
@@ -456,10 +457,9 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
       analysis.t2 <- proc.time() 
     }
 
-    # png(paste0("plots/temp/ens_", year - 1, ".png"))
-    # matplot(ens, type = "l")
-    # dev.off()
-
+    png(paste0("plots/temp/ens_", year - 1, ".png"))
+    matplot(ens, type = "l")
+    dev.off()
 
     # Store analysis ensemble and ensemble mean
     enkf_means[, year] <- rowMeans(ens)
@@ -471,6 +471,10 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
     # Convert ensemble to list
     ens.list <- lapply(seq_len(ncol(ens_all)), function(i) ens_all[, i])
     
+
+browser()
+
+
     # Propagate velocity
     velocity.list <- mclapply(ens.list, 
                               function(v) { 
@@ -483,12 +487,12 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
                                                               domain = domain,
                                                               bed = v[(J+1):(2*J)],
                                                               friction = exp(v[(2*J+1):(3*J)]) * 1e6 * 31556926^(1 / 3),
-                                                              perturb_hardness = TRUE))
+                                                              increase_hardness = F))
                                 
                                 return(u)
                                 
                               }, 
-                              mc.cores = 6L)
+                              mc.cores = 10L)
     
     # Convert velocity list to matrix
     prev_velocity <- matrix(unlist(velocity.list), nrow = J, ncol = Ne)

@@ -1,10 +1,10 @@
 solve_velocity <- function(prev_velocity, thickness, domain, bed, friction, 
-                           perturb_hardness = FALSE, include_GL = TRUE, 
+                           increase_hardness = FALSE, include_GL = TRUE, 
                            B_variable = FALSE, velocity_bc = 0, fixed_u0 = TRUE, 
                            secpera = 31556926,
                            n = 3, m = 1/3, rho = 910.0, rho_w = 1028.0,
                            g = 9.81, A = 1.4579e-25, 
-                           Bg = 0.4 * 1e6 * 31556926 ^ (1/3), z0 = 0) {
+                           Bg = 0.5 * 1e6 * 31556926 ^ (1/3), z0 = 0) {
   
   ## Define physical parameters -- pass as "default" function values instead?
   # secpera <- 31556926 #seconds per annum
@@ -59,9 +59,9 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
 
     # cat("GL position: ",  GL / J * L / 1000,  "\n")
     ## Ice hardness
-    if (perturb_hardness) {
+    if (increase_hardness) {
       Bg <- 0.7 * 1e6 * secpera ^ m
-      # Bg <- 0.25 * 1e6 * secpera ^ m
+      # Bg <- 0.4 * 1e6 * secpera ^ m
     }
     B <- rep(Bg, length(x))
     

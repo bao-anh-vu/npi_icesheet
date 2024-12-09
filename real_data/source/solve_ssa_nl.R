@@ -79,10 +79,10 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          evolve_thickness = TRUE, evolve_velocity = TRUE,
                          fixed_H0 = FALSE, fixed_u0 = TRUE,
                          variable_bed = TRUE, random_bed = TRUE,
-                         perturb_hardness =  FALSE,
+                        #  perturb_hardness =  FALSE,
+                         increase_hardness = FALSE,
                          add_process_noise = TRUE,
                          process_noise_info = NULL,
-                         use_relaxation = FALSE,
                          basal_melt = 0, smb = 0.5
                          ) {
 
@@ -136,19 +136,19 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   # dx <- L / J # increments
   # x <- seq(x0, L, dx)
 
-  if (M_bueler) {
-    Mg <- - 4.290 / secpera #(m/s) # SMB at GL
-  } else {
-    as <- smb / secpera # surface accumulation rate (m/s)
-    ab <- basal_melt / secpera # melt rate (m/a)
-    Mg <- as - ab # surface mass balance
-  }
+  # if (M_bueler) {
+  #   Mg <- - 4.290 / secpera #(m/s) # SMB at GL
+  # } else {
+  #   as <- smb / secpera # surface accumulation rate (m/s)
+  #   ab <- basal_melt / secpera # melt rate (m/a)
+  #   Mg <- as - ab # surface mass balance
+  # }
 
-  if (B_bueler) {
-    Bg <- 4.614e8 # ice hardness at GL
-  } else {
-    Bg <- 0.4 * 1e6 * secpera ^ m #(2*A)^(-1/n) # Gillet-Chaulet
-  }
+  # if (B_bueler) {
+  #   Bg <- 4.614e8 # ice hardness at GL
+  # } else {
+  #   Bg <- 0.4 * 1e6 * secpera ^ m #(2*A)^(-1/n) # Gillet-Chaulet
+  # }
 
   ## Basal friction coefficient
 
@@ -226,7 +226,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   ## Predefine B(x), M(x), z(x)
   B <- c() #rep(Bg, length(x))
-  M <- rep(Mg, length(x))
+  # M <- rep(Mg, length(x))
   z <- c()
 
   ## The equation we're trying to solve is of the form
@@ -261,12 +261,17 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   H_mat[, 1] <- as.vector(H_ini)
   zs_mat[, 1] <- get_surface_elev(H_ini, b)
 
-# png("./plots/temp/z_curr0.png")
-# plot(zs_mat[,1], ylim = c(-2000, 2000), type = "l")
-# lines(b)
+GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
+z_b_0 <- zs_mat[, 1] - H_curr
+# png("./plots/steady_state/z_curr0.png")
+# plot(x/1000, zs_mat[,1], ylim = c(-2000, 2000), type = "l")
+# lines(x/1000, z_b_0, col = "black")
+# lines(x/1000, b, col = "grey")
+# abline(h = 0, col = "turquoise", lty = 2)
+# abline(v = x[GL]/1000, col = "red", lty = 2)
 # dev.off()
 
-# png("./plots/temp/u_curr0.png")
+# png("./plots/steady_state/u_curr0.png")
 # plot(u_curr, type = "l")
 # dev.off()
 
@@ -275,20 +280,27 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   while (i <= (years * steps_per_yr) && H_diff > tol) {
     
-    if (i %% 50 == 0) {
-      cat("i: ", i, "\t")
-      z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
-      png(paste0("./plots/temp/z_curr", i, ".png"))
-      plot(z_curr, type = "l", ylim = c(-2000, 2000), xlab = "x", ylab = "z")
-      abline(h = 0, col = "red", lty = 2)
-      lines(b)
+    # if (i %% 50 == 0) {
+    #   cat("i: ", i, "\t")
+    #   z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
+    #   z_b_curr <- z_curr - H_curr
 
-      dev.off()
+    #   png(paste0("./plots/temp/z_curr", i, ".png"))
+    #   plot(x/1000, z_curr, type = "l", ylim = c(-2000, 2000), 
+    #         xlab = "Domain (km)", ylab = "Elevation (m)", main = paste("Year", ceiling(i / steps_per_yr)))
+    #   lines(x/1000, z_b_curr, col = "black")
+    #   lines(x/1000, zs_mat[, 1], col = "salmon")
+    #   # lines(x/1000, z_b_0, col = "salmon")
+    #   abline(v = x[GL]/1000, col = "black", lty = 2)
+    #   abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2)
+    #   abline(h = 0, col = "turquoise", lty = 2)
+    #   lines(x/1000, b, col = "grey")
+    #   dev.off()
 
-      png(paste0("./plots/temp/u_curr", i, ".png"))
-      plot(u_curr, type = "l")
-      dev.off()
-    }
+    #   png(paste0("./plots/temp/u_curr", i, ".png"))
+    #   plot(u_curr, type = "l")
+    #   dev.off()
+    # }
      
     if (include_GL) {
       GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
@@ -307,7 +319,8 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       # H_new <- solve_thickness_og(u_curr, H_curr)
       H_new <- solve_thickness(u_curr, H_curr, x, b, 
                               steps_per_yr = steps_per_yr,
-                              as = as, ab = ab)
+                              as = smb, ab = basal_melt)
+                              
       if (add_process_noise && i %in% obs_ind) {
         # H_sd <- c(rep(20, GL), rep(10, length(H_new) - GL))
         H_sd <- pmin(0.02 * H_new, 20)
@@ -336,8 +349,9 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     if (evolve_velocity) {
       # Use current velocity to solve the linear system and get a new velocity
       # u_new <- solve_velocity_og(u_curr, H_curr)
-      u_new <- solve_velocity(u_curr, H_curr, x, b, C, perturb_hardness)
-      
+      u_new <- solve_velocity(u_curr, H_curr, x, b, C, #perturb_hardness)
+                              increase_hardness = increase_hardness)
+                              
       # Calculate difference between new u and old u
       u_diff <- max(abs(u_new - u_curr))
       # cat("Change in u (m/a): ", u_diff * secpera, "\n")

@@ -43,10 +43,10 @@ if (length(gpus) > 0) {
 }
 
 ## Read data
-data_date <- "20241110" #"20241103" # "20220329"
+data_date <- "20241111" #"20241103" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:2 #50 #c(1,3,5) #1:5 #10
+sets <- 1:10 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -80,17 +80,18 @@ if (use_missing_pattern) {
 
 test <- sapply(1:dim(surface_obs_arr)[1], function(i) ifelse(max(surface_obs_arr[i,,,]) > 10000 | min(surface_obs_arr[i,,,]) < -100, 1, 0))
 bad_sims <- which(test == 1)
+
 surface_obs_arr <- surface_obs_arr[-bad_sims, , ,]
-# compute mean and sd of surface elevation and velocity
-# if (dim(surface_obs_arr)[1] <= 10000) {
-#     n_for_mean <- dim(surface_obs_arr)[1]
-# } else {
-#     n_for_mean <- 10000
-# }
 
 ## Calculate the mean of surface_obs_arr over the first 3 dimensions
+if (dim(surface_obs_arr)[1] <= 10000) { # if fewer than 10000 simulations, use all of them
+    n_for_mean <- 1:dim(surface_obs_arr)[1]
+} else { # otherwise, sample 10000 simulations
+    n_for_mean <- sample(1:dim(surface_obs_arr)[1], 10000)
+}
+
 # test <- apply(surface_obs_arr, 4, mean)
-n_for_mean <- sample(1:dim(surface_obs_arr)[1], 100)
+# n_for_mean <- sample(1:dim(surface_obs_arr)[1], 100)
 surf_elev_mean <- mean(surface_obs_arr[n_for_mean, , , 1]) # just use the mean from the first set
 velocity_mean <- mean(surface_obs_arr[n_for_mean, , , 2])
 surf_elev_sd <- sd(surface_obs_arr[n_for_mean, , , 1])

@@ -34,7 +34,7 @@
 #' @param fixed_u0 TRUE if fixing the surface velocity at x = 0
 #' @param variable_bed set to TRUE for a non-constant but piecewise linear bed topography
 #' @param random_bed set to TRUE to add random noise to the bed topography
-#' @param perturb_hardness TRUE if instantaneously reducing the ice hardness at t = 0 as in Gillet-Chaulet (2020)
+#' @param increase_hardness TRUE if instantaneously reducing the ice hardness at t = 0 as in Gillet-Chaulet (2020)
 #' @param process_noise_info list containing the process noise correlation matrix, its Cholesky factor, and the length scale
 #' @return \code{solve_ssa_nl} returns an object with the following items
 #' \describe{
@@ -70,7 +70,7 @@
 solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          velocity_bc = 0, thickness_bc = 2000,
                          ini_velocity = NULL, ini_thickness = NULL,
-                         tol = 1e-06, years = 4000, steps_per_yr = 26,
+                         tol = 1e-06, years = 1000, steps_per_yr = 26,
                          measure_freq = 1, seed = 123,
                          include_GL = TRUE,
                          B_variable = FALSE, M_variable = FALSE,
@@ -78,7 +78,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          evolve_thickness = TRUE, evolve_velocity = TRUE,
                          fixed_H0 = FALSE, fixed_u0 = TRUE,
                          variable_bed = TRUE, random_bed = TRUE,
-                         perturb_hardness =  FALSE,
+                         increase_hardness =  FALSE,
                          add_process_noise = TRUE,
                          process_noise_info = NULL,
                          use_relaxation = FALSE,
@@ -277,7 +277,6 @@ png("./plots/steady_state/u_curr0.png")
 plot(u_curr, type = "l")
 dev.off()
 
-# browser()
 
   ## Years to save output
   obs_ind <- seq(0, years * steps_per_yr, steps_per_yr) # measure_freq = # times to measure per year
@@ -366,7 +365,7 @@ if (i %% 500 == 0) {
     if (evolve_velocity) {
       # Use current velocity to solve the linear system and get a new velocity
       # u_new <- solve_velocity_og(u_curr, H_curr)
-      u_new <- solve_velocity(u_curr, H_curr, x, b, C, perturb_hardness)
+      u_new <- solve_velocity(u_curr, H_curr, x, b, C, increase_hardness)
       
       # Calculate difference between new u and old u
       u_diff <- max(abs(u_new - u_curr))
@@ -412,6 +411,11 @@ if (i %% 500 == 0) {
   z <- get_surface_elev(H_curr, b, z0, rho, rho_w)
   z_b <- z - H_curr
 
+  ## Truncate matrices of velocity, ice thickness and surface elevation to the number of years it takes for convergence
+  u_mat <- u_mat[, 1:(ceiling(i / steps_per_yr) + 1)]
+  H_mat <- H_mat[, 1:(ceiling(i / steps_per_yr) + 1)]
+  zs_mat <- zs_mat[, 1:(ceiling(i / steps_per_yr) + 1)]
+
   ## Return list of output
   ssa.out <- list(current_velocity = as.vector(u_curr), ## current velocity (m/yr) # * secpera,
                   ini_velocity = u_ini, # * secpera,
@@ -419,8 +423,8 @@ if (i %% 500 == 0) {
                   current_thickness = H_curr,
                   ini_thickness = H_ini,
                   all_thicknesses = H_mat,
-                  top_surface = z,
-                  bottom_surface = z_b,
+                  current_top_surface = z,
+                  current_bottom_surface = z_b,
                   all_top_surface = zs_mat,
                   bedrock = b,
                   friction_coef = C,

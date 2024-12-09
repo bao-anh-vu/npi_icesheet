@@ -30,7 +30,9 @@ sim_params <- function(nsims, domain, bed_obs) {
     
     bed_sim_output <- simulate_bed(N, domain = domain, 
                             obs_locations = bed_obs$ind, 
-                            obs = bed_obs$bed_elev) 
+                            obs = bed_obs$bed_elev, 
+                            sill = 1000, nugget = 0) 
+
     bed_sims <- bed_sim_output$sims
     bed_mean <- bed_sim_output$mean
 

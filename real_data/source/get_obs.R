@@ -29,9 +29,9 @@ get_obs <- function(reference, data_date, n_obs = 50, get_new_obs = FALSE, rewri
     n_vel_obs <- length(obs_velocities[, 1])
     
     for (j in 1:ncol(all_ref_velocities)) {
-      vel_std <- pmin(0.25 * all_ref_velocities[, j], 20) # Constrain stdev of measurement noise to be less than 0.25 * velocity
+      vel_std <- pmin(0.5 * all_ref_velocities[, j], 20) # Constrain stdev of measurement noise to be less than 0.25 * velocity
       # vel_std <- pmin(0.05 * all_ref_velocities[, j], 5)
-      vel_std[vel_std <= 0] <- 1e-05
+      vel_std[vel_std <= 0] <- 0.01 #1e-05
       # vel_cov <- diag(vel_std^2, nrow(all_ref_velocities)) # measurement noise for the velocity
       
       if(sum(vel_std < 0) > 0) {

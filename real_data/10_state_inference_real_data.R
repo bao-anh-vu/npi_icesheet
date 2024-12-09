@@ -21,6 +21,7 @@ library("mvtnorm")
 library("splines")
 library(gridExtra)
 library(qs)
+library(abind)
 # library("fda")
 
 source("./source/solve_ssa_nl.R")
@@ -58,9 +59,7 @@ save_enkf_output <- T
 
 ## EnKF flags
 add_process_noise <- T
-# avg_prev_velocity <- TRUE # use the ensemble mean previous velocity to compute the current velocity
 use_true_velocity <- F # use reference velocity as the initial previous velocity
-# use_velocity_dependent_R <- FALSE
 # run_analysis <- T
 regenerate_ini_ens <- T # generate a fresh initial ensemble
 use_basis_functions <- F
@@ -73,10 +72,10 @@ inflate_cov <- F
 ## Presets
 data_date <- "20241111" # "20230518"
 output_date <- "20241111" # "20240518"
-Ne <- 500 # Ensemble size
-years <- 20 # 40
+Ne <- 100 # Ensemble size
+years <- 2#0 # 40
 steps_per_yr <- 52 # 100
-n_params <- 10 # number of beds
+n_params <- 1 #10 # number of beds
 # n_bed_obs <- 100
 # smoothing_factor <- 0.5 # for the PF
 
@@ -92,38 +91,43 @@ domain <- ssa_steady$domain
 J <- length(domain)
 
 ## Read bed and friction from NN output
-sets <- 1:10 # 10
+sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 if (use_missing_pattern) {
-    data_dir <- paste0("./training_data/", setsf, "/missing")
+    data_dir <- paste0("./data/training_data/", setsf, "/missing")
 } else {
-    data_dir <- paste0("./training_data/", setsf)
+    data_dir <- paste0("./data/training_data/", setsf)
 }
-test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
+# test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
 
-true_surface_elev <- test_data$true_surface_elev
-true_thicknesses <- test_data$true_thickness_test
-true_velocities <- test_data$true_velocity_test
+# true_surface_elev <- test_data$true_surface_elev
+# true_thicknesses <- test_data$true_thickness_test
+# true_velocities <- test_data$true_velocity_test
 
-true_bed <- test_data$true_bed
-true_fric <- test_data$true_fric
+# true_bed <- test_data$true_bed
+# true_fric <- test_data$true_fric
+
+surf_elev_missing_pattern <- qread("./data/surface_elev/missing_pattern.qs")
+vel_missing_pattern <- qread("./data/velocity/missing_pattern.qs")
+missing_pattern <- list(surface_elev = surf_elev_missing_pattern, 
+                        vel = vel_missing_pattern)
 
 print("Reading posterior samples...")
 if (use_missing_pattern) {
-    output_dir <- paste0("./output/posterior/", setsf, "/missing")
+  output_dir <- paste0("./output/cnn/", setsf, "/missing")
 } else {
-    output_dir <- paste0("./output/posterior/", setsf, "/nonmissing")
+  output_dir <- paste0("./output/cnn/", setsf, "/nonmissing")
 }
 
 ## Posterior samples
-fric_samples_ls <- qread(file = paste0(output_dir, "/fric_post_samples_", output_date, ".qs"))
-bed_samples_ls <- qread(file = paste0(output_dir, "/bed_post_samples_", output_date, ".qs"))
+fric_samples <- qread(file = paste0(output_dir, "/fric_samples_real_", output_date, ".qs"))
+bed_samples <- qread(file = paste0(output_dir, "/bed_samples_real_", output_date, ".qs"))
 # gl_samples_ls <- readRDS(file = paste0(output_dir, "/gl_post_samples_", output_date, ".rds"))
 
 ## Mean prediction
-pred_fric <- readRDS(file = paste0(output_dir, "/pred_fric_", output_date, ".rds"))
-pred_bed <- readRDS(file = paste0(output_dir, "/pred_bed_", output_date, ".rds"))
+pred_fric <- qread(file = paste0(output_dir, "/pred_fric_real_", output_date, ".qs"))
+pred_bed <- qread(file = paste0(output_dir, "/pred_bed_real_", output_date, ".qs"))
 # pred_gl <- readRDS(pred_gl, file = paste0(output_dir, "/pred_gl_", output_date, ".rds"))
 
 ## Scaling units for friction coefficients
@@ -132,8 +136,11 @@ fric_scale <- 1e6 * secpera^(1 / 3)
 # pred_fric <- pred_fric * fric_scale
 
 ## Read surface observations
-surface_elev <- test_data$input[, , , 1] * test_data$input_sd[1] + test_data$input_mean[1]
-velocity <- test_data$input[, , , 2] * test_data$input_sd[2] + test_data$input_mean[2]
+# surface_elev <- test_data$input[, , , 1] * test_data$input_sd[1] + test_data$input_mean[1]
+# velocity <- test_data$input[, , , 2] * test_data$input_sd[2] + test_data$input_mean[2]
+surface_elev <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+velocity <- qread(file = "./data/velocity/all_velocity_arr.qs")
+
 
 # if (use_missing_pattern) {
 #     print("Reading missing patterns...")
@@ -168,23 +175,18 @@ velocity <- test_data$input[, , , 2] * test_data$input_sd[2] + test_data$input_m
 ##      State inference       ##
 ################################
 
-## Sample from test set and do state inference
-n_test_samples <- dim(test_data$input)[1]
-test_samples <- 3 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
+# n_test_samples <- dim(test_data$input)[1]
+# test_samples <- 1 # seq(100, 500, 100) # sample(1:n_test_samples, 1) # sample index
 
-s <- test_samples[1]
+# s <- test_samples[1]
 
-if (use_missing_pattern) {
-    enkf_output_dir <- paste0("./output/posterior/", setsf, "/sample", s, "/missing")
-} else {
-    enkf_output_dir <- paste0("./output/posterior/", setsf, "/sample", s, "/nonmissing")
-}
+enkf_output_dir <- paste0("./output/cnn/", setsf, "/missing/enkf_real_data")
 
-if (use_cov_taper) {
-    enkf_output_dir <- paste0(enkf_output_dir, "/taper")
-} else {
-    enkf_output_dir <- paste0(enkf_output_dir, "/no_taper")
-}
+# if (use_cov_taper) {
+#     enkf_output_dir <- paste0(enkf_output_dir, "/taper")
+# } else {
+#     enkf_output_dir <- paste0(enkf_output_dir, "/no_taper")
+# }
 
  if (!dir.exists(enkf_output_dir)) {
     dir.create(paste0(enkf_output_dir))
@@ -192,20 +194,14 @@ if (use_cov_taper) {
 #     unlink(paste0(output_dir, "/*"))
 # }t
 
-for (s in test_samples) {
-    print(paste("Sample", s))
-    fric_s <- pred_fric[, s]
-    bed_s <- pred_bed[, s]
+# for (s in test_samples) {
+    fric_s <- pred_fric
+    bed_s <- pred_bed
 
     # surface_obs_s <- surface_obs[s,,,]
-    surface_elev_s <- surface_elev[s, , ]
-    velocity_s <- velocity[s, , ]
+    surface_elev_s <- surface_elev
+    velocity_s <- velocity
     
-    if (use_missing_pattern) {
-        surface_elev_s[which(missing_pattern$surface_elev == 0)] <- NA
-        velocity_s[which(missing_pattern$vel == 0)] <- NA
-    }
-
     ## Replace NA values with the last non-NA value
     ini_surf_obs <- surface_elev_s[, 1]
     nonNA <- ini_surf_obs[!is.na(ini_surf_obs)]
@@ -222,8 +218,8 @@ for (s in test_samples) {
     surface_obs_list <- list(surface_elev = surface_elev_s, velocity = velocity_s)
 
     # 3. Initialise ensemble
-    bed_samples <- bed_samples_ls[[s]][, 1:n_params]
-    fric_samples <- fric_samples_ls[[s]][, 1:n_params]
+    # bed_samples <- bed_samples_ls[[s]][, 1:n_params]
+    # fric_samples <- fric_samples_ls[[s]][, 1:n_params]
 
     if (run_EnKF) {
         ini_ens_list <- list()
@@ -257,27 +253,29 @@ for (s in test_samples) {
                 ## Ice thickness ##
                 if (use_true_thickness) {
                     ini_thickness <- matrix(rep(true_thicknesses[s, , 1], Ne), J, Ne)
-                    # ini_thickness <- matrix(rep(ssa_steady$current_thickness, Ne), J, Ne)
+                    
                 } else {
 
-                    ## Process noise parameters
-                    ones <- rep(1, length(domain))
-                    D <- rdist(domain)
-                    l <- 50e3
-                    R <- exp_cov(D, l)
+                    # ## Process noise parameters
+                    # ones <- rep(1, length(domain))
+                    # D <- rdist(domain)
+                    # l <- 50e3
+                    # R <- exp_cov(D, l)
 
-                    # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
-                    L <- t(chol(R))
-                    L <- as(L, "dgCMatrix")
-                    process_noise_info <- list(corrmat_chol = L, length_scale = l)
+                    # # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
+                    # L <- t(chol(R))
+                    # L <- as(L, "dgCMatrix")
+                    # process_noise_info <- list(corrmat_chol = L, length_scale = l)
 
-                    ini_thickness <- initialise_ice_thickness(domain,
-                        n_sims = Ne,
-                        surface_obs = ini_surf_obs, # use observed z at t = 0
-                        bed = ini_beds[, p],
-                        condsim_shelf = F, 
-                        process_noise_info = process_noise_info
-                    )
+                    # ini_thickness <- initialise_ice_thickness(domain,
+                    #     n_sims = Ne,
+                    #     surface_obs = ini_surf_obs, # use observed z at t = 0
+                    #     bed = ini_beds[, p],
+                    #     condsim_shelf = F, 
+                    #     process_noise_info = process_noise_info
+                    # )
+
+                    ini_thickness <- matrix(rep(ssa_steady$current_thickness, Ne), J, Ne)
 
                 }
                 ini_ens <- rbind(
@@ -317,24 +315,17 @@ for (s in test_samples) {
         # ini_velocity <- matrix(rep(ssa_steady$current_velocity, Ne), J, Ne)
     } else { # use a smoothed version of the observed velocity as initial velocity
     
-        ini_vel_obs <- velocity_s[, 1]
-        velocity_df <- data.frame(x = domain, u = ini_vel_obs) # u = observations$velocity_obs[, 1])
-        loessfit <- loess(u ~ x, data = velocity_df, span = 0.05)#$fitted
-        
-        smoothed_velocity <- predict(loessfit, newdata = data.frame(x = domain))
-        
-        if (use_missing_pattern) {
-            na_ind <- which(is.na(smoothed_velocity))
-            polyfit <- lm(u ~ poly(x, 3), data = velocity_df)#$fitted
-            smoothed_velocity[na_ind] <- predict(polyfit, newdata = data.frame(x = domain[na_ind]))
-        }
-        # png(paste0("./plots/velocity_obs.png"), width = 2000, height = 1000, res = 300)
-        # plot(velocity_df$u, type = "l")
-        # lines(smoothed_velocity, col = "red")
-        # dev.off()
-        
-        ini_velocity <- matrix(rep(smoothed_velocity, Ne), J, Ne)
+        vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+        vel_curr <- rowMeans(vel_mat[, 15:ncol(vel_mat)])
 
+        # ## Smooth the velocity out with loess
+        smoothed_velocity <- loess(vel_curr ~ domain, span = 0.1)$fitted
+        # ini_velocity <- matrix(rep(smoothed_velocity, Ne), J, Ne)
+
+        ini_velocity <- matrix(rep(ssa_steady$current_velocity, Ne), J, Ne)
+
+
+        browser()
     }
 
     ################################################################################
@@ -510,10 +501,9 @@ for (s in test_samples) {
     # combined_enkf_velocities <- do.call(cbind, fin_velocities)
 
     if (use_missing_pattern) {
-        plot_dir <- paste0("./plots/posterior/", setsf, "/sample", s, "/missing")
+        plot_dir <- paste0("./plots/cnn/", setsf, "/enkf/missing")
     } else {
-        plot_dir <- paste0("./plots/posterior/", setsf, "/sample", s)
-
+        plot_dir <- paste0("./plots/cnn/", setsf, "/enkf/nonmissing")
     }
 
     if (use_cov_taper) {
@@ -731,4 +721,4 @@ for (s in test_samples) {
         main = paste0("RMSE of ice thickness over time for sample", s)
     )
 
-}
+# }

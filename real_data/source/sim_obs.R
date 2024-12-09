@@ -2,6 +2,7 @@ sim_obs <- function(param_list, years = 20,
                     # steady_state, 
                     ini_velocity,
                     ini_thickness, 
+                    smb = 0.5, # default of 0.5 m/yr
                     log_transform = T) { # , bed_obs) {
     # N <- nsims
     # # years <- 20
@@ -80,8 +81,8 @@ sim_obs <- function(param_list, years = 20,
     secpera <- 31556926
     fric_scale <- 1e6 * secpera^(1 / 3)
 
-    sim_results <- lapply(param_list, function(param, log_transform) {
-    # sim_results <- mclapply(param_list, function(param, log_transform) {
+    # sim_results <- lapply(param_list, function(param, log_transform) {
+    sim_results <- mclapply(param_list, function(param, log_transform) {
 
         # print("Simulating data...")
         ## Artificial error for debugging purposes
@@ -102,11 +103,13 @@ sim_obs <- function(param_list, years = 20,
             # ini_thickness = ssa_steady$current_thickness,
             ini_velocity = ini_velocity,
             ini_thickness = ini_thickness,
-            years = years, steps_per_yr = 52,
+            years = years, steps_per_yr = 100,
             # save_model_output = TRUE,
-            perturb_hardness = FALSE,
-            add_process_noise = T,
-            process_noise_info = process_noise_info
+            # perturb_hardness = FALSE,
+            add_process_noise = F,
+            process_noise_info = process_noise_info,
+            smb = smb_avg,
+            basal_melt = 0
         )
 
         ## Get surface observations (with noise added)
@@ -143,10 +146,10 @@ sim_obs <- function(param_list, years = 20,
         # simulated_data <- obs
         return(simulated_data)
     },
-    log_transform = log_transform
-    # mc.cores = 50L,
+    log_transform = log_transform,
+    mc.cores = 50L,
     ## mc.allow.fatal = TRUE,
-    # mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
+    mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
     )
 
     # inherits(r[[3]], "try-error")

@@ -24,13 +24,14 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log10") {
                                  thickness = thickness, domain = domain,
                                  bed = bed, steps_per_yr = steps_per_yr)
     
+    browser()
     ## need to somehow save both the previous and the current velocity
     velocity <- as.vector(solve_velocity(prev_velocity = prev_velocity, 
                                          thickness = thickness, # should use the mean of the ice thickness as well?
                                          domain = domain,
                                          bed = bed,
                                          friction = friction,
-                                         perturb_hardness = TRUE))
+                                         increase_hardness = F))
     
   }
   

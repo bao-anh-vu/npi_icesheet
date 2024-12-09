@@ -49,7 +49,7 @@ source("./source/posterior_loss.R")
 # }
 
 ## Read datay
-data_date <- "20241110" #"20241103" #"20241103"
+data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandArgs(trailingOnly = TRUE)
 sets <- 1:10 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
