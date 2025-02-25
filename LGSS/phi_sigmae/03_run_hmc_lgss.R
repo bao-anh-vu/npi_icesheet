@@ -1,5 +1,7 @@
 ## Linear Gaussian state space model example
-setwd("~/SSA_model/CNN/LGSS/phi/")
+setwd("~/SSA_model/CNN/LGSS/phi_sigmae/")
+
+rm(list = ls())
 
 library(cmdstanr)
 library(qs)
@@ -30,7 +32,7 @@ cat("Test sample: ", test_sample, "\n")
 
 iters <- 10000
 burn_in <- 5000
-n_chains <- 1
+n_chains <- 2
 # run_hmc_lgss <- function(data, iters = 10000, burn_in = 5000, n_chains = 1) {
   
 y <- test_input[test_sample, , 1] * input_sd + input_mean
@@ -44,7 +46,7 @@ cpp_options = list(stan_threads = TRUE)
 # log_kappa2_est <- mean(log(y^2)) - (digamma(1/2) + log(2))
 
 lgss_data <- list(Tfin = length(y), y = y, 
-                    sigma_eta = 0.7, sigma_eps = 0.5,
+                    sigma_eta = 0.7,
                     use_arctanh = ifelse(use_arctanh, 1, 0))
 
 # hfit <- stan(model_code = sv_code, 
@@ -60,7 +62,7 @@ iter_warmup = burn_in,
 iter_sampling = iters
 )
 
-stan_results <- list(draws = fit_stan_lgss$draws(variables = c("phi")),
+stan_results <- list(draws = fit_stan_lgss$draws(variables = c("phi", "sigma_eps")),
                     time = fit_stan_lgss$time,
                     summary = fit_stan_lgss$cmdstan_summary)
 
@@ -73,7 +75,7 @@ qsave(stan_results, paste0("output/lgss_hmc_results_",
 #   return(stan_results)
 # }
 
-true_vals <- test_output[test_sample]
+true_vals <- test_output[test_sample, ]
 
 if (use_arctanh) {
   true_phi <- tanh(true_vals[1])
@@ -81,13 +83,22 @@ if (use_arctanh) {
   true_phi <- exp(true_vals[1]) / (1 + exp(-true_vals[1]))
 }
 
-png(paste0("./plots/lgss_hmc_post_", test_sample, "_", data_date, ".png"), width = 1000, height = 400)
+true_sigma_eps <- sqrt(exp(true_vals[2]))
 
+png(paste0("./plots/lgss_hmc_post_", test_sample, "_", data_date, ".png"), width = 1000, height = 400)
+par(mfrow = c(1, 2))
 plot(density(stan_results$draws[,,1]), main = "phi")
 abline(v = true_phi, col = "black", lty = 2)
+
+plot(density(stan_results$draws[,,2]), main = "sigma_eps")
+abline(v = true_sigma_eps, col = "black", lty = 2)
 dev.off()
 
 png(paste0("./plots/lgss_hmc_trace_", test_sample, "_", data_date, ".png"), width = 1000, height = 400)
+par(mfrow = c(2, 1))
 plot(stan_results$draws[,,1], type = "l", main = "phi")
 abline(h = true_phi, col = "black", lty = 2)
+
+plot(stan_results$draws[,,2], type = "l", main = "sigma_eps")
+abline(h = true_sigma_eps, col = "black", lty = 2)
 dev.off()

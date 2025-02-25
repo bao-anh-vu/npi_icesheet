@@ -4,6 +4,7 @@ setwd("~/SSA_model/CNN/LGSS/phi_sigmae/")
 source("./source/sim_data.R")
 
 library(mvtnorm)
+reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
 library(qs)
 
@@ -40,7 +41,7 @@ dev.off()
 
 
 ## Simulate training data
-nsims <- 1000#0
+nsims <- 100000
 prior_mean <- rep(0, 2)
 prior_sd <- rep(1, 2)
 
@@ -58,7 +59,6 @@ if (regenerate_data) {
 
   sigma_eps_samples <- sqrt(exp(param_samples[, 2]))
 
-  browser()
   png("./plots/lgss_train_params.png")
   par(mfrow = c(2, 1))
   hist(phi_samples, main = "phi")
@@ -138,7 +138,7 @@ par(mfrow = c(n_samples, 1))
 for (s in samples) {
   
   train_input_s <- train_input[s,,]
-  train_output_s <- train_output[s]
+  train_output_s <- train_output[s, ]
   if (use_arctanh) {
     phi_s <- tanh(train_output_s[1])
   } else {

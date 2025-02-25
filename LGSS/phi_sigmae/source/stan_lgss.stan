@@ -2,25 +2,30 @@ data {
   int<lower=0> Tfin;   // # time points (equally spaced)
   vector[Tfin] y;      // log-squared, mean-removed series
   int use_arctanh;
-    real sigma_eta; 
-    real sigma_eps;
+  real sigma_eta; 
 }
+
 parameters {
   real theta_phi;
+  real theta_sigma_eps;
   vector[Tfin] x;                 // log volatility at time t
 }
+
 transformed parameters {
   real<lower = -1, upper = 1> phi;
-  
+  real<lower = 0> sigma_eps;
   if (use_arctanh == 1) {
     phi = tanh(theta_phi);
   } else { // use inv logit
     phi = exp(theta_phi) / (1 + exp(-theta_phi));
   }
-  
+
+  sigma_eps = sqrt(exp(theta_sigma_eps));
 }
+
 model {
   theta_phi ~ normal(0, 1);
+  theta_sigma_eps ~ normal(0, 1);
   
   x[1] ~ normal(0, sqrt(sigma_eta^2 / (1 - phi^2)));
   for (t in 2:Tfin)

@@ -1,5 +1,5 @@
 ## Linear Gaussian state space model example
-setwd("~/SSA_model/CNN/LGSS/phi/")
+setwd("~/SSA_model/CNN/LGSS/phi_sigmae/")
 
 rm(list = ls())
 
@@ -48,10 +48,13 @@ test_output <- simulated_data$test_output
 print("Creating model...")
 # Create a basic model instance
 input_dim <- c(dim(train_input)[-1])
-output_dim <- 2 # mean and sd  
+n_mean_elements <- 2L # phi, sigma_eta, sigma_eps
+n_chol_elements <- n_mean_elements + (n_mean_elements-1) # diagonal + first sub-diag elements
+output_dim <- n_mean_elements + n_chol_elements  
 
 model <- create_model_posterior(input_dim = input_dim, 
-                                output_dim = output_dim)
+                                output_dim = output_dim, 
+                                d = n_mean_elements)
 
 # Display the model's architecture
 summary(model)
@@ -66,7 +69,7 @@ if (!dir.exists(output_dir)) {
 checkpoint_path <- paste0(output_dir, "checkpoints/cp-{epoch:04d}.ckpt")
 
 batch_size <- 64
-epochs <- 20
+epochs <- 30
 
 ## Train the model
 print("Training CNN...")

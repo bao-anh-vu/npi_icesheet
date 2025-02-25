@@ -2,24 +2,24 @@
 create_model_posterior <- function(input_dim, output_dim, d) {
   model <- keras_model_sequential() %>%
     # layer_conv_1d(
-    #     filters = 32, kernel_size = 5,
+    #     filters = 32, kernel_size = 20,
     #     padding = "same", activation = "relu",
     #     input_shape = input_dim #c(1000, 1)
     # ) %>%
     # layer_max_pooling_1d(pool_size = 2) %>%
     layer_conv_1d(
-        filters = 64, kernel_size = 5,
+        filters = 64, kernel_size = 50,
         padding = "same", activation = "relu",
         input_shape = input_dim #c(1000, 1)
     ) %>%
     layer_max_pooling_1d(pool_size = 2) %>%
     layer_conv_1d(
-        filters = 128, kernel_size = 3,
+        filters = 128, kernel_size = 20,
         padding = "same", activation = "relu"
     ) %>%
     layer_max_pooling_1d(pool_size = 2) %>%
     layer_conv_1d(
-        filters = 256, kernel_size = 3,
+        filters = 256, kernel_size = 10,
         padding = "same", activation = "relu"
     ) %>%
     layer_max_pooling_1d(pool_size = 2) %>%
@@ -30,7 +30,7 @@ create_model_posterior <- function(input_dim, output_dim, d) {
 
     model %>% compile(
         loss = posterior_loss_wrap_tf(d), #losses[1],
-        optimizer = optimizer_adam(learning_rate = 0.00005),
+        optimizer = optimizer_adam(learning_rate = 0.00001),
         metrics = posterior_loss_wrap_tf(d) #c("mae") 
     )
     model
