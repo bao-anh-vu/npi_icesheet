@@ -12,6 +12,7 @@ library(tensorflow)
 library(ggplot2)
 library(gridExtra)
 library(qs)
+library(dplyr)
 
 #List physical devices
 gpus <- tf$config$experimental$list_physical_devices('GPU')
@@ -134,7 +135,7 @@ dev.off()
 # L_inv_ls <- lapply(pred_chol_ls, solve)
 
 ## For each test sample, simulate from the predicted posterior distribution
-S <- 1000
+S <- 10000
 
 phi_mean <- c()
 phi_quantiles <- matrix(NA, nrow = length(test_output), ncol = 2)
@@ -164,14 +165,19 @@ if (use_arctanh) {
 phi_df <- data.frame(pred = phi_mean, true = phi_true,
                      lower = phi_quantiles[, 1], upper = phi_quantiles[, 2])
 
+phi_coverage <- sum(phi_df$lower <= phi_df$true & phi_df$true <= phi_df$upper) / nrow(phi_df)
+
 ## Plot the mean against true values
-mean_plot <- phi_df %>% ggplot() +
+mean_plot <- phi_df %>%
+              ggplot() +
               geom_point(aes(x = true, y = pred), color = "salmon") +
               geom_abline(intercept = 0, slope = 1, color = "black") +
-              xlab("True phi") +
-              ylab("Predicted phi") +
+              # xlab(expression("True "~phi)) +
+              # ylab(expression("Posterior mean of "~phi)) +
+              xlab("True values") +
+              ylab("Posterior means") +
               theme_bw() +
-              theme(text = element_text(size = 20))
+              theme(text = element_text(size = 24))
 
 ## Plot the mean against the true values
 png(paste0("./plots/lgss_mean_plot_", data_date, ".png"), width = 500, height = 500)
@@ -180,37 +186,62 @@ png(paste0("./plots/lgss_mean_plot_", data_date, ".png"), width = 500, height = 
 print(mean_plot)
 dev.off()
 
-phi_dw_plot <- phi_df %>% ggplot() + 
-    geom_errorbar(aes(x = 1:nrow(phi_df), ymin = lower, ymax = upper), width = 0, color = "black") +
-    geom_point(aes(x = 1:nrow(phi_df), y = pred), color = "black") + 
-    geom_point(aes(x = 1:nrow(phi_df), y = true), color = "salmon") +
+set.seed(2025)
+n_plot_samples <- 100
+phi_quantile_plot <- phi_df %>% 
+    slice_sample(n = n_plot_samples) %>%
+    ggplot() + 
+    geom_errorbar(aes(x = 1:n_plot_samples, ymin = lower, ymax = upper), width = 0, color = "black", lwd = 1) +
+    geom_point(aes(x = 1:n_plot_samples, y = pred), color = "black", size = 3, alpha = 0.5) + 
+    geom_point(aes(x = 1:n_plot_samples, y = true), color = "salmon", size = 3, alpha = 0.75) +
     xlab("Test sample") +
     ylab(bquote(phi)) +
     theme_bw() +
-    theme(text = element_text(size = 20)) 
+    theme(text = element_text(size = 24)) 
 
 
-png(paste0("./plots/lgss_quantile_plot_", data_date, ".png"), width = 900, height = 500)
-print(phi_dw_plot)
+png(paste0("./plots/lgss_quantile_plot_", data_date, ".png"), width = 1000, height = 300)
+print(phi_quantile_plot)
 dev.off()
 
 
 ## Compare to output from HMC
-test_sample <- 1:4
-png(paste0("./plots/lgss_hmc_vs_cnn_", data_date, ".png"), width = 1500, height = 400)
-par(mfrow = c(1, length(test_sample)))
-for (s in test_sample) {
+set.seed(2025)
+test_sample <- sample(1:length(test_output), 5)
+
+hmc_vs_cnn_plots <- list()
+
+for (i in 1:length(test_sample)) {
+  s <- test_sample[i]
   hmc_output <- qread(paste0("output/lgss_hmc_results_", 
                             formatC(s, width = 2, format = "d", flag = "0"), 
                             "_", data_date, ".qs"))
-  hmc.phi <- hmc_output$draws[, , 1]
+  hmc.phi <- as.vector(hmc_output$draws[-(1:hmc_output$burn_in), , 1])
 
-  plot(density(phi_post_samples_ls[[s]]), col = "red", main = "phi", lwd = 2)
-  lines(density(hmc.phi), col = "blue", lwd = 2)
-  abline(v = phi_true[s], col = "black", lty = 2, lwd = 2)
+  hmc_vs_cnn_df <- data.frame(hmc = hmc.phi, cnn = phi_post_samples_ls[[s]])
+  phi_true_df <- data.frame(phi_true = phi_true[s])
 
+  ## Plot HMC vs CNN posterior
+  hmc_vs_cnn_plot <- ggplot(hmc_vs_cnn_df) +
+    geom_density(aes(x = hmc, col = "HMC"), lwd = 1) +
+    geom_density(aes(x = cnn, col = "CNN"), lwd = 1) +
+    geom_vline(data = phi_true_df, aes(xintercept = phi_true), lty = 2, lwd = 1) +
+    xlab(bquote(phi)) +
+    theme_bw() +
+    theme(text = element_text(size = 24)) +
+    guides(color = "none")
+    # labs(col = "Method")
+
+  hmc_vs_cnn_plots[[i]] <- hmc_vs_cnn_plot
+
+  
 }
+
+
+png(paste0("./plots/lgss_hmc_vs_cnn_", data_date, ".png"), width = 1500, height = 400)
+grid.arrange(grobs = hmc_vs_cnn_plots, ncol = length(test_sample))
 dev.off()
+
 
 
 

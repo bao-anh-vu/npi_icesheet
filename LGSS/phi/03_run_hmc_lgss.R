@@ -30,7 +30,7 @@ cat("Test sample: ", test_sample, "\n")
 
 iters <- 10000
 burn_in <- 5000
-n_chains <- 1
+n_chains <- 2
 # run_hmc_lgss <- function(data, iters = 10000, burn_in = 5000, n_chains = 1) {
   
 y <- test_input[test_sample, , 1] * input_sd + input_mean
@@ -54,6 +54,7 @@ lgss_data <- list(Tfin = length(y), y = y,
 fit_stan_lgss <- lgss_model$sample(
 lgss_data,
 chains = n_chains,
+parallel_chains = n_chains,
 threads = parallel::detectCores(),
 refresh = 1000,
 iter_warmup = burn_in,
@@ -62,7 +63,8 @@ iter_sampling = iters
 
 stan_results <- list(draws = fit_stan_lgss$draws(variables = c("phi")),
                     time = fit_stan_lgss$time,
-                    summary = fit_stan_lgss$cmdstan_summary)
+                    summary = fit_stan_lgss$cmdstan_summary,
+                    burn_in = burn_in)
 
 ## Format test sample to 2 digits
 # test_sample <- formatC(test_sample, width = 2, format = "d", flag = "0")
