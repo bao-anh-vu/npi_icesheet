@@ -6,6 +6,7 @@ source("./source/sim_data.R")
 library(mvtnorm)
 reticulate::use_condaenv("myenv", required = TRUE)
 library(tensorflow)
+library(parallel)
 library(qs)
 
 ## Flags
@@ -66,10 +67,11 @@ if (regenerate_data) {
   dev.off()
 
   ## Simulate data corresponding to each parameter sample
-  data <- lapply(1:nsims, function(i) sim_data(phi = phi_samples[i], 
+  data <- mclapply(1:nsims, function(i) sim_data(phi = phi_samples[i], 
                                                 sigma_eta = sigma_eta_samples[i],
                                                 sigma_eps = sigma_eps_samples[i],
-                                                iters = iters))
+                                                iters = iters),
+                                                mc.cores = 10L)
 
   data_y <- lapply(data, function(x) x$y)
   data_x <- lapply(data, function(x) x$x)

@@ -69,7 +69,7 @@ if (!dir.exists(output_dir)) {
 checkpoint_path <- paste0(output_dir, "checkpoints/cp-{epoch:04d}.ckpt")
 
 batch_size <- 64
-epochs <- 30
+epochs <- 20
 
 ## Train the model
 print("Training CNN...")

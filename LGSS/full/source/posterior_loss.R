@@ -85,20 +85,18 @@ construct_L_matrix <- function(vals, n) {
   return(L)
 }
 
+# ## Test loss function
+# batchsize <- 3L
+# d <- 2L
+# y_true <- matrix(rnorm(batchsize * d), nrow = batchsize)
+# y_pred <- matrix(rnorm(batchsize * (d + d + (d - 1))), nrow = batchsize) # d elements for mean, d + (d - 1) for chol_vals
+# loss_val <- lapply(1:batchsize, function(i) posterior_loss_wrap(d)(y_true[i, ], y_pred[i, ]))
+# print(loss_val)
 
+# ## Loss from tf
+# y_pred_tf <- tf$constant(y_pred, dtype = tf$float64)
+# y_true_tf <- tf$constant(y_true, dtype = tf$float64)
 
-## Test loss function
-batchsize <- 3L
-d <- 2L
-y_true <- matrix(rnorm(batchsize * d), nrow = batchsize)
-y_pred <- matrix(rnorm(batchsize * (d + d + (d - 1))), nrow = batchsize) # d elements for mean, d + (d - 1) for chol_vals
-loss_val <- lapply(1:batchsize, function(i) posterior_loss_wrap(d)(y_true[i, ], y_pred[i, ]))
-print(loss_val)
-
-## Loss from tf
-y_pred_tf <- tf$constant(y_pred, dtype = tf$float64)
-y_true_tf <- tf$constant(y_true, dtype = tf$float64)
-
-loss_tf <- posterior_loss_wrap_tf(d)(y_true = y_true_tf, y_pred = y_pred_tf)
-print(loss_tf)
+# loss_tf <- posterior_loss_wrap_tf(d)(y_true = y_true_tf, y_pred = y_pred_tf)
+# print(loss_tf)
 

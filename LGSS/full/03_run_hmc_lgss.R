@@ -14,11 +14,11 @@ data_date <- "20250108"
 simulated_data <- qread(paste0("./data/lgss_data_", data_date, ".qs"))
 
 if (test_on_train) {
-  test_input <- simulated_data$train_input#[1:5000, , ]
-  test_output <- simulated_data$train_output#[1:5000, ]
+  test_input <- simulated_data$train_input # [1:5000, , ]
+  test_output <- simulated_data$train_output # [1:5000, ]
 } else {
-    test_input <- simulated_data$test_input
-    test_output <- simulated_data$test_output
+  test_input <- simulated_data$test_input
+  test_output <- simulated_data$test_output
 }
 
 input_mean <- simulated_data$input_mean
@@ -34,43 +34,55 @@ iters <- 10000
 burn_in <- 5000
 n_chains <- 2
 # run_hmc_lgss <- function(data, iters = 10000, burn_in = 5000, n_chains = 1) {
-  
+
 y <- test_input[test_sample, , 1] * input_sd + input_mean
 stan_file <- "./source/stan_lgss.stan"
 
 lgss_model <- cmdstan_model(
-stan_file,
-cpp_options = list(stan_threads = TRUE)
+  stan_file,
+  cpp_options = list(stan_threads = TRUE)
 )
 
 # log_kappa2_est <- mean(log(y^2)) - (digamma(1/2) + log(2))
 
-lgss_data <- list(Tfin = length(y), y = y, 
-                    use_arctanh = ifelse(use_arctanh, 1, 0))
+lgss_data <- list(
+  Tfin = length(y), y = y,
+  use_arctanh = ifelse(use_arctanh, 1, 0)
+)
 
-# hfit <- stan(model_code = sv_code, 
-#              model_name="sv", data = sv_data, 
+# hfit <- stan(model_code = sv_code,
+#              model_name="sv", data = sv_data,
 #              iter = iters, warmup = burn_in, chains=1)
 
 fit_stan_lgss <- lgss_model$sample(
-lgss_data,
-chains = n_chains,
-threads = parallel::detectCores(),
-refresh = 1000,
-iter_warmup = burn_in,
-iter_sampling = iters
+  lgss_data,
+  chains = n_chains,
+  parallel_chains = n_chains,
+  threads = parallel::detectCores(),
+  refresh = 1000,
+  iter_warmup = burn_in,
+  iter_sampling = iters
 )
 
-stan_results <- list(draws = fit_stan_lgss$draws(variables = c("phi", "sigma_eta", "sigma_eps")),
-                    time = fit_stan_lgss$time,
-                    summary = fit_stan_lgss$cmdstan_summary)
+stan_results <- list(
+  draws = fit_stan_lgss$draws(variables = c("phi", "sigma_eta", "sigma_eps")),
+  time = fit_stan_lgss$time,
+  summary = fit_stan_lgss$cmdstan_summary
+)
+
+# ## Thin the chains
+# if (use_thinning) {
+#   stan_results$draws <- stan_results$draws[seq(1, iters, by = 10), , ]
+# }
 
 ## Format test sample to 2 digits
 # test_sample <- formatC(test_sample, width = 2, format = "d", flag = "0")
 
-qsave(stan_results, file = paste0("./output/lgss_hmc_results_", 
-                            formatC(test_sample, width = 2, format = "d", flag = "0"), 
-                            "_", data_date, ".qs"))
+qsave(stan_results, file = paste0(
+  "./output/lgss_hmc_results_",
+  formatC(test_sample, width = 2, format = "d", flag = "0"),
+  "_", data_date, ".qs"
+))
 #   return(stan_results)
 # }
 
@@ -86,24 +98,24 @@ true_sigma_eps <- sqrt(exp(true_vals[3]))
 
 png(paste0("./plots/lgss_hmc_post_", test_sample, "_", data_date, ".png"), width = 1000, height = 400)
 par(mfrow = c(1, 3))
-plot(density(stan_results$draws[,,1]), main = "phi")
+plot(density(stan_results$draws[, , 1]), main = "phi")
 abline(v = true_phi, col = "black", lty = 2)
 
-plot(density(stan_results$draws[,,2]), main = "sigma_eta")
+plot(density(stan_results$draws[, , 2]), main = "sigma_eta")
 abline(v = true_sigma_eta, col = "black", lty = 2)
 
-plot(density(stan_results$draws[,,3]), main = "sigma_eps")
+plot(density(stan_results$draws[, , 3]), main = "sigma_eps")
 abline(v = true_sigma_eps, col = "black", lty = 2)
 dev.off()
 
-png(paste0("./plots/lgss_hmc_trace_", test_sample, "_", data_date, ".png"), width = 1000, height = 400)
+png(paste0("./plots/lgss_hmc_trace_", test_sample, "_", data_date, ".png"), width = 800, height = 400)
 par(mfrow = c(3, 1))
-plot(stan_results$draws[,,1], type = "l", main = "phi")
+plot(stan_results$draws[, , 1], type = "l", main = "phi")
 abline(h = true_phi, col = "black", lty = 2)
 
-plot(stan_results$draws[,,2], type = "l", main = "sigma_eta")
+plot(stan_results$draws[, , 2], type = "l", main = "sigma_eta")
 abline(h = true_sigma_eta, col = "black", lty = 2)
 
-plot(stan_results$draws[,,3], type = "l", main = "sigma_eps")
+plot(stan_results$draws[, , 3], type = "l", main = "sigma_eps")
 abline(h = true_sigma_eps, col = "black", lty = 2)
 dev.off()

@@ -10,6 +10,7 @@ library(tensorflow)
 library(ggplot2)
 library(gridExtra)
 library(qs)
+library(dplyr)
 
 # source("sim_data.R")
 source("./source/create_model.R")
@@ -171,7 +172,7 @@ phi_mean_plot <- phi_df %>% ggplot() +
               xlab("True phi") +
               ylab("Predicted phi") +
               theme_bw() +
-              theme(text = element_text(size = 20))
+              theme(text = element_text(size = 25))
 
 sigma_eta_mean_plot <- sigma_eta_df %>% ggplot() +
               geom_point(aes(x = true, y = pred), color = "salmon") +
@@ -179,7 +180,7 @@ sigma_eta_mean_plot <- sigma_eta_df %>% ggplot() +
               xlab("True sigma_eta") +
               ylab("Predicted sigma_eta") +
               theme_bw() +
-              theme(text = element_text(size = 20))
+              theme(text = element_text(size = 25))
 
 
 sigma_eps_mean_plot <- sigma_eps_df %>% ggplot() +
@@ -188,48 +189,55 @@ sigma_eps_mean_plot <- sigma_eps_df %>% ggplot() +
               xlab("True sigma_eps") +
               ylab("Predicted sigma_eps") +
               theme_bw() +
-              theme(text = element_text(size = 20))
+              theme(text = element_text(size = 25))
 
 ## Plot the mean against the true values
-png(paste0("./plots/lgss_mean_plot_", data_date, ".png"), width = 1000, height = 500)
+png(paste0("./plots/lgss_mean_plot_", data_date, ".png"), width = 1500, height = 500)
 # print(mean_plot)
-grid.arrange(phi_mean_plot, sigma_eta_mean_plot, sigma_eps_mean_plot, ncol = 2)
+grid.arrange(phi_mean_plot, sigma_eta_mean_plot, sigma_eps_mean_plot, ncol = 3)
 dev.off()
 
-phi_intv_plot <- phi_df %>% ggplot() + 
-    geom_errorbar(aes(x = 1:nrow(phi_df), ymin = lower, ymax = upper), width = 0, color = "black") +
-    geom_point(aes(x = 1:nrow(phi_df), y = pred), color = "black") + 
-    geom_point(aes(x = 1:nrow(phi_df), y = true), color = "salmon") +
+n_plot_samples <- 500
+phi_intv_plot <- phi_df  %>% 
+    slice_head(n = n_plot_samples) %>% 
+    ggplot() + 
+    geom_errorbar(aes(x = 1:n_plot_samples, ymin = lower, ymax = upper), width = 0, color = "black") +
+    geom_point(aes(x = 1:n_plot_samples, y = pred), color = "black") + 
+    geom_point(aes(x = 1:n_plot_samples, y = true), color = "salmon") +
     xlab("Test sample") +
     ylab(bquote(phi)) +
     theme_bw() +
     theme(text = element_text(size = 20)) 
 
-sigma_eta_intv_plot <- sigma_eta_df %>% ggplot() + 
-    geom_errorbar(aes(x = 1:nrow(sigma_eta_df), ymin = lower, ymax = upper), width = 0, color = "black") +
-    geom_point(aes(x = 1:nrow(sigma_eta_df), y = pred), color = "black") + 
-    geom_point(aes(x = 1:nrow(sigma_eta_df), y = true), color = "salmon") +
+sigma_eta_intv_plot <- sigma_eta_df %>% 
+    slice_head(n = n_plot_samples) %>% 
+    ggplot() + 
+    geom_errorbar(aes(x = 1:n_plot_samples, ymin = lower, ymax = upper), width = 0, color = "black") +
+    geom_point(aes(x = 1:n_plot_samples, y = pred), color = "black") + 
+    geom_point(aes(x = 1:n_plot_samples, y = true), color = "salmon") +
     xlab("Test sample") +
     ylab(bquote(sigma[epsilon])) +
     theme_bw() +
     theme(text = element_text(size = 20))
 
-sigma_eps_intv_plot <- sigma_eps_df %>% ggplot() + 
-    geom_errorbar(aes(x = 1:nrow(sigma_eps_df), ymin = lower, ymax = upper), width = 0, color = "black") +
-    geom_point(aes(x = 1:nrow(sigma_eps_df), y = pred), color = "black") + 
-    geom_point(aes(x = 1:nrow(sigma_eps_df), y = true), color = "salmon") +
+sigma_eps_intv_plot <- sigma_eps_df %>% 
+    slice_head(n = n_plot_samples) %>% 
+    ggplot() + 
+    geom_errorbar(aes(x = 1:n_plot_samples, ymin = lower, ymax = upper), width = 0, color = "black") +
+    geom_point(aes(x = 1:n_plot_samples, y = pred), color = "black") + 
+    geom_point(aes(x = 1:n_plot_samples, y = true), color = "salmon") +
     xlab("Test sample") +
     ylab(bquote(sigma[epsilon])) +
     theme_bw() +
     theme(text = element_text(size = 20))
 
-png(paste0("./plots/lgss_intv_plot_", data_date, ".png"), width = 900, height = 500)
-grid.arrange(phi_intv_plot, sigma_eta_intv_plot, sigma_eps_intv_plot, nrow = 2)
+png(paste0("./plots/lgss_intv_plot_", data_date, ".png"), width = 1000, height = 500)
+grid.arrange(phi_intv_plot, sigma_eta_intv_plot, sigma_eps_intv_plot, nrow = 3)
 dev.off()
 
 
 ## Compare to output from HMC
-test_sample <- 3:7
+test_sample <- 1:5
 hmc.phi_samples <- list()
 hmc.sigma_eta_samples <- list()
 hmc.sigma_eps_samples <- list()
@@ -261,6 +269,8 @@ for (s in test_sample) {
 }
 
 dev.off()
+
+
 
 
 
