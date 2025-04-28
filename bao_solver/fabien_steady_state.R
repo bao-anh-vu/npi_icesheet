@@ -24,7 +24,8 @@ library("mvtnorm")
 source("./source/surface_elev.R")
 source("./source/create_params.R")
 source("./source/solve_ssa_nl.R")
-source("./source/solve_velocity_azm.R")
+# source("./source/solve_velocity_azm.R")
+source("./source/ssaflowline_bao.R")
 source("./source/solve_thickness.R")
 
 ## Presets
@@ -61,7 +62,9 @@ params$m <- 1 / params$n
 params$B <- 0.4 * 1e6 * params$secpera^params$m
 
 ### Friction
-C <- create_fric_coef(x, L) * 1e6 * (secpera)^m
+# C <- create_fric_coef(x, L) * 1e6 * (secpera)^m
+C <- rep(0, length(x)) # for floating ice
+C[1:GL] <- 7e6 * (param$secpera^param$m) # for grounded ice; maybe try something linear
 
 ### Bed
 b <- create_bed(x)
