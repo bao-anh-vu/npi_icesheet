@@ -10,8 +10,8 @@ create_fric_coef <- function (x, L) {
 ## Bed topography
 create_bed <- function(x, variable_bed = TRUE, random_bed = TRUE) {
   
-  b_trend <- ifelse(x <= 450e3, -1100 + x / 1e3, -650 - 5 * (x / 1e3 - 450))
-  b_noise <- random_mid_disp(n_iterations = 11, roughness = 500)
+  b_trend <- ifelse(x <= 450e3, -600 + x / 1e3, -150 - 5 * (x / 1e3 - 450))
+  b_noise <- random_mid_disp(n_iterations = 12, roughness = 500)
 
   bed <- b_trend + b_noise$y[1:length(x)]
 
