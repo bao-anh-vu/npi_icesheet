@@ -32,15 +32,9 @@ solve_velocity <- function(p, L, J, H, b, C, u, u_bc) {
   ## Determine GL position
   GL <- find_gl(H, b, rho_i = p$rho_i, rho_w = p$rho_w)
   
-
-  # Drag coefficient
-  alpha <- rep(0, length(x)) # initialize alpha
-  alpha[1:GL] <- C[1:GL] * abs(u[1:GL])^(p$m-1) # for grounded ice
-  # alpha <- C
-
   # Ice rigidity
 
-  # Surface elevation (h here is z_s in my notation)
+  # Surface elevation 
   zs <- H + b # for grounded ice
   zs[(GL+1):(J+1)] <- (1 - p$rho_i/p$rho_w) * H[(GL+1):(J+1)] # for floating ice
   
@@ -61,7 +55,7 @@ solve_velocity <- function(p, L, J, H, b, C, u, u_bc) {
   # u0 <- 0.001 * x
   # u0[1] <- u_bc # boundary condition at the ice divide (x1 = 0)
   # # u0 <- ssainit(p, x, beta, gamma, initchoice)
-  u0 <- u
+  u0 <- u # just for saving the initial guess, not directly used in the solver
 
   Hstag <- 0.5 * (H[1:J] + H[2:(J+1)])
   tol <- 1 / p$secpera #1.0e-14
@@ -71,6 +65,12 @@ solve_velocity <- function(p, L, J, H, b, C, u, u_bc) {
   iter <- 0
 
   while (maxdiff > tol) {
+
+    # Drag coefficient
+    alpha <- rep(0, length(x)) # initialize alpha
+    alpha[1:GL] <- C[1:GL] * abs(u[1:GL])^(p$m-1) # for grounded ice
+    # alpha <- C
+
     uxstag <- (u[2:(J+1)] - u[1:J]) / dx
     sqr_ux_reg <- uxstag^2 + eps_reg^2
 

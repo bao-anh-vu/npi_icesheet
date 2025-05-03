@@ -19,10 +19,9 @@ create_bed <- function(x, variable_bed = TRUE, random_bed = TRUE) {
     # b1 <- b1 + 500
   } else {
     # b1 <- rep(-650, length(x))
-    b1 <- seq(-200, -400, length.out = length(x))
+    b1 <- seq(100, 300, length.out = length(x))
   }
   
-  browser()
   ## b_r (random midpoint displacement to generate roughness of the bed)
   
   if (random_bed) {

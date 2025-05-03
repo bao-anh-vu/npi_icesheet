@@ -22,7 +22,7 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   u0 <- velocity_bc
   
   ## Convert input velocity into m/s
-  u <- u / secpera
+  u <- u #/ secpera
   
   ## Domain
   x <- domain
@@ -200,7 +200,7 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   }
   
   ## Convert the velocity into m/yr again
-  u_new <- u_new * secpera
+  # u_new <- u_new * secpera
   
   return(u_new)
   

@@ -1,6 +1,6 @@
 ### Main file ###
 
-setwd("/home/babv971/SSA_model/CNN/ssa_solver/")
+setwd("/home/babv971/SSA_model/CNN/bao_solver/")
 
 rm(list = ls())
 
@@ -21,11 +21,13 @@ library("mvtnorm")
 # library("splines")
 # library("fda")
 
+source("./source/find_gl.R")
 source("./source/surface_elev.R")
 source("./source/create_params.R")
 source("./source/solve_ssa_nl.R")
 # source("./source/solve_velocity_azm.R")
 source("./source/ssaflowline_bao.R")
+source("./source/flowline_bao.R")
 source("./source/solve_thickness.R")
 
 ## Presets
@@ -33,15 +35,15 @@ data_date <- "20250408" # "20230518"
 rewrite_steady_state <- F
 
 ## Parameters
-secpera <- 31556926 # seconds per annum
-n <- 3.0 # exponent in Glen's flow law
-m <- 1 / n # friction exponent
+# secpera <- 31556926 # seconds per annum
+# n <- 3.0 # exponent in Glen's flow law
+# m <- 1 / n # friction exponent
 
 ## Ice shelf specifications
 L <- 800e3 # length of domain
 
 # Discretise domain
-J <- 2000 # number of grid spaces
+J <- 4000 # number of grid spaces
 dx <- L / J # grid spacing
 x <- seq(0, L, dx) # grid point locations
 
@@ -53,18 +55,16 @@ params <- list(
   rho_w = 1028.0, # sea water density
   # r <- rho / rho_w # define this ratio for convenience
   g = 9.81, # gravity constant
-  # A = 4.227e-25, #1.4579e-25, # flow rate parameter
-  as = 0.5, # surface accumulation rate,
-  ab = 0 # basal melt rate,
+  # B = 0.4e6 * 31556926^(1/3), # ice rigidity (Pa s^3)
+  A = 4.3e-25 #1.4579e-25, # flow rate parameter # this corresponds to an ice rigidity of 1.9e8, which is used in the PISM model
+  # A = 2.4e-17, # corresponds to an ice temp of -10 C 
 )
 
 params$m <- 1 / params$n
-params$B <- 0.4 * 1e6 * params$secpera^params$m
-
-### Friction
-# C <- create_fric_coef(x, L) * 1e6 * (secpera)^m
-C <- rep(0, length(x)) # for floating ice
-C[1:GL] <- 7e6 * (param$secpera^param$m) # for grounded ice; maybe try something linear
+params$B <- params$A^(-1 / params$n) # ice rigidity
+# params$A <- params$B^(-params$n)
+params$as <- 0.5 / params$secpera
+params$ab <- 0
 
 ### Bed
 b <- create_bed(x)
@@ -74,10 +74,10 @@ u0 <- 0 # 100 / secpera # (m/s)
 H0 <- 2000 # (m)
 
 ### Initial thickness
-h <- H0 - (H0 - 0) / (L - 0) * x
+h <- 2000 - 2000 / L * x
 
 ### Initial velocity
-u <- u0 + 0.001 / params$secpera * x
+u <- 0.001 * x / params$secpera
 
 # ssa_steady <- create_steady_state(use_stored_steady_state = F,
 #                         add_process_noise_in_ref = F,
@@ -89,6 +89,13 @@ u <- u0 + 0.001 / params$secpera * x
 #                         friction_coef = C,
 #                         bedrock = b)
 
+## Initial grounding line position
+GL <- find_gl(h, b, rho_i = params$rho_i, rho_w = params$rho_w)
+
+### Friction
+C <- create_fric_coef(x, L) * 1e6 * (params$secpera)^params$m
+# C <- rep(7e6 * (params$secpera^params$m), length(x)) # for grounded ice; maybe try something linear
+
 ssa_steady <- solve_ssa_nl(
   domain = x,
   ini_thickness = h,
@@ -96,7 +103,7 @@ ssa_steady <- solve_ssa_nl(
   bedrock = b,
   friction_coef = C,
   tol = 1e-02, # m/yr
-  years = 2000, # default is 4000 years but could increase further
+  # years = 1000, # default is 4000 years but could increase further
   steps_per_yr = 52,
   phys_params = params,
   perturb_hardness = FALSE,
@@ -130,12 +137,13 @@ plot(x / 1000, steady_bed,
   type = "l", lwd = 2, xlim = c(0, 800), ylim = c(min(steady_bed), max(steady_top_surface)),
   xlab = "Domain (km)", ylab = "Elevation (m)"
 ) # bed elevation
+lines(x / 1000, ssa_steady$all_top_surface[, 1], col = "cyan", xlab = "Domain (km)", ylab = "Elevation (m)") # surface elevation
 lines(x / 1000, steady_top_surface, xlab = "Domain (km)", ylab = "Elevation (m)") # surface elevation
 lines(x / 1000, steady_bottom_surface, xlab = "Domain (km)", ylab = "Elevation (m)") # bottom surface elevation
 title("Top and bottom surface elevation")
 
 ## Plot GL position
-plot(steady_GL_position, 1:length(steady_GL_position), type = "l", xlab = "Domain (km)", ylab = "Iterations")
+plot(steady_GL_position, 1:length(steady_GL_position), type = "l", xlab = "Domain (km)", ylab = "Time (years)")
 title("Grounding line position")
 
 ## Plot ice thickness
@@ -150,8 +158,9 @@ legend("topright",
 title("Ice thickness")
 
 ## Plot velocity
-plot(x / 1000, steady_velocity, type = "l", ylim = c(min(steady_velocity), max(steady_velocity)), xlab = "Domain (km)", ylab = "Velocity (m a^-1)")
-lines(x / 1000, ini_velocity, col = "cyan", xlab = "Domain (km)", ylab = "Velocity (m a^-1)")
+plot(x / 1000, steady_velocity * params$secpera, type = "l", 
+      xlab = "Domain (km)", ylab = "Velocity (m a^-1)")
+lines(x / 1000, ini_velocity * params$secpera, col = "cyan")
 legend("topleft",
   legend = c("Current velocity", "Initial velocity"), col = c("black", "cyan"),
   lty = 1, bty = "n", cex = 0.7, y.intersp = 0.15, xpd = TRUE, inset = c(0, -0.35)
@@ -165,89 +174,89 @@ if (rewrite_steady_state) {
   saveRDS(ssa_out, file = paste("./output/ssa_steady_", data_date, ".rds", sep = ""))
 }
 
-## Reduce the ice rigidity to induce dynamics, and run for another 20 years post-steady state
-params$B <- 0.25 * 1e6 * params$secpera^params$m # reduce from 0.4 to 0.25
+# ## Reduce the ice rigidity to induce dynamics, and run for another 20 years post-steady state
+# params$B <- 0.25 * 1e6 * params$secpera^params$m # reduce from 0.4 to 0.25
 
-### For this part I also add process noise
+# ### For this part I also add process noise
 
-### Process noise parameters (for ice thickness)
-exp_cov <- function(d, l) {
-  return(exp(-3 * d / l))
-}
+# ### Process noise parameters (for ice thickness)
+# exp_cov <- function(d, l) {
+#   return(exp(-3 * d / l))
+# }
 
-ones <- rep(1, length(x))
-D <- rdist(x)
-l <- 50e3
-R <- exp_cov(D, l)
+# ones <- rep(1, length(x))
+# D <- rdist(x)
+# l <- 50e3
+# R <- exp_cov(D, l)
 
 
-# R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
-L <- t(chol(R))
-L <- as(L, "dgCMatrix")
-process_noise_info <- list(corrmat_chol = L, length_scale = l)
+# # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
+# L <- t(chol(R))
+# L <- as(L, "dgCMatrix")
+# process_noise_info <- list(corrmat_chol = L, length_scale = l)
 
-post_ss <- solve_ssa_nl(
-  domain = ssa_steady$domain,
-  bedrock = ssa_steady$bedrock,
-  friction_coef = ssa_steady$friction_coef,
-  phys_params = params,
-  ini_velocity = ssa_steady$current_velocity,
-  ini_thickness = ssa_steady$current_thickness,
-  years = 20, steps_per_yr = 52,
-  add_process_noise = T,
-  process_noise_info = process_noise_info
-)
+# post_ss <- solve_ssa_nl(
+#   domain = ssa_steady$domain,
+#   bedrock = ssa_steady$bedrock,
+#   friction_coef = ssa_steady$friction_coef,
+#   phys_params = params,
+#   ini_velocity = ssa_steady$current_velocity,
+#   ini_thickness = ssa_steady$current_thickness,
+#   years = 20, steps_per_yr = 52,
+#   add_process_noise = T,
+#   process_noise_info = process_noise_info
+# )
 
-## Extract individual components
-post_steady_velocity <- post_ss$current_velocity
-post_steady_ini_velocity <- post_ss$ini_velocity
-post_steady_thickness <- post_ss$current_thickness
-post_steady_ini_thickness <- post_ss$ini_thickness
-post_steady_top_surface <- post_ss$top_surface
-post_steady_bottom_surface <- post_ss$bottom_surface
-post_steady_bed <- post_ss$bedrock
-post_steady_friction_coef <- post_ss$friction_coef
-post_steady_GL_position <- post_ss$grounding_line
-# x <- post_ss$domain
-# J <- length(x)
+# ## Extract individual components
+# post_steady_velocity <- post_ss$current_velocity
+# post_steady_ini_velocity <- post_ss$ini_velocity
+# post_steady_thickness <- post_ss$current_thickness
+# post_steady_ini_thickness <- post_ss$ini_thickness
+# post_steady_top_surface <- post_ss$top_surface
+# post_steady_bottom_surface <- post_ss$bottom_surface
+# post_steady_bed <- post_ss$bedrock
+# post_steady_friction_coef <- post_ss$friction_coef
+# post_steady_GL_position <- post_ss$grounding_line
+# # x <- post_ss$domain
+# # J <- length(x)
 
-## Plotting
+# ## Plotting
 
-png("./plots/steady_state/post_steady_20yrs.png", width = 1000, height = 800)
-par(mfrow = c(2, 2))
+# png("./plots/steady_state/post_steady_20yrs.png", width = 1000, height = 800)
+# par(mfrow = c(2, 2))
 
-# Plot bed and surface elevation -- bed not available for floating ice
-plot(x / 1000, post_steady_bed,
-  type = "l", lwd = 2, xlim = c(0, 800), ylim = c(min(post_steady_bed), max(post_steady_top_surface)),
-  xlab = "Domain (km)", ylab = "Elevation (m)"
-) # bed elevation
-lines(x / 1000, post_steady_top_surface, xlab = "Domain (km)", ylab = "Elevation (m)") # surface elevation
-lines(x / 1000, post_steady_bottom_surface, xlab = "Domain (km)", ylab = "Elevation (m)") # bottom surface elevation
-title("Top and bottom surface elevation")
+# # Plot bed and surface elevation -- bed not available for floating ice
+# plot(x / 1000, post_steady_bed,
+#   type = "l", lwd = 2, xlim = c(0, 800), ylim = c(min(post_steady_bed), max(post_steady_top_surface)),
+#   xlab = "Domain (km)", ylab = "Elevation (m)"
+# ) # bed elevation
+# lines(x / 1000, post_steady_top_surface, xlab = "Domain (km)", ylab = "Elevation (m)") # surface elevation
+# lines(x / 1000, post_steady_bottom_surface, xlab = "Domain (km)", ylab = "Elevation (m)") # bottom surface elevation
+# title("Top and bottom surface elevation")
 
-## Plot GL position
-plot(post_steady_GL_position, 1:length(post_steady_GL_position), type = "l", xlab = "Domain (km)", ylab = "Iterations")
-title("Grounding line position")
+# ## Plot GL position
+# plot(post_steady_GL_position, 1:length(post_steady_GL_position), type = "l", xlab = "Domain (km)", ylab = "Iterations")
+# title("Grounding line position")
 
-## Plot ice thickness
-fin_GL_position <- post_steady_GL_position[length(post_steady_GL_position)]
-plot_region <- (fin_GL_position - floor(J / 10)):(fin_GL_position + J / 2) # 500:1200 ##
-plot(x[plot_region] / 1000, post_steady_thickness[plot_region], type = "l", ylab = "Ice thickness (m)")
-lines(x[plot_region] / 1000, post_steady_ini_thickness[plot_region], col = "cyan", lty = 2)
-legend("topright",
-  legend = c("Current thickness", "Initial thickness"), col = c("black", "cyan"),
-  lty = 1, bty = "n", cex = 0.7, y.intersp = 0.15, inset = c(-0.3, -0.35)
-)
-title("Ice thickness")
+# ## Plot ice thickness
+# fin_GL_position <- post_steady_GL_position[length(post_steady_GL_position)]
+# plot_region <- (fin_GL_position - floor(J / 10)):(fin_GL_position + J / 2) # 500:1200 ##
+# plot(x[plot_region] / 1000, post_steady_thickness[plot_region], type = "l", ylab = "Ice thickness (m)")
+# lines(x[plot_region] / 1000, post_steady_ini_thickness[plot_region], col = "cyan", lty = 2)
+# legend("topright",
+#   legend = c("Current thickness", "Initial thickness"), col = c("black", "cyan"),
+#   lty = 1, bty = "n", cex = 0.7, y.intersp = 0.15, inset = c(-0.3, -0.35)
+# )
+# title("Ice thickness")
 
-## Plot velocity
-plot(x / 1000, post_steady_velocity, type = "l", ylim = c(min(post_steady_velocity), max(post_steady_velocity)), xlab = "Domain (km)", ylab = "Velocity (m a^-1)")
-lines(x / 1000, post_steady_ini_velocity, col = "cyan", xlab = "Domain (km)", ylab = "Velocity (m a^-1)")
-legend("topleft",
-  legend = c("Current velocity", "Initial velocity"), col = c("black", "cyan"),
-  lty = 1, bty = "n", cex = 0.7, y.intersp = 0.15, xpd = TRUE, inset = c(0, -0.35)
-)
-title("Horizontal velocity")
+# ## Plot velocity
+# plot(x / 1000, post_steady_velocity * params$secpera, type = "l", ylim = c(min(post_steady_velocity), max(post_steady_velocity)), xlab = "Domain (km)", ylab = "Velocity (m a^-1)")
+# lines(x / 1000, post_steady_ini_velocity * params$secpera, col = "cyan", xlab = "Domain (km)", ylab = "Velocity (m a^-1)")
+# legend("topleft",
+#   legend = c("Current velocity", "Initial velocity"), col = c("black", "cyan"),
+#   lty = 1, bty = "n", cex = 0.7, y.intersp = 0.15, xpd = TRUE, inset = c(0, -0.35)
+# )
+# title("Horizontal velocity")
 
-dev.off()
+# dev.off()
 

@@ -1,14 +1,12 @@
-get_surface_elev <- function(H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
-  include_GL <- TRUE
-  GL <- find_gl(H, b, z0, rho, rho_w)
+get_surface_elev <- function(H, b, p, include_GL = TRUE) {
+  
+  GL <- find_gl(H, b, rho_i = p$rho_i, rho_w = p$rho_w)
  
-  z <- c()
+  z <- H + b
   if (include_GL & GL < length(H)) {
-    z[1:GL] <- H[1:GL] + b[1:GL]
-    z[(GL+1):length(H)] <- H[(GL+1):length(H)] * (1 - rho/rho_w) + z0
-  } else {
-    z <- H + b
-  }
+    # z[1:GL] <- H[1:GL] + b[1:GL]
+    z[(GL+1):length(H)] <- H[(GL+1):length(H)] * (1 - p$rho_i/p$rho_w)
+  } 
   z
   
 }

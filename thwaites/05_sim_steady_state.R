@@ -65,14 +65,13 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 L <- flowline_dist[J] - flowline_dist[1] ## length of the flowline
 
 ## Simulate bed
-bed_sim <- create_bed(x = flowline_dist)
-# bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
+# bed_sim <- create_bed(x = flowline_dist)
+bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
 
 png(file = paste0("./plots/steady_state/bed_", data_date, ".png"), width = 800, height = 600)
 plot(flowline_dist/1000, bed_sim, type = "l", col = "blue", ylim = c(-2000, 0),
     xlab = "Distance along flowline (km)", ylab = "Elevation (m)", main = "Simulated bed topography")
 dev.off()
-browser()
 # print("Simulating friction coefficient...")
 
 ## Simulate friction coefficient
@@ -114,8 +113,7 @@ vel_curr_smooth <- 0.001 * flowline_dist / params$secpera
 GL <- find_gl(H_ini_all, bed_sim, rho_i = params$rho_i, rho_w = params$rho_w)
 
 ## Friction coefficient
-C <- rep(0, length(flowline_dist)) # for floating ice
-C[1:GL] <- 7e6 * (params$secpera^params$m) # for grounded ice; maybe try something linear
+C <- rep(7e6 * (params$secpera^params$m), length(flowline_dist)) # for floating ice
 
 ## SMB data
 smb_data_racmo <- qread(file = paste0(data_dir, "/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
@@ -136,7 +134,7 @@ if (use_basal_melt_data) {
 }
 
 ## Surface and basal mass balance
-params$as <- smb_avg # surface accumulation rate (m/s)
+params$as <- smb_avg / params$secpera # surface accumulation rate (m/s)
 params$ab <- 0 # melt rate (m/s) -- no melt for now, just let the ice sheet grow
 
 if (rerun_steady_state) {

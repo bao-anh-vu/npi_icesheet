@@ -31,11 +31,12 @@ solve_velocity <- function(p, L, J, H, b, C, u, u_bc) {
 
   ## Determine GL position
   GL <- find_gl(H, b, rho_i = p$rho_i, rho_w = p$rho_w)
+  
 
   # Drag coefficient
-  # alpha <- 0 # initialize alpha
-  # alpha[1:GL] <- rep(p$C, length(x)) # for grounded ice
-  alpha <- C
+  alpha <- rep(0, length(x)) # initialize alpha
+  alpha[1:GL] <- C[1:GL] * abs(u[1:GL])^(p$m-1) # for grounded ice
+  # alpha <- C
 
   # Ice rigidity
 
@@ -53,8 +54,8 @@ solve_velocity <- function(p, L, J, H, b, C, u, u_bc) {
   beta <- p$rho_i * p$g * H * dzdx
 
   # Boundary condition: velocity at the calving front
-  # gamma <- (0.25 * p$A^(1/p$n) * (1 - p$rho_i/p$rho_w) * p$rho_i * p$g * H[J+1])^p$n
-  gamma <- (0.25 * p$B^(-1) * (1 - p$rho_i/p$rho_w) * p$rho_i * p$g * H[J+1])^p$n
+  gamma <- (0.25 * p$A^(1/p$n) * (1 - p$rho_i/p$rho_w) * p$rho_i * p$g * H[J+1])^p$n
+  # gamma <- (0.25 * p$B^(-1) * (1 - p$rho_i/p$rho_w) * p$rho_i * p$g * H[J+1])^p$n
 
   # Initial velocity (modify later to use ssainit())
   # u0 <- 0.001 * x
@@ -73,8 +74,8 @@ solve_velocity <- function(p, L, J, H, b, C, u, u_bc) {
     uxstag <- (u[2:(J+1)] - u[1:J]) / dx
     sqr_ux_reg <- uxstag^2 + eps_reg^2
 
-    # W[1:J] <- 2 * p$A^(-1/p$n) * Hstag * sqr_ux_reg^(((1/p$n) - 1) / 2)
-    W[1:J] <- 2 * p$B * Hstag * sqr_ux_reg^(((1/p$n) - 1) / 2)
+    W[1:J] <- 2 * p$A^(-1/p$n) * Hstag * sqr_ux_reg^(((1/p$n) - 1) / 2)
+    # W[1:J] <- 2 * p$B * Hstag * sqr_ux_reg^(((1/p$n) - 1) / 2)
     W[J+1] <- W[J]
 
     unew <- solve_stress_balance(L, J, gamma, W, alpha, beta, u_bc, GL)
@@ -87,4 +88,5 @@ solve_velocity <- function(p, L, J, H, b, C, u, u_bc) {
 
   # cat(sprintf("\nSSA solver did %d Picard iterations on dx = %.3f km grid\n", iter, dx / 1000))
   return(list(u = u, u0 = u0, zs = zs, b = b, H = H, GL = GL))
+
 }

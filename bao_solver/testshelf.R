@@ -1,5 +1,5 @@
 # testshelf <- function(J = 300, L = 200e3) {
-setwd("~/SSA_model/mccarthy/rfiles")
+setwd("~/SSA_model/CNN/bao_solver/")
 
 rm(list = ls())
 
@@ -18,7 +18,7 @@ L <- 200e3
     rho = 900.0,
     rhow = 1000.0,
     g = 9.8,
-    A = 1.4579e-25
+    A = 2.4e-17 #1.4579e-25
   )
 
   param$L <- L

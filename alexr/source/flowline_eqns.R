@@ -16,9 +16,12 @@ flowline_eqns <- function(huxg, bed, params) {
     
     # Bed profile
     b <- -bed(xg * sigma * params$xscale, params) / params$hscale
+
+    ## Not sure why there is a minus sign in front of the bed for Alex's solver but that's how it works
+
   } else {
-    hf <- (-b[which(x == xg)] / params$hscale) / (1 - params$lambda)
     b <- bed / params$hscale
+    hf <- b[which(x == xg)] / (1 - params$lambda)
     
   }
 
@@ -63,7 +66,7 @@ flowline_eqns <- function(huxg, bed, params) {
   }
   
   Fu[N1] <- (u[N1 + 1] - u[N1]) / ds[N1] - (u[N1] - u[N1 - 1]) / ds[N1 - 1]
-  
+
   Fu[Nx] <- (1 / (xg * ds[Nx - 1])^(1 / nglen)) *
     (abs(u[Nx] - u[Nx - 1])^(1 / nglen - 1)) * (u[Nx] - u[Nx - 1]) -
     lambda * hf / (8 * eps)

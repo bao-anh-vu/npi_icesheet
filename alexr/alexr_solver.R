@@ -8,7 +8,7 @@ source("./source/flowline_eqns.R")
 source("./source/create_basal_params.R")
 
 ## Flags
-use_linear_bed <- F
+use_linear_bed <- T
 
 # Bed topography function
 bed <- function(x, params) {
@@ -65,8 +65,8 @@ params$tfinal <- 10e3 * params$year
 params$Nt <- 1e2
 params$dt <- params$tfinal / params$Nt
 params$Nx <- 200
-params$N1 <- 100
 params$sigGZ <- 0.97
+params$N1 <- params$Nx * params$sigGZ # to have regular grid, have sigGZ be the portion of points out of Nx that fall into "zone 1" (N1)
 
 sigma1 <- seq(params$sigGZ / (params$N1 + 0.5), params$sigGZ, length.out = params$N1)
 sigma2 <- seq(params$sigGZ, 1, length.out = params$Nx - params$N1 + 1)
@@ -87,13 +87,13 @@ x <- seq(from = 0, to = xg, length.out = params$Nx)
 if (use_linear_bed) {
      hf <- (-bed(xg * params$xscale, params) / params$hscale) / (1 - params$lambda)
      # Bed profile
-    b <- -bed(xg * params$sigma * params$xscale, params) / params$hscale
+     b <- -bed(xg * params$sigma * params$xscale, params) / params$hscale
 } else {
      # Bed topography
-     b <- create_bed(x, variable_bed = F, random_bed = F)
+     b2 <- create_bed(x, variable_bed = F, random_bed = F) / params$hscale
 
      # Floatation ice thickness at GL (non-dimensional)
-     hf <- (-b[which(x == xg)] / params$hscale) / (1 - params$lambda)
+     hf2 <- b[which(x == xg)] / (1 - params$lambda)
 }
 
 # Initial ice thickness profile
@@ -105,25 +105,25 @@ u <- 0.3 * (params$sigma_elem)^(1 / 3) + 1e-3
 # Convert non-dimensional values to dimensional
 h_dim <- h * params$hscale
 u_dim <- u * params$uscale * params$year
+b_dim <- b * params$hscale
 
-
-png("./plots/ini_conds.png")
+png("./plots/ini_conds.png", width = 1000, height = 1000)
 par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
 
-# Ice thickness plot
-plot(params$sigma_elem, h_dim, type = "l", col = "blue", lwd = 2,
-     ylim = c(-1000, 1500),
+# Surface elev plot
+plot(params$sigma_elem, h_dim + b_dim, type = "l", col = "blue", lwd = 2,
+     ylim = c(-1000, 2000),
      xlab = "Domain (sigma)", ylab =
       "Ice thickness (m)",
      main = "Initial Conditions")
-# lines(params$sigma_elem, b)
+lines(params$sigma_elem, b_dim)
 
 # Velocity plot
 plot(params$sigma, u_dim, type = "l", col = "red", lwd = 2,
      xlab = "Domain (sigma)", ylab = "Velocity (m/yr)")
 dev.off()
 
-
+browser()
 ## Steady state ##
 
 # Initial guess
@@ -131,7 +131,7 @@ huxg0 <- c(h, u, xg)
 
 # Solve
 steady_sol <- multiroot(
-  f = function(huxg) flowline_eqns(huxg, b, params),
+  f = function(huxg) flowline_eqns(huxg, b_dim, params),
   start = huxg0,
   maxiter = 1000,
   rtol = 1e-8
@@ -172,7 +172,7 @@ legend("topright", legend = c("Ice thickness (h)", "Bedrock (b)"),
        col = c("steelblue", "sienna"), lwd = 2)
 
 # Plot ice velocity
-plot(x_dim, u * params$uscale,
+plot(x_dim, u * params$uscale * params$year,
      type = "l", lwd = 2, col = "firebrick",
      xlab = "Distance from ice divide (km)",
      ylab = "Ice velocity u(x) (m/yr)",

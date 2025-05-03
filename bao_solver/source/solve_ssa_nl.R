@@ -194,7 +194,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     if (evolve_velocity) {
       # Use current velocity to solve the linear system and get a new velocity
       # u_new <- solve_velocity(u_curr, H_curr, x, b, C, perturb_hardness)
-      u_new <- solve_velocity(phys_params, L, J, H_curr, b, C, u_curr, velocity_bc)$u
+      u_new <- solve_velocity(phys_params, L, J, H_curr, b, C, u_ini, velocity_bc)$u
       
       # Calculate difference between new u and current u
       u_diff <- max(abs(u_new - u_curr))
@@ -205,6 +205,13 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       # Set new velocity to current velocity
       u_curr <- u_new
 
+      # cat("Iter", i, ": ")
+      if (i == 1 | i %% (steps_per_yr * 10) == 0) {
+        cat("Change in u (m/a): ", u_diff * secpera, "\t")
+      }
+    } else {
+      # If not evolving velocity, set it to the initial velocity
+      u_curr <- u_ini
     }
     
     # Now use this velocity to solve the mass balance equation
