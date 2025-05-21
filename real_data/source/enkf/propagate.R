@@ -27,11 +27,10 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
     thickness <- solve_thickness(velocity = prev_velocity,
                                  thickness = thickness, domain = domain,
                                  bed = bed, steps_per_yr = steps_per_yr)
-    # png("./plots/thickness.png")
+    # png("./plots/temp/thickness.png")
     # plot(thickness, type = "l", main = "Thickness")
     # dev.off()
     
-
     ## need to somehow save both the previous and the current velocity
     velocity <- as.vector(solve_velocity(prev_velocity = prev_velocity, 
                                          thickness = thickness, # should use the mean of the ice thickness as well?
@@ -40,7 +39,10 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
                                          friction = friction,
                                          increase_hardness = FALSE))
     
-    # png("./plots/velocity.png")
+    # png(paste0("./plots/temp/velocity_", i, ".png"))
+    # par(mfrow = c(2, 1))
+    # plot(thickness, type = "l", main = "Thickness")
+    
     # plot(prev_velocity, type = "l", main = "Velocity")
     # dev.off()
 

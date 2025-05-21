@@ -15,7 +15,7 @@ library(qs)
 # library(sf)
 
 source("./source/create_params.R")
-source("./source/simulate_friction.R")
+# source("./source/simulate_friction.R")
 source("./source/solve_ssa_nl_relax.R")
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
@@ -83,28 +83,12 @@ H_ini_all <- c(H_ini, thickness_at_gl, thickness_at_tail)
 vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
 vel_curr <- rowMeans(vel_mat[, 15:ncol(vel_mat)])
 
-## Smooth the velocity out with loess
+## Smooth the velocity out with loess()
 vel_curr_smooth <- loess(vel_curr ~ flowline_dist, span = 0.1)$fitted
 
 ## SMB data
 smb_data_racmo <- qread(file = paste0(data_dir, "/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
 smb_avg <- colMeans(smb_data_racmo, na.rm = T)
-
-# ## Relaxation rate
-# ## Change in surface elevation (used for relaxation)
-# se_change <- rowMeans(surf_elev_mat[, 2:21] - surf_elev_mat[, 1:20]) # 2001 to 2020
-
-# ## Change in shelf height
-# shelf_height_change <- qread(file = paste0(data_dir, "/SMB/flowline_shelf_height_change.qs"))
-# avg_shelf_height_change <- colMeans(shelf_height_change, na.rm = T)
-
-# ## Fill in missing surface elevation change with shelf height change    
-# missing <- which(is.na(se_change))
-# se_change[missing] <- avg_shelf_height_change[missing] #-0.1 #tail(se_change[nonmissing], 1)
-# se_change[is.na(se_change)] <- mean(avg_shelf_height_change, na.rm = T) ## fill in the rest of the missing values with the mean change in shelf height
-
-# ## Now smooth this elevation change out with loess()
-# se_change_smooth <- loess(se_change ~ flowline_dist, span = 0.08)$fitted
 
 ## Basal melt data (only available on shelves???)
 if (use_basal_melt_data) {
@@ -121,6 +105,7 @@ if (use_basal_melt_data) {
 }
 
 if (rerun_steady_state) {
+    print('Running model to steady state...')
     params$as <- smb_avg # surface accumulation rate (m/s)
     params$ab <- 0 # melt rate (m/s) -- no melt for now, just let the ice sheet grow
     steady_state <- solve_ssa_nl(domain = flowline_dist, 
@@ -128,16 +113,11 @@ if (rerun_steady_state) {
                             friction_coef = fric_sim, 
                             phys_params = params,
                             tol = 1e-02, #m/yr 
-                            # years = 200,
                             steps_per_yr = 52, 
                             add_process_noise = F,
                             # thickness_bc = 3500,
                             ini_thickness = H_ini_all,
-                            ini_velocity = vel_curr_smooth,
-                            increase_hardness = T # this will increase ice rigidity parameter
-                            # relax_rate = se_change_smooth,
-                            # smb = smb_avg,
-                            # basal_melt = 0 #basal_melt
+                            ini_velocity = vel_curr_smooth
                         )
 
     # qsave(steady_state, file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
@@ -146,7 +126,12 @@ if (rerun_steady_state) {
     steady_state <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
 }
 
-## Then start ``thinning'' the ice by increasing melt rate to average present-day melt rate
+## Then start ``thinning'' the ice by using present-day average melt rate
+print("Running model for 20 years post-steady state...")
+params$ab <- avg_melt_rate # melt rate (m/s)
+
+### Also reduce ice rigidity
+params$B <- 0.5 * 1e6 * params$secpera^params$m
 
 ### For this part I also add process noise
 ### Process noise parameters (for ice thickness)
@@ -173,7 +158,7 @@ relaxation <- solve_ssa_nl(domain = flowline_dist,
                             # tol = 1e-03, 
                             years = relax_years, #500,
                             steps_per_yr = 52, 
-                            add_process_noise = T,
+                            add_process_noise = F,
                             process_noise_info = process_noise_info,
                             ini_thickness = steady_state$current_thickness,
                             ini_velocity = steady_state$current_velocity,
@@ -185,20 +170,20 @@ relaxation <- solve_ssa_nl(domain = flowline_dist,
 png(file = paste0("./plots/steady_state/relaxation_", data_date, ".png"), width = 800, height = 600)
 
 par(mfrow = c(2,1))
-matplot(flowline_dist/1000, steady_state$all_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
+matplot(flowline_dist/1000, relaxation$all_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
     xlab = "Distance along flowline (km)", ylab = "Elevation (m)", main = paste0("Relaxation year ", relax_years))
-lines(flowline_dist/1000, surf_elev_mat[, 21], col = "red", lty = 1)
+matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, steady_state$current_top_surface, col = "salmon")
 # lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
-legend("topright", legend = c("20 year post-steady state", "Present-day"), 
+legend("topright", legend = c("Simulated (20 year post-steady)", "Observed"), 
     col = c("grey", "red"), lty = 1, bty = "n")
 
 matplot(flowline_dist/1000, relaxation$all_velocities, type = "l", col = "grey", ylim = c(0, 4000),
     xlab = "Distance along flowline (km)", ylab = "Velocity (m/a)")
-lines(flowline_dist/1000, vel_curr_smooth, col = "red", lty = 1)
+matlines(flowline_dist/1000, vel_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, steady_state$current_velocity, col = "salmon")
 # lines(flowline_dist/1000, relaxation$current_velocity, col = "red")
-legend("topleft", legend = c("20 year post-steady state", "Present-day"), 
+legend("topleft", legend = c("Simulated (20 year post-steady)", "Present-day"), 
     col = c("grey", "red"), lty = 1, bty = "n")
 dev.off()
 

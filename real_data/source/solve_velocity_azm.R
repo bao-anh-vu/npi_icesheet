@@ -1,21 +1,28 @@
 solve_velocity <- function(prev_velocity, thickness, domain, bed, friction, 
                            increase_hardness = FALSE, include_GL = TRUE, 
-                           B_variable = FALSE, velocity_bc = 0, fixed_u0 = TRUE, 
-                           secpera = 31556926,
-                           n = 3, m = 1/3, rho = 910.0, rho_w = 1028.0,
-                           g = 9.81, A = 1.4579e-25, 
-                           Bg = 0.5 * 1e6 * 31556926 ^ (1/3), z0 = 0) {
+                           B_variable = FALSE, velocity_bc = 0, fixed_u0 = TRUE,
+                           phys_params 
+                          #  secpera = 31556926,
+                          #  n = 3, m = 1/3, rho = 910.0, rho_w = 1028.0,
+                          #  g = 9.81, A = 1.4579e-25, 
+                          #  Bg = 0.6 * 1e6 * 31556926 ^ (1/3), z0 = 0
+                           ) {
   
-  ## Define physical parameters -- pass as "default" function values instead?
-  # secpera <- 31556926 #seconds per annum
-  # n <- 3.0 # exponent in Glen's flow law
-  # m <- 1/n # friction exponent
-  # rho <- 910.0 #ice density
-  # rho_w <- 1028.0 #sea water density
-  # r <- rho / rho_w # define this ratio for convenience
-  # g <- 9.81 #gravity constant
-  # A <- 1.4579e-25 #ice hardness
-  # z0 <- 0 # ocean surface elevation
+  ## Unpack physical parameters
+  secpera <- phys_params$secpera
+  n <- phys_params$n
+  m <- phys_params$m
+  rho <- phys_params$rho_i # ice density
+  rho_w <- phys_params$rho_w # water density
+  as <- phys_params$as # surface accumulation rate (m/s)
+  ab <- phys_params$ab # melt rate (m/a)
+  g <- phys_params$g
+  # A <- phys_params$A # flow rate parameter
+  Bg <- phys_params$B
+  
+  Mg <- as - ab # surface mass balance
+  z0 <- 0 # ocean surface elevation
+
   u <- prev_velocity
   H <- thickness
    
@@ -59,10 +66,10 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
 
     # cat("GL position: ",  GL / J * L / 1000,  "\n")
     ## Ice hardness
-    if (increase_hardness) {
-      Bg <- 0.7 * 1e6 * secpera ^ m
-      # Bg <- 0.4 * 1e6 * secpera ^ m
-    }
+    # if (increase_hardness) {
+    #   Bg <- 0.7 * 1e6 * secpera ^ m
+    #   # Bg <- 0.4 * 1e6 * secpera ^ m
+    # }
     B <- rep(Bg, length(x))
     
     if (B_variable) {

@@ -32,10 +32,11 @@ gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 #   theme_bw()
 years <- 2000:2020
 
+vel_data <- list()
 for (year in years) {
-    cat("Mapping velocity data for year", year, "\n")
 
     if (reread_data) {
+    cat("Mapping velocity data for year", year, "\n")
 
         ## Velocity data
         vel_data <- nc_open(paste0(data_dir, "/velocity/ITS_LIVE_velocity_120m_RGI19A_", year, "_v02.nc"))
@@ -105,6 +106,7 @@ for (year in years) {
 
         delta <- 120 # grid size
         flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+        
         flowline <- na.omit(flowline)
         flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
         t12 <- system.time({
@@ -119,11 +121,12 @@ for (year in years) {
         saveRDS(flowline, file = paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
     } else {
         flowline <- readRDS(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
+        vel_data[[year]] <- flowline
     }
 
     ## Plot velocity along flowline
     gl_pos <- readRDS(paste0(data_dir, "/grounding_line/gl_pos.rds"))
-    
+
     delta <- 120 # grid size
     # flowline_dist <- sqrt((flowline$x[2:nrow(flowline)] - flowline$x[1:(nrow(flowline) - 1)])^2 +
     #     (flowline$y[2:nrow(flowline)] - flowline$y[1:(nrow(flowline) - 1)])^2)

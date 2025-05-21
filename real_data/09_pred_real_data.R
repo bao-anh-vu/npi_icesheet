@@ -27,7 +27,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:10 #6:20
+sets <- 1:50 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -56,8 +56,8 @@ domain <- ssa_steady$domain
 test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
 
 surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
-velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
-
+# velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
+velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 
 ## Replace NA values in real_data with 0
 surf_elev_data[is.na(surf_elev_data)] <- 0
@@ -80,9 +80,15 @@ real_data <- array(real_data, dim = c(1L, dim(real_data)))
 test_input <- test_data$input
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
-png("./plots/cnn/test_vs_real.png", width = 2000, height = 1200)
-matplot(test_data$input[1,,,1], col = "grey", type = "l")
-matlines(real_data[1,,,1], col = "red")
+sim <- sample(1:dim(test_data$input)[1], 1)
+png("./plots/cnn/test_vs_real.png", width = 1000, height = 800)
+
+par(mfrow = c(2,1))
+matplot(test_data$input[sim,,,1], col = "grey", type = "l", main = paste0("Simulation ", sim))
+matlines(real_data[1,,,1], col = "salmon")
+
+matplot(test_data$input[sim,,,2], col = "grey", type = "l", main = paste0("Simulation ", sim))
+matlines(real_data[1,,,2], col = "salmon")
 dev.off()
 
 input_dim <- dim(test_data$input)[2:4]

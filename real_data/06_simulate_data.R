@@ -45,10 +45,11 @@ source("./source/azm_cond_sim.R")
 
 
 ## Some flags
-regenerate_sims <- F
-refit_basis <- F
-save_sims <- F
+regenerate_sims <- T
+refit_basis <- T
+save_sims <- T
 log_transform <- T
+use_basal_melt_data <- T
 
 ## Directory for training data
 train_data_dir <- "./data/training_data"
@@ -57,9 +58,10 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111" #"20241103" 
 N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #10 #:10
+sets <- 11:50 #10 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
-years <- 20
+warmup <- 0
+years <- 20 + warmup
 nbasis <- 60 
 
 # 0. Load ice sheet at steady state
@@ -80,6 +82,23 @@ fric_scale <- 1e6 * secpera^(1 / 3)
 ## SMB data
 smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
 smb_avg <- colMeans(smb_data_racmo, na.rm = T)
+
+## Basal melt data (only available on shelves???)
+if (use_basal_melt_data) {
+  melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
+  # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
+  avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
+  melt_nonmissing <- which(!is.na(avg_melt_rate))
+  avg_melt_rate[1:(melt_nonmissing[1]-1)] <- -2 #seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
+  avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) #mean(avg_melt_rate[melt_nonmissing])
+  avg_melt_rate <- - avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
+
+} else {
+  avg_melt_rate <- rep(1, length(domain))
+}
+
+browser()
+# plot(avg_melt_rate, type = "l")
 
 t1 <- proc.time()
 if (regenerate_sims) {
@@ -186,9 +205,11 @@ if (regenerate_sims) {
       sim_results <- sim_obs(
         param_list = fitted_param_list,
         years = years, # sim_beds = T,
+        warmup = warmup,
         ini_thickness = ssa_steady$current_thickness,
         ini_velocity = ssa_steady$current_velocity,
         smb = smb_avg,
+        basal_melt = avg_melt_rate,
         log_transform = log_transform
       )
     )
@@ -304,23 +325,26 @@ fitted_bed <- bed_basis$fitted_values
 
 ## Check if the generated data is close to real data here
 surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs")
-vel_mat <- qread(file = "./data/velocity/all_velocity_arr.qs")
+vel_mat2 <- qread(file = "./data/velocity/all_velocity_arr.qs")
+vel_mat <- qread(file = "./data/velocity/vel_smoothed.qs")
 
-sim <- 10
+sim <- 7
 png("./plots/temp/sim_vs_real.png", width = 500, height = 600)
 
 par(mfrow = c(2, 1))
 
-matplot(surface_obs_arr[sim,,,1], type = "l", col = "grey")
-matlines(surf_elev_mat, col = "red", lty = 2)
+matplot(surface_obs_arr[sim,,,1], type = "l", col = "grey", 
+        xlab = "Grid point", ylab = "Surface elevation (m)")
+matlines(surf_elev_mat, col = "salmon", lty = 2)
 lines(ssa_steady$current_top_surface, col = "blue")
 
-matplot(surface_obs_arr[sim,,,2], ylim = c(0, 6000), type = "l", col = "grey")
-matlines(vel_mat, col = "red", lty = 2)
+matplot(vel_mat, ylim = c(0, 6000), type = "l", col = "salmon",
+        xlab = "Grid point", ylab = "Velocity (m/a)")
+# matlines(vel_mat2, col = "black", lty = 2)
+matlines(surface_obs_arr[sim,,,2], col = "grey", lty = 2)
 lines(ssa_steady$current_velocity, col = "blue")
 
 dev.off()
-
 
 ## Hovmoller plots
 plots <- list()
