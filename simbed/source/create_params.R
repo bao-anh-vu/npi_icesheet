@@ -4,7 +4,7 @@
 
 ## Basal friction coefficient
 create_fric_coef <- function (x, L) {
-  coef <- 0.025 + 0.015 * sin(5 * 2 * pi * x / L) * sin(100 * 2 * pi * x / L) 
+  coef <- 0.02 + 0.015 * sin(5 * 2 * pi * x / L) * sin(100 * 2 * pi * x / L) 
 }
 
 ## Bed topography

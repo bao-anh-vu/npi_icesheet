@@ -12,7 +12,7 @@ set.seed(2024)
 chosen_test_samples <- sample(1:500, 50) # choose 50 samples from the test set
 set.seed(NULL)
 
-s <- 1
+s <- 15
 Ne <- 500
 years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
@@ -72,8 +72,12 @@ qsave(fric_concat, file = paste0(enkf_output_dir, "/enkf_friction_sample", s, "_
 qsave(velocity_concat, file = paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))    
 
 ## Remove individual files
-rm_thickness_files <- lapply(thickness_files, file.remove)
-rm_bed_files <- lapply(bed_files, file.remove)
-rm_fric_files <- lapply(fric_files, file.remove)
-rm_velocity_files <- lapply(velocity_files, file.remove)
+# rm_thickness_files <- lapply(thickness_files, file.remove)
+# rm_bed_files <- lapply(bed_files, file.remove)
+# rm_fric_files <- lapply(fric_files, file.remove)
+# rm_velocity_files <- lapply(velocity_files, file.remove)
 
+fric_concat <- qread(paste0(enkf_output_dir, "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+bed_concat <- qread(paste0(enkf_output_dir, "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+thickness_concat <- qread(paste0(enkf_output_dir, "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))
+velocity_concat <- qread(paste0(enkf_output_dir, "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date, ".qs", sep = ""))

@@ -26,7 +26,7 @@ rmse <- function(estimated, true) {
 }
 
 ## 1. Read samples
-sample_ind <- 1#:10 # test samples to compare
+sample_ind <- c(1:4, 6:7, 10:15) # test samples to compare
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
@@ -36,7 +36,7 @@ years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
 
 ## Read test data
-sets <- 1:20 # datasets
+sets <- 1:50 # datasets
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 if (use_missing_pattern) {
@@ -79,19 +79,19 @@ true_gl_ind <- sapply(1:length(true_gl_pos), function(x) which(domain == true_gl
 if (use_missing_pattern) {
     cnn.output_dir <- paste0("./output/posterior/", setsf, "/missing")
     cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/missing/sample", sample_ind)
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/missing/sample", sample_ind)    
+    aug_enkf.output_dir <- paste0("./output/stateaug/", setsf, "/missing/sample", sample_ind)    
 } else {
     cnn.output_dir <- paste0("./output/posterior/", setsf, "/nonmissing")
     cnn_enkf.output_dir <- paste0("./output/posterior/", setsf, "/nonmissing/sample", sample_ind)
-    enkfsa.output_dir <- paste0("./output/stateaug/", setsf, "/nonmissing/sample", sample_ind)    
+    aug_enkf.output_dir <- paste0("./output/stateaug/", setsf, "/nonmissing/sample", sample_ind)    
 }
 
 if (use_cov_taper) {
     cnn_enkf.output_dir <- paste0(cnn_enkf.output_dir, "/taper")
-    enkfsa.output_dir <- paste0(enkfsa.output_dir, "/taper")
+    aug_enkf.output_dir <- paste0(aug_enkf.output_dir, "/taper")
 } else {
     cnn_enkf.output_dir <- paste0(cnn_enkf.output_dir, "/no_taper")
-    enkfsa.output_dir <- paste0(enkfsa.output_dir, "/no_taper")
+    aug_enkf.output_dir <- paste0(aug_enkf.output_dir, "/no_taper")
 }
 
 pred_fric <- qread(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".qs"))
@@ -115,9 +115,9 @@ gl_samples_ls <- qread(file = paste0(cnn.output_dir, "/gl_post_samples_", output
 ## Read EnKF-CNN results
 print("Reading posterior samples from EnKF-CNN...")
 cnn_enkf.output_dir <- as.list(cnn_enkf.output_dir)
-thickness_files <- lapply(sample_ind, function(s) paste0(cnn_enkf.output_dir[s], "/enkf_thickness_sample", s, "_Ne500_", output_date, ".qs"))
+thickness_files <- lapply(1:length(sample_ind), function(s) paste0(cnn_enkf.output_dir[[s]], "/enkf_thickness_sample", sample_ind[s], "_Ne500_", output_date, ".qs"))
 cnn.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
-vel_files <- lapply(sample_ind, function(s) paste0(cnn_enkf.output_dir[s], "/enkf_velocities_sample", s, "_Ne500_", output_date, ".qs"))
+vel_files <- lapply(1:length(sample_ind), function(s) paste0(cnn_enkf.output_dir[[s]], "/enkf_velocities_sample", sample_ind[s], "_Ne500_", output_date, ".qs"))
 cnn.velocity <- lapply(vel_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
 
 # CNN prediction of bed, friction, GL
@@ -210,134 +210,134 @@ if (save_plots) {
 
 ## Read EnKF-StateAug results
 print("Reading posterior samples from EnKF-StateAug...")
-Ne <- 1000 # Ensemble size for EnKFSA
+Ne <- 1000 # Ensemble size for Aug-EnKF
 
-enkfsa.output_dir <- as.list(enkfsa.output_dir)
-thickness_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".qs"))
-enkfsa.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
-vel_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_velocities_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
-enkfsa.velocity <- lapply(vel_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
+aug_enkf.output_dir <- as.list(aug_enkf.output_dir)
+thickness_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_thickness_sample", sample_ind[s], "_Ne", Ne, "_", output_date, ".qs"))
+aug_enkf.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
+vel_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_velocities_sample", sample_ind[s], "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+aug_enkf.velocity <- lapply(vel_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
 
-enkfsa.thickness <- lapply(enkfsa.thickness, function(s) lapply(s, as.matrix))
-enkfsa.mean_thickness <- lapply(enkfsa.thickness, function(s) lapply(s, rowMeans))
+aug_enkf.thickness <- lapply(aug_enkf.thickness, function(s) lapply(s, as.matrix))
+aug_enkf.mean_thickness <- lapply(aug_enkf.thickness, function(s) lapply(s, rowMeans))
 
-enkfsa.velocity <- lapply(enkfsa.velocity, function(s) lapply(s, as.matrix))
-enkfsa.mean_velocity <- lapply(enkfsa.velocity, function(s) lapply(s, rowMeans))
+aug_enkf.velocity <- lapply(aug_enkf.velocity, function(s) lapply(s, as.matrix))
+aug_enkf.mean_velocity <- lapply(aug_enkf.velocity, function(s) lapply(s, rowMeans))
 
 ## Extract mean thicknesses at the beginning, middle, and end of the simulation
-enkfsa.mean_thickness_ini <- lapply(enkfsa.mean_thickness, function(s) s[[1]])
-enkfsa.mean_thickness_mid <- lapply(enkfsa.mean_thickness, function(s) s[[2]])
-enkfsa.mean_thickness_fin <- lapply(enkfsa.mean_thickness, function(s) s[[3]])
+aug_enkf.mean_thickness_ini <- lapply(aug_enkf.mean_thickness, function(s) s[[1]])
+aug_enkf.mean_thickness_mid <- lapply(aug_enkf.mean_thickness, function(s) s[[2]])
+aug_enkf.mean_thickness_fin <- lapply(aug_enkf.mean_thickness, function(s) s[[3]])
 
-enkfsa.mean_vel_ini <- lapply(enkfsa.mean_velocity, function(s) s[[1]])
-enkfsa.mean_vel_mid <- lapply(enkfsa.mean_velocity, function(s) s[[2]])
-enkfsa.mean_vel_fin <- lapply(enkfsa.mean_velocity, function(s) s[[3]])
+aug_enkf.mean_vel_ini <- lapply(aug_enkf.mean_velocity, function(s) s[[1]])
+aug_enkf.mean_vel_mid <- lapply(aug_enkf.mean_velocity, function(s) s[[2]])
+aug_enkf.mean_vel_fin <- lapply(aug_enkf.mean_velocity, function(s) s[[3]])
 
 ## Reorganise these lists so that it has the structure
 ## cnn.thickness_<time>[grid_pt][sample] 
-enkfsa.mean_thickness_ini_mat <- t(matrix(unlist(enkfsa.mean_thickness_ini), nrow = length(cnn.mean_thickness_ini[[1]]), byrow = F))
-enkfsa.mean_thickness_mid_mat <- t(matrix(unlist(enkfsa.mean_thickness_mid), nrow = length(cnn.mean_thickness_mid[[1]]), byrow = F))
-enkfsa.mean_thickness_fin_mat <- t(matrix(unlist(enkfsa.mean_thickness_fin), nrow = length(cnn.mean_thickness_fin[[1]]), byrow = F))
-enkfsa.mean_vel_ini_mat <- t(matrix(unlist(enkfsa.mean_vel_ini), nrow = length(cnn.mean_vel_ini[[1]]), byrow = F))
-enkfsa.mean_vel_mid_mat <- t(matrix(unlist(enkfsa.mean_vel_mid), nrow = length(cnn.mean_vel_mid[[1]]), byrow = F))
-enkfsa.mean_vel_fin_mat <- t(matrix(unlist(enkfsa.mean_vel_fin), nrow = length(cnn.mean_vel_fin[[1]]), byrow = F))
+aug_enkf.mean_thickness_ini_mat <- t(matrix(unlist(aug_enkf.mean_thickness_ini), nrow = length(cnn.mean_thickness_ini[[1]]), byrow = F))
+aug_enkf.mean_thickness_mid_mat <- t(matrix(unlist(aug_enkf.mean_thickness_mid), nrow = length(cnn.mean_thickness_mid[[1]]), byrow = F))
+aug_enkf.mean_thickness_fin_mat <- t(matrix(unlist(aug_enkf.mean_thickness_fin), nrow = length(cnn.mean_thickness_fin[[1]]), byrow = F))
+aug_enkf.mean_vel_ini_mat <- t(matrix(unlist(aug_enkf.mean_vel_ini), nrow = length(cnn.mean_vel_ini[[1]]), byrow = F))
+aug_enkf.mean_vel_mid_mat <- t(matrix(unlist(aug_enkf.mean_vel_mid), nrow = length(cnn.mean_vel_mid[[1]]), byrow = F))
+aug_enkf.mean_vel_fin_mat <- t(matrix(unlist(aug_enkf.mean_vel_fin), nrow = length(cnn.mean_vel_fin[[1]]), byrow = F))
 
 ## Calculate RMSE (over all samples) for each grid point
-enkfsa.thickness_rmse_ini <- c()
-enkfsa.thickness_rmse_mid <- c()
-enkfsa.thickness_rmse_fin <- c()
-enkfsa.vel_rmse_ini <- c()
-enkfsa.vel_rmse_mid <- c()
-enkfsa.vel_rmse_fin <- c()
+aug_enkf.thickness_rmse_ini <- c()
+aug_enkf.thickness_rmse_mid <- c()
+aug_enkf.thickness_rmse_fin <- c()
+aug_enkf.vel_rmse_ini <- c()
+aug_enkf.vel_rmse_mid <- c()
+aug_enkf.vel_rmse_fin <- c()
 for (grid_pt in 1:ncol(cnn.mean_vel_ini_mat)) {
-    enkfsa.thickness_rmse_ini[grid_pt] <- rmse(enkfsa.mean_thickness_ini_mat[, grid_pt], true_thicknesses_ini[, grid_pt])
-    enkfsa.thickness_rmse_mid[grid_pt] <- rmse(enkfsa.mean_thickness_mid_mat[, grid_pt], true_thicknesses_mid[, grid_pt])
-    enkfsa.thickness_rmse_fin[grid_pt] <- rmse(enkfsa.mean_thickness_fin_mat[, grid_pt], true_thicknesses_fin[, grid_pt])
-    enkfsa.vel_rmse_ini[grid_pt] <- rmse(enkfsa.mean_vel_ini_mat[, grid_pt], true_velocities_ini[, grid_pt])
-    enkfsa.vel_rmse_mid[grid_pt] <- rmse(enkfsa.mean_vel_mid_mat[, grid_pt], true_velocities_mid[, grid_pt])
-    enkfsa.vel_rmse_fin[grid_pt] <- rmse(enkfsa.mean_vel_fin_mat[, grid_pt], true_velocities_fin[, grid_pt])
+    aug_enkf.thickness_rmse_ini[grid_pt] <- rmse(aug_enkf.mean_thickness_ini_mat[, grid_pt], true_thicknesses_ini[, grid_pt])
+    aug_enkf.thickness_rmse_mid[grid_pt] <- rmse(aug_enkf.mean_thickness_mid_mat[, grid_pt], true_thicknesses_mid[, grid_pt])
+    aug_enkf.thickness_rmse_fin[grid_pt] <- rmse(aug_enkf.mean_thickness_fin_mat[, grid_pt], true_thicknesses_fin[, grid_pt])
+    aug_enkf.vel_rmse_ini[grid_pt] <- rmse(aug_enkf.mean_vel_ini_mat[, grid_pt], true_velocities_ini[, grid_pt])
+    aug_enkf.vel_rmse_mid[grid_pt] <- rmse(aug_enkf.mean_vel_mid_mat[, grid_pt], true_velocities_mid[, grid_pt])
+    aug_enkf.vel_rmse_fin[grid_pt] <- rmse(aug_enkf.mean_vel_fin_mat[, grid_pt], true_velocities_fin[, grid_pt])
 }
 
 if (save_plots) {
     png("./plots/combined/compare_rmse_thickness.png", width = 1000, height = 500)
     plot_range <- 1:2001
-    plot(enkfsa.thickness_rmse_fin[plot_range], type = "l", lwd = 2,
+    plot(aug_enkf.thickness_rmse_fin[plot_range], type = "l", lwd = 2,
             xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice thickness")
     lines(cnn.thickness_rmse_fin[plot_range], col = "salmon", lwd = 2)
-    legend("topright", legend = c("EnKFSA", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    legend("topright", legend = c("Aug-EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
     png("./plots/combined/compare_rmse_vel.png", width = 1000, height = 500)
     plot_range <- 1:2001
-    plot(enkfsa.vel_rmse_fin[plot_range], type = "l", lwd = 2,
+    plot(aug_enkf.vel_rmse_fin[plot_range], type = "l", lwd = 2,
     xlab = "Grid point", ylab = "RMSE", main = "RMSE of ice velocity")
     lines(cnn.vel_rmse_fin[plot_range], col = "salmon", lwd = 2)
-    legend("topright", legend = c("EnKFSA", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
+    legend("topright", legend = c("Aug-EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
 }
 
-## Read bed and friction output from EnKFSA
-bed_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
-enkfsa.bed <- lapply(bed_files, qread) #(file = paste0(enkfsa.output_dir, "/enkf_bed_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
-enkfsa.bed_ini <- lapply(enkfsa.bed, function(s) s[[1]])
-enkfsa.bed_mid <- lapply(enkfsa.bed, function(s) s[[2]])
-enkfsa.bed_fin <- lapply(enkfsa.bed, function(s) s[[3]])
-enkfsa.mean_bed_ini <- lapply(enkfsa.bed_ini, rowMeans)
-enkfsa.mean_bed_mid <- lapply(enkfsa.bed_mid, rowMeans)
-enkfsa.mean_bed_fin <- lapply(enkfsa.bed_fin, rowMeans)
+## Read bed and friction output from Aug-EnKF
+bed_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_bed_sample", sample_ind[s], "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+aug_enkf.bed <- lapply(bed_files, qread) #(file = paste0(aug_enkf.output_dir, "/enkf_bed_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+aug_enkf.bed_ini <- lapply(aug_enkf.bed, function(s) s[[1]])
+aug_enkf.bed_mid <- lapply(aug_enkf.bed, function(s) s[[2]])
+aug_enkf.bed_fin <- lapply(aug_enkf.bed, function(s) s[[3]])
+aug_enkf.mean_bed_ini <- lapply(aug_enkf.bed_ini, rowMeans)
+aug_enkf.mean_bed_mid <- lapply(aug_enkf.bed_mid, rowMeans)
+aug_enkf.mean_bed_fin <- lapply(aug_enkf.bed_fin, rowMeans)
 
-fric_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
-enkfsa.fric <- lapply(fric_files, qread) #(file = paste0(enkfsa.output_dir, "/enkf_friction_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
-enkfsa.fric_ini <- lapply(enkfsa.fric, function(s) s[[1]])
-enkfsa.fric_mid <- lapply(enkfsa.fric, function(s) s[[2]])
-enkfsa.fric_fin <- lapply(enkfsa.fric, function(s) s[[3]])
-enkfsa.fric_ini <- lapply(enkfsa.fric_ini, exp)
-enkfsa.fric_mid <- lapply(enkfsa.fric_mid, exp)
-enkfsa.fric_fin <- lapply(enkfsa.fric_fin, exp)
-enkfsa.mean_fric_ini <- lapply(enkfsa.fric_ini, rowMeans)
-enkfsa.mean_fric_mid <- lapply(enkfsa.fric_mid, rowMeans)
-enkfsa.mean_fric_fin <- lapply(enkfsa.fric_fin, rowMeans)
+fric_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_friction_sample", sample_ind[s], "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+aug_enkf.fric <- lapply(fric_files, qread) #(file = paste0(aug_enkf.output_dir, "/enkf_friction_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+aug_enkf.fric_ini <- lapply(aug_enkf.fric, function(s) s[[1]])
+aug_enkf.fric_mid <- lapply(aug_enkf.fric, function(s) s[[2]])
+aug_enkf.fric_fin <- lapply(aug_enkf.fric, function(s) s[[3]])
+aug_enkf.fric_ini <- lapply(aug_enkf.fric_ini, exp)
+aug_enkf.fric_mid <- lapply(aug_enkf.fric_mid, exp)
+aug_enkf.fric_fin <- lapply(aug_enkf.fric_fin, exp)
+aug_enkf.mean_fric_ini <- lapply(aug_enkf.fric_ini, rowMeans)
+aug_enkf.mean_fric_mid <- lapply(aug_enkf.fric_mid, rowMeans)
+aug_enkf.mean_fric_fin <- lapply(aug_enkf.fric_fin, rowMeans)
 
 ## Matrices containing the mean bed and friction coefficients per sample
 ## basically each row is one sample
-enkfsa.mean_bed_ini_mat <- t(matrix(unlist(enkfsa.mean_bed_ini), nrow = length(enkfsa.mean_bed_ini[[1]]), byrow = F))
-enkfsa.mean_bed_mid_mat <- t(matrix(unlist(enkfsa.mean_bed_mid), nrow = length(enkfsa.mean_bed_mid[[1]]), byrow = F))
-enkfsa.mean_bed_fin_mat <- t(matrix(unlist(enkfsa.mean_bed_fin), nrow = length(enkfsa.mean_bed_fin[[1]]), byrow = F))
+aug_enkf.mean_bed_ini_mat <- t(matrix(unlist(aug_enkf.mean_bed_ini), nrow = length(aug_enkf.mean_bed_ini[[1]]), byrow = F))
+aug_enkf.mean_bed_mid_mat <- t(matrix(unlist(aug_enkf.mean_bed_mid), nrow = length(aug_enkf.mean_bed_mid[[1]]), byrow = F))
+aug_enkf.mean_bed_fin_mat <- t(matrix(unlist(aug_enkf.mean_bed_fin), nrow = length(aug_enkf.mean_bed_fin[[1]]), byrow = F))
 
-enkfsa.mean_fric_ini_mat <- t(matrix(unlist(enkfsa.mean_fric_ini), nrow = length(enkfsa.mean_fric_ini[[1]]), byrow = F))
-enkfsa.mean_fric_mid_mat <- t(matrix(unlist(enkfsa.mean_fric_mid), nrow = length(enkfsa.mean_fric_mid[[1]]), byrow = F))
-enkfsa.mean_fric_fin_mat <- t(matrix(unlist(enkfsa.mean_fric_fin), nrow = length(enkfsa.mean_fric_fin[[1]]), byrow = F))
+aug_enkf.mean_fric_ini_mat <- t(matrix(unlist(aug_enkf.mean_fric_ini), nrow = length(aug_enkf.mean_fric_ini[[1]]), byrow = F))
+aug_enkf.mean_fric_mid_mat <- t(matrix(unlist(aug_enkf.mean_fric_mid), nrow = length(aug_enkf.mean_fric_mid[[1]]), byrow = F))
+aug_enkf.mean_fric_fin_mat <- t(matrix(unlist(aug_enkf.mean_fric_fin), nrow = length(aug_enkf.mean_fric_fin[[1]]), byrow = F))
 
 # png("./plots/combined/compare_rmse_bed.png", width = 1000, height = 500)
-# plot(enkfsa.mean_bed_fin_mat[, 1], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
+# plot(aug_enkf.mean_bed_fin_mat[, 1], type = "l", xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
 # dev.off()
 
 ## RMSE for bed and friction
-enkfsa.bed_rmse <- c()
-enkfsa.fric_rmse <- c()
-for (grid_pt in 1:ncol(enkfsa.mean_bed_fin_mat)) {
-    enkfsa.bed_rmse[grid_pt] <- rmse(enkfsa.mean_bed_fin_mat[, grid_pt], true_bed[, grid_pt])
-    enkfsa.fric_rmse[grid_pt] <- rmse(enkfsa.mean_fric_fin_mat[, grid_pt], true_fric[, grid_pt])
+aug_enkf.bed_rmse <- c()
+aug_enkf.fric_rmse <- c()
+for (grid_pt in 1:ncol(aug_enkf.mean_bed_fin_mat)) {
+    aug_enkf.bed_rmse[grid_pt] <- rmse(aug_enkf.mean_bed_fin_mat[, grid_pt], true_bed[, grid_pt])
+    aug_enkf.fric_rmse[grid_pt] <- rmse(aug_enkf.mean_fric_fin_mat[, grid_pt], true_fric[, grid_pt])
 }
 
 if (save_plots) {
     png("./plots/combined/compare_rmse_bed.png", width = 1000, height = 500)
-    plot(enkfsa.bed_rmse, type = "l", lwd = 2,
+    plot(aug_enkf.bed_rmse, type = "l", lwd = 2,
     xlab = "Grid point", ylab = "RMSE", main = "RMSE of bed elevation")
     lines(cnn.bed_rmse, col = "salmon", lwd = 2)
     legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
     png("./plots/combined/compare_rmse_fric.png", width = 1000, height = 500)
-    plot(enkfsa.fric_rmse[1:min(true_gl_ind)], type = "l", lwd = 2, 
+    plot(aug_enkf.fric_rmse[1:min(true_gl_ind)], type = "l", lwd = 2, 
         xlab = "Grid point", ylab = "RMSE", main = "RMSE of friction coefficient")
     lines(cnn.fric_rmse[1:min(true_gl_ind)], col = "salmon", lwd = 2)
     legend("topright", legend = c("EnKF", "CNN"), col = c("black", "salmon"), lty = 1, lwd = 2)
     dev.off()
 
     png("./plots/combined/compare_fric.png", width = 1000, height = 500)
-    plot(enkfsa.mean_fric_fin_mat[,1], col = "blue", type = "l")
+    plot(aug_enkf.mean_fric_fin_mat[,1], col = "blue", type = "l")
     lines(cnn.fric[,1], col = "red")
     lines(true_fric[1, ], col = "black")
     dev.off()
@@ -347,64 +347,67 @@ if (save_plots) {
 print("Calculating overall RMSE...")
 ## Dissect the RMSE in a different way: calculate RMSE per-sample then average over samples
 cnn.thickness_rmse_per_sample <- c()
-enkfsa.thickness_rmse_per_sample <- c()
+aug_enkf.thickness_rmse_per_sample <- c()
 cnn.vel_rmse_per_sample <- c()
-enkfsa.vel_rmse_per_sample <- c()
+aug_enkf.vel_rmse_per_sample <- c()
 for (r in 1:length(s)) {
     cnn.thickness_rmse_per_sample[r] <- rmse(cnn.mean_thickness_fin_mat[r, ], true_thicknesses_fin[r, ])
-    enkfsa.thickness_rmse_per_sample[r] <- rmse(enkfsa.mean_thickness_ini_mat[r, ], true_thicknesses_ini[r, ])
+    aug_enkf.thickness_rmse_per_sample[r] <- rmse(aug_enkf.mean_thickness_ini_mat[r, ], true_thicknesses_ini[r, ])
     cnn.vel_rmse_per_sample[r] <- rmse(cnn.mean_vel_fin_mat[r, ], true_velocities_fin[r, ])
-    enkfsa.vel_rmse_per_sample[r] <- rmse(enkfsa.mean_vel_ini_mat[r, ], true_velocities_ini[r, ])
+    aug_enkf.vel_rmse_per_sample[r] <- rmse(aug_enkf.mean_vel_ini_mat[r, ], true_velocities_ini[r, ])
 }
 
 ## Or maybe do RMSE averaged over all samples and all grid points?
 cnn.thickness_rmse_ini <- rmse(cnn.mean_thickness_ini_mat, true_thicknesses_ini)
-enkfsa.thickness_rmse_ini <- rmse(enkfsa.mean_thickness_ini_mat, true_thicknesses_ini)
+aug_enkf.thickness_rmse_ini <- rmse(aug_enkf.mean_thickness_ini_mat, true_thicknesses_ini)
 cnn.vel_rmse_ini <- rmse(cnn.mean_vel_ini_mat, true_velocities_ini)
-enkfsa.vel_rmse_ini <- rmse(enkfsa.mean_vel_ini_mat, true_velocities_ini)
+aug_enkf.vel_rmse_ini <- rmse(aug_enkf.mean_vel_ini_mat, true_velocities_ini)
 
 cnn.thickness_rmse_mid <- rmse(cnn.mean_thickness_mid_mat, true_thicknesses_mid)
-enkfsa.thickness_rmse_mid <- rmse(enkfsa.mean_thickness_mid_mat, true_thicknesses_mid)
+aug_enkf.thickness_rmse_mid <- rmse(aug_enkf.mean_thickness_mid_mat, true_thicknesses_mid)
 cnn.vel_rmse_mid <- rmse(cnn.mean_vel_mid_mat, true_velocities_mid)
-enkfsa.vel_rmse_mid <- rmse(enkfsa.mean_vel_mid_mat, true_velocities_mid)
+aug_enkf.vel_rmse_mid <- rmse(aug_enkf.mean_vel_mid_mat, true_velocities_mid)
 
 cnn.thickness_rmse_fin <- rmse(cnn.mean_thickness_fin_mat, true_thicknesses_fin)
-enkfsa.thickness_rmse_fin <- rmse(enkfsa.mean_thickness_fin_mat, true_thicknesses_fin)
+aug_enkf.thickness_rmse_fin <- rmse(aug_enkf.mean_thickness_fin_mat, true_thicknesses_fin)
 cnn.vel_rmse_fin <- rmse(cnn.mean_vel_fin_mat, true_velocities_fin)
-enkfsa.vel_rmse_fin <- rmse(enkfsa.mean_vel_fin_mat, true_velocities_fin)
+aug_enkf.vel_rmse_fin <- rmse(aug_enkf.mean_vel_fin_mat, true_velocities_fin)
 
 cnn.bed_rmse <- rmse(cnn.bed, true_bed)
-enkfsa.bed_rmse_ini <- rmse(enkfsa.mean_bed_ini_mat, true_bed)
-enkfsa.bed_rmse_mid <- rmse(enkfsa.mean_bed_mid_mat, true_bed)
-enkfsa.bed_rmse_fin <- rmse(enkfsa.mean_bed_fin_mat, true_bed)
+aug_enkf.bed_rmse_ini <- rmse(aug_enkf.mean_bed_ini_mat, true_bed)
+aug_enkf.bed_rmse_mid <- rmse(aug_enkf.mean_bed_mid_mat, true_bed)
+aug_enkf.bed_rmse_fin <- rmse(aug_enkf.mean_bed_fin_mat, true_bed)
 
 cnn.fric_rmse_per_sample <- c()
-enkfsa.ini_fric_rmse_per_sample <- c()
-enkfsa.mid_fric_rmse_per_sample <- c()
-enkfsa.fin_fric_rmse_per_sample <- c()
+aug_enkf.ini_fric_rmse_per_sample <- c()
+aug_enkf.mid_fric_rmse_per_sample <- c()
+aug_enkf.fin_fric_rmse_per_sample <- c()
 for (r in 1:length(s)) {
     cnn.fric_rmse_per_sample[r] <- rmse(cnn.fric[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
-    enkfsa.ini_fric_rmse_per_sample[r] <- rmse(enkfsa.mean_fric_ini_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
-    enkfsa.mid_fric_rmse_per_sample[r] <- rmse(enkfsa.mean_fric_mid_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
-    enkfsa.fin_fric_rmse_per_sample[r] <- rmse(enkfsa.mean_fric_fin_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
+    aug_enkf.ini_fric_rmse_per_sample[r] <- rmse(aug_enkf.mean_fric_ini_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
+    aug_enkf.mid_fric_rmse_per_sample[r] <- rmse(aug_enkf.mean_fric_mid_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
+    aug_enkf.fin_fric_rmse_per_sample[r] <- rmse(aug_enkf.mean_fric_fin_mat[r, 1:true_gl_ind[r]], true_fric[r, 1:true_gl_ind[r]])
 }
 
 ## How to calculate the overall RMSE for friction?
 cnn.fric_rmse <- mean(cnn.fric_rmse_per_sample) #rmse(t(cnn.fric), true_fric[s, ])
-enkfsa.fric_rmse_ini <- mean(enkfsa.ini_fric_rmse_per_sample) #rmse(t(enkfsa.mean_fric_fin_mat), true_fric[s, ])
-enkfsa.fric_rmse_mid <- mean(enkfsa.mid_fric_rmse_per_sample) #rmse(t(enkfsa.mean_fric_fin_mat), true_fric[s, ])
-enkfsa.fric_rmse_fin <- mean(enkfsa.fin_fric_rmse_per_sample) #rmse(t(enkfsa.mean_fric_fin_mat), true_fric[s, ])
+aug_enkf.fric_rmse_ini <- mean(aug_enkf.ini_fric_rmse_per_sample) #rmse(t(aug_enkf.mean_fric_fin_mat), true_fric[s, ])
+aug_enkf.fric_rmse_mid <- mean(aug_enkf.mid_fric_rmse_per_sample) #rmse(t(aug_enkf.mean_fric_fin_mat), true_fric[s, ])
+aug_enkf.fric_rmse_fin <- mean(aug_enkf.fin_fric_rmse_per_sample) #rmse(t(aug_enkf.mean_fric_fin_mat), true_fric[s, ])
 
 ## RMSE table
 rmse_table <- data.frame(
-    method = c("CNN", "EnKFSA"),
-    thickness_ini = c(cnn.thickness_rmse_ini, enkfsa.thickness_rmse_ini),
-    thickness_mid = c(cnn.thickness_rmse_mid, enkfsa.thickness_rmse_mid),
-    thickness_fin = c(cnn.thickness_rmse_fin, enkfsa.thickness_rmse_fin),
-    velocity_ini = c(cnn.vel_rmse_ini, enkfsa.vel_rmse_ini),
-    velocity_mid = c(cnn.vel_rmse_mid, enkfsa.vel_rmse_mid),
-    velocity_fin = c(cnn.vel_rmse_fin, enkfsa.vel_rmse_fin),
-    bed = c(cnn.bed_rmse, enkfsa.bed_rmse_fin),
-    friction = c(cnn.fric_rmse, enkfsa.fric_rmse)
+    method = c("CNN", "Aug-EnKF"),
+    # thickness_ini = c(cnn.thickness_rmse_ini, aug_enkf.thickness_rmse_ini),
+    # thickness_mid = c(cnn.thickness_rmse_mid, aug_enkf.thickness_rmse_mid),
+    thickness_fin = c(cnn.thickness_rmse_fin, aug_enkf.thickness_rmse_fin),
+    # velocity_ini = c(cnn.vel_rmse_ini, aug_enkf.vel_rmse_ini),
+    # velocity_mid = c(cnn.vel_rmse_mid, aug_enkf.vel_rmse_mid),
+    # velocity_fin = c(cnn.vel_rmse_fin, aug_enkf.vel_rmse_fin),
+    bed = c(cnn.bed_rmse, aug_enkf.bed_rmse_fin),
+    friction = c(cnn.fric_rmse, aug_enkf.fric_rmse_fin)
 )
 print(rmse_table)
+
+## Save RMSE table
+write.csv(rmse_table, file = "./output/rmse_table.csv", row.names = F)

@@ -568,11 +568,11 @@ run_enkf_missing_noH <- function(domain, years, steps_per_yr, ini_thickness, ini
   #                        time = mc.t2 - mc.t1))  
 
   return(enkf_out = list(ens_means = enkf_means,
-                        ens = as.matrix(enkf_ens), 
+                        ens = enkf_ens, 
                         velocity_means = enkf_velocity_means,
-                        velocities = as.matrix(enkf_velocities),
-                        bed = as.matrix(beds), #[, 1], # all beds are the same anyway
-                        friction_coef = as.matrix(friction_coefs), #[, 1], # same with friction
+                        velocities = enkf_velocities,
+                        bed = beds, #[, 1], # all beds are the same anyway
+                        friction_coef = friction_coefs, #[, 1], # same with friction
                         # log_likelihood = log_likelihood, 
                         use_cov_taper = use_cov_taper,
                         inflate_cov = inflate_cov,

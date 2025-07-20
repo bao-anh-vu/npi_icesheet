@@ -26,9 +26,9 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   
   ## Domain
   x <- domain
-  L <- x[length(x)]
-  dx <- x[2] - x[1]
-  J <- L / dx
+  J <- length(domain)-1 # number of grid 'spaces'
+  L <- x[length(x)] # length of flowline
+  dx <- x[2] - x[1] # grid spacing
   
   C <- friction 
   b <- bed

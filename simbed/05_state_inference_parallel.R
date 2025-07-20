@@ -73,20 +73,25 @@ inflate_cov <- F
 data_date <- "20220329" # "20230518"
 output_date <- "20240320" # "20240518"
 Ne <- 500 # Ensemble size
-years <- 20 # 40
+years <- 20 #20 # 40
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
 steps_per_yr <- 52 # 100
 n_params <- 1
-run <- commandArgs(trailingOnly = TRUE)
-# n_bed_obs <- 100
-# smoothing_factor <- 0.5 # for the PF
+
+## Command line args
+args <- commandArgs(trailingOnly = TRUE)
+if (length(args) < 2) {
+  stop("At least two arguments must be supplied (sample number and EnKF run number).", call. = FALSE)
+}
+sample_ind <- as.numeric(args[1]) # sample index from the test set
+run <- as.numeric(args[2]) # enkf run number (1-10)
+
+print(paste("Sample index:", sample_ind, "EnKF run number:", run))
 
 ## Sample from test set and do state inference
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
-
-sample_ind <- 3
 s <- chosen_test_samples[sample_ind]
 
 ## Plot settings

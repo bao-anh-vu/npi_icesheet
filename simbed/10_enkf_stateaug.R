@@ -78,7 +78,7 @@ steps_per_yr <- 52 # 100
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
-sample_ind <- 2# 1:15
+sample_ind <- as.numeric(commandArgs(trailingOnly = TRUE))# 1:15
 test_samples <- chosen_test_samples[sample_ind] # test sample
 
 # n_params <- 1 # 20 #number of beds
@@ -164,17 +164,20 @@ if (use_basis_funs) {
         nbasis = nbasis,
         domain = domain,
         fric_arr = sim_param_list$friction,
-        log_transform = log_transform
+        log_transform = log_transform,
+        lengthscale = 8e3
     )
 
     ## Fit basis to bedrock
 
     bed_arr <- sim_param_list$bedrock
-    bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, bed_arr = bed_arr)
+    bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, 
+                                bed_arr = bed_arr, lengthscale = 5e3)
     # bed_fit <- list(mean = bed_mean, basis = bed_basis)
 
     friction_ens <- t(friction_basis$fitted_values)
     bed_ens <- t(bed_basis$fitted_values)
+
 } else {
     friction_ens <- log(t(sim_param_list$friction))
     bed_ens <- t(sim_param_list$bedrock)
@@ -244,8 +247,6 @@ for (i in 1:length(test_samples)) {
 
             ## Now put the ensemble together
             print("Calculating ice thicknesses based on simulated beds and observed top surface elevation...")
-
-            # for (p in 1:n_params) { # create 20 ensembles from 20 beds
 
             ## Ice thickness ##
             if (use_true_thickness) {

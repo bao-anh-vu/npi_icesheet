@@ -6,7 +6,7 @@ library(qs)
 setwd("/home/babv971/SSA_model/CNN/simbed/")
 rm(list = ls())
 
-recalculate_crps <- F
+recalculate_crps <- T
 
 ## Presets
 data_date <- "20220329" # "20230518"
@@ -22,7 +22,7 @@ rmse <- function(estimated, true) {
 }
 
 ## 1. Read samples
-sample_ind <- 1:2 # test samples to compare
+sample_ind <- c(1:2, 6:7, 10:15) # test samples to compare
 set.seed(2024)
 chosen_test_samples <- sample(1:500, 50)
 set.seed(NULL)
@@ -116,12 +116,12 @@ cnn_enkf.output_dir <- as.list(cnn_enkf.output_dir)
 
 ## Note: cnn.thickness is a list of samples, each sample is a list of ensembles at 3 time points
 ## So the structure is cnn.thickness[[sample]][[time]]
-thickness_files <- lapply(sample_ind, function(s) paste0(cnn_enkf.output_dir[s], "/enkf_thickness_sample", s, "_Ne500_", output_date, ".qs"))
+thickness_files <- lapply(1:length(sample_ind), function(s) paste0(cnn_enkf.output_dir[[s]], "/enkf_thickness_sample", sample_ind[s], "_Ne500_", output_date, ".qs"))
 cnn.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
 cnn.thickness <- lapply(cnn.thickness, function(s) lapply(s, as.matrix))
 cnn.thickness_fin <- lapply(cnn.thickness, function(s) s[[3]]) ## extract the final time point
 
-vel_files <- lapply(sample_ind, function(s) paste0(cnn_enkf.output_dir[s], "/enkf_velocities_sample", s, "_Ne500_", output_date, ".qs"))
+vel_files <- lapply(1:length(sample_ind), function(s) paste0(cnn_enkf.output_dir[[s]], "/enkf_velocities_sample", sample_ind[s], "_Ne500_", output_date, ".qs"))
 cnn.velocity <- lapply(vel_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
 cnn.velocity <- lapply(cnn.velocity, function(s) lapply(s, as.matrix))
 
@@ -135,7 +135,7 @@ print("Reading posterior samples from EnKF-StateAug...")
 Ne <- 1000 # Ensemble size for EnKFSA
 
 enkfsa.output_dir <- as.list(enkfsa.output_dir)
-thickness_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".qs"))
+thickness_files <- lapply(1:length(sample_ind), function(s) paste0(enkfsa.output_dir[[s]], "/enkf_thickness_sample", sample_ind[s], "_Ne", Ne, "_", output_date, ".qs"))
 enkfsa.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
 enkfsa.thickness <- lapply(enkfsa.thickness, function(s) lapply(s, as.matrix))
 enkfsa.thickness_fin <- lapply(enkfsa.thickness, function(s) s[[3]])
@@ -145,13 +145,13 @@ enkfsa.thickness_fin <- lapply(enkfsa.thickness, function(s) s[[3]])
 # enkfsa.velocity <- lapply(enkfsa.velocity, function(s) lapply(s, as.matrix))
 
 ## Read bed and friction output from EnKFSA
-bed_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_bed_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+bed_files <- lapply(1:length(sample_ind), function(s) paste0(enkfsa.output_dir[[s]], "/enkf_bed_sample", sample_ind[s], "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
 enkfsa.bed <- lapply(bed_files, qread) #(file = paste0(enkfsa.output_dir, "/enkf_bed_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
 # enkfsa.bed_ini <- lapply(enkfsa.bed, function(s) s[[1]])
 # enkfsa.bed_mid <- lapply(enkfsa.bed, function(s) s[[2]])
 enkfsa.bed_fin <- lapply(enkfsa.bed, function(s) s[[3]])
 
-fric_files <- lapply(sample_ind, function(s) paste0(enkfsa.output_dir[s], "/enkf_friction_sample", s, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
+fric_files <- lapply(1:length(sample_ind), function(s) paste0(enkfsa.output_dir[[s]], "/enkf_friction_sample", sample_ind[s], "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
 enkfsa.fric <- lapply(fric_files, qread) #(file = paste0(enkfsa.output_dir, "/enkf_friction_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
 # enkfsa.fric_ini <- lapply(enkfsa.fric, function(s) s[[1]])
 # enkfsa.fric_mid <- lapply(enkfsa.fric, function(s) s[[2]])
@@ -193,6 +193,8 @@ true_gl_pos <- true_gl[, years] * 1000 # Take GL position at last time point for
 true_gl_ind <- sapply(1:length(true_gl_pos), function(x) which(domain == true_gl_pos[x]))#floor(true_gl_pos / 800 * 2001) # Convert to grid index
 
 if (recalculate_crps) {
+    state_samples <- sample(dim(cnn.thickness_fin[[1]])[2], 1000) # use 1000 samples from the concatenated ensemble
+    
     ## CRPS for the bed
     print("Calculating CRPS for CNN...")
     cnn.bed_crps <- c()
@@ -212,8 +214,6 @@ if (recalculate_crps) {
     # }
 
     # ## CRPS for the state
-
-    # state_samples <- sample(dim(cnn.thickness_fin[[1]])[2], 1000) # use 1000 samples from the concatenated ensemble
     # # check what the size of the ensembles are here
     # for (r in 1:length(s)) {
     # }
@@ -245,8 +245,8 @@ if (recalculate_crps) {
         bed = c(cnn.bed_crps_mean, enkfsa.bed_crps_mean),
         friction = c(cnn.fric_crps_mean, enkfsa.fric_crps_mean)
     )
-
-        # qsave(crps_table, file = paste0("./output/crps_table_", output_date, ".qs"))
+        write.csv(crps_table, file = paste0("./output/crps_table_", output_date, ".csv"))
+        qsave(crps_table, file = paste0("./output/crps_table_", output_date, ".qs"))
     } else {
         crps_table <- qread(file = paste0("./output/crps_table_", output_date, ".qs"))
     }

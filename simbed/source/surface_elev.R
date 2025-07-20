@@ -3,7 +3,7 @@ get_surface_elev <- function(H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
   GL <- gl_migrate(H, b, z0, rho, rho_w)
  
   z <- c()
-  if (include_GL) {
+  if (include_GL & GL < length(H)) {
     z[1:GL] <- H[1:GL] + b[1:GL]
     z[(GL+1):length(H)] <- H[(GL+1):length(H)] * (1 - rho/rho_w) + z0
   } else {
@@ -17,6 +17,7 @@ get_surface_elev <- function(H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
 gl_migrate <- function (H, b, z0 = 0, rho = 910.0, rho_w = 1028.0) {
   # To calculate GL position given the ice thickness H and bed b
   # Flotation criterion: rho * H >= rho_w * b for grounded ice
+
   grounded <- rho * H > rho_w * (z0 - b)
   GL <- sum(grounded)
 

@@ -8,6 +8,7 @@ rm(list = ls())
 # reticulate::use_condaenv("myenv", required = TRUE)
 # library(tensorflow)
 library(ggplot2)
+library(dplyr)
 library(abind)
 library(parallel)
 library(qs)
@@ -15,7 +16,7 @@ library(qs)
 ## Flags
 # sim_beds <- T
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
-save_data <- T
+save_data <- F
 standardise_output <- T
 use_missing_pattern <- T
 
@@ -29,7 +30,7 @@ source("./source/seq_mean_var.R")
 
 # if (length(gpus) > 0) {
 #   tryCatch({
-#     # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
+#     # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
 #     tf$config$experimental$set_virtual_device_configuration(
 #       gpus[[1]],
 #       list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
@@ -48,7 +49,7 @@ source("./source/seq_mean_var.R")
 data_date <- "20240320" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:50 #1:50 
+sets <- 50 #1:50 
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -79,42 +80,58 @@ if (use_missing_pattern) {
     })
 
     ## Plot missing pattern
-    # se_mp_c <- c(surf_elev_missing_pattern)
-    # J <- dim(surface_obs_arr)[2]
-    # se_mp_df <- data.frame(gridpt = rep(1:J, ncol(surf_elev_missing_pattern)), 
-    #                         nonmissing = se_mp_c, 
-    #                         year = rep(0:(ncol(surf_elev_missing_pattern)-1), each = J))
+    se_mp_c <- c(surf_elev_missing_pattern)
+    se_data_pattern <- c(surface_obs_list_missing[[1]][,,1])
+    J <- dim(surface_obs_arr)[2]
+    se_mp_df <- data.frame(gridpt = rep(1:J, ncol(surf_elev_missing_pattern)), 
+                            nonmissing = se_mp_c,
+                            val = se_data_pattern, # apply missing pattern to dataset
+                            year = rep(0:(ncol(surf_elev_missing_pattern)-1), each = J))
 
-    # ## Plot missing surface elevation pattern over space-time
-    # se_st_plot <- ggplot(se_mp_df) + 
-    #     geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
-    #     scale_fill_manual(values=c("grey", "turquoise")) +
-    #     theme_bw() + 
-    #     labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
-    #     # ggtitle("Thwaites Glacier Surface Elevation Over Time") + 
-    #     theme(text = element_text(hjust = 0.5, size = 30))
+    se_mp_df <- se_mp_df %>% mutate(val_mp = ifelse(nonmissing == 1, val, NA))
 
-    # png("./plots/surf_elev_missing_pattern.png", width = 800, height = 600)
-    # print(se_st_plot)
-    # dev.off()
+    ## Plot missing surface elevation pattern over space-time
+    se_st_plot <- ggplot(se_mp_df) + 
+        # geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) +
+        geom_tile(aes(x = gridpt, y = year, fill = val_mp)) +
+        # scale_fill_manual(values=c("grey", "turquoise")) +
+        theme_bw() + 
+        # labs(x = "Grid Point", y = "Year", fill = "Non-missing") +
+        labs(x = "Grid Point", y = "Year", fill = "Surface elev.") +
+        scale_fill_distiller(palette = "Blues", direction = 1) +
+        # ggtitle("Thwaites Glacier Surface Elevation Over Time") + 
+        theme(text = element_text(hjust = 0.5, size = 30))
 
-    # vel_mp_c <- c(vel_missing_pattern)
-    # vel_mp_df <- data.frame(gridpt = rep(1:J, ncol(vel_missing_pattern)), 
-    #                         nonmissing = vel_mp_c, 
-    #                         year = rep(0:(ncol(vel_missing_pattern)-1), each = J))
+    png("./plots/surf_elev_missing_pattern2.png", width = 800, height = 600)
+    print(se_st_plot)
+    dev.off()
 
-    # ## Plot missing velocity pattern over space-time
-    # vel_st_plot <- ggplot(vel_mp_df) + 
-    #     geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
-    #     scale_fill_manual(values=c("grey", "turquoise")) +
-    #     theme_bw() + 
-    #     labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
-    #     # ggtitle("Thwaites Glacier Velocity Over Time") + 
-    #     theme(text = element_text(hjust = 0.5, size = 30))
+    vel_mp_c <- c(vel_missing_pattern)
+    vel_data_pattern <- c(surface_obs_list_missing[[1]][,,2])
+    vel_mp_df <- data.frame(gridpt = rep(1:J, ncol(vel_missing_pattern)), 
+                            nonmissing = vel_mp_c, 
+                            val = vel_data_pattern,
+                            year = rep(0:(ncol(vel_missing_pattern)-1), each = J))
 
-    # png("./plots/vel_missing_pattern.png", width = 800, height = 600)
-    # print(vel_st_plot)
-    # dev.off()
+    vel_mp_df <- vel_mp_df %>% mutate(val_mp = ifelse(nonmissing == 1, val, NA))
+
+    ## Plot missing velocity pattern over space-time
+    vel_st_plot <- ggplot(vel_mp_df) + 
+        # geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
+        # scale_fill_manual(values=c("grey", "turquoise")) +
+        geom_tile(aes(x = gridpt, y = year, fill = val_mp)) +
+        theme_bw() + 
+        # labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
+        labs(x = "Grid Point", y = "Year", fill = "Surface velocity") + 
+        scale_fill_distiller(palette = "Reds", direction = 1) +
+        # ggtitle("Thwaites Glacier Velocity Over Time") + 
+        theme(text = element_text(hjust = 0.5, size = 30))
+
+    png("./plots/vel_missing_pattern2.png", width = 800, height = 600)
+    print(vel_st_plot)
+    dev.off()
+
+    browser()
 }
 
 # compute mean and sd of surface elevation and velocity
