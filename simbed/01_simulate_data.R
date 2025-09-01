@@ -41,9 +41,9 @@ source("./source/azm_cond_sim.R")
 
 ## Some flags
 regenerate_sims <- F
-reprocess_sim_results <- T
-refit_basis <- T
-save_sims <- T
+reprocess_sim_results <- F
+# refit_basis <- T
+save_sims <- F
 log_transform <- T
 # sim_beds <- T
 
@@ -116,12 +116,14 @@ if (regenerate_sims) {
       lengthscale = 8e3
     )
 
-    plot_domain <- 1:1000
+
+
+    png(file = paste0("./plots/temp/friction_basis_", setf, "_", data_date, ".png"), width = 800, height = 800)
+    # matplot(t(friction_basis$basis_coefs), type = "l")
+    plot_domain <- 1:2001 #1000
     plot(friction_basis$true_vals[1, plot_domain], type = "l")
     lines(friction_basis$fitted_values[1, plot_domain], col  = "red")
 
-    png(file = paste0("./plots/friction_basis_", setf, "_", data_date, ".png"), width = 800, height = 800)
-    matplot(t(friction_basis$basis_coefs), type = "l")
     dev.off()
 
     ## De-trend the bedrock
@@ -186,48 +188,24 @@ if (regenerate_sims) {
 } else {
 
 
-  sim_results_list <- mclapply(sets, function(set) {
-    setf <- formatC(set, width = 2, flag = "0")
-    sim_results <- qread(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".qs"))
-  }, mc.cores = 10L)
-    # sim_results_list[[i]] <- sim_results
-    
-  flags <- lapply(sim_results_list, function(sim_results) {
-
-    if (length(sim_results$errors) > 0) {
-      flag <- 1
-    } else {
-      flag <- 0
-    }
-
-    return(flag)
-    }
-  )
-
-
-browser()
-  # flags <- c()
-  # for (i in 1:length(sets)) {
-  #   set <- sets[i]
-  #   cat("Loading set", set, "\n")
+  # sim_results_list <- mclapply(sets, function(set) {
   #   setf <- formatC(set, width = 2, flag = "0")
   #   sim_results <- qread(file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".qs"))
-  #   sim_results_list[[i]] <- sim_results
+  # }, mc.cores = 10L)
+  #   # sim_results_list[[i]] <- sim_results
     
+  # flags <- lapply(sim_results_list, function(sim_results) {
+
   #   if (length(sim_results$errors) > 0) {
-  #     flags[i] <- 1
+  #     flag <- 1
   #   } else {
-  #     flags[i] <- 0
+  #     flag <- 0
   #   }
-  # }
 
-  # bad_sets <- sets[which(flags == 1)]
+  #   return(flag)
+  #   }
+  # )
 
-browser()
-  # bad_sets <- sets[which(flags == 1)]
-  # sink("bad_sets.txt")
-  # print(bad_sets)
-  # sink()
 }
 
 ##########################################
@@ -325,7 +303,7 @@ bed_mean <- bed_basis$mean
 
 plots <- list()
 
-nsamples <- 4
+nsamples <- 1
 sims <- sample(1:N, size = nsamples)
 
 space <- domain / 1000
@@ -360,7 +338,8 @@ for (s in 1:nsamples) {
     scale_fill_distiller(palette = "Blues", direction = 1) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
-    # labs(fill="Thickness (m)")
+    xlab("Domain (km)") +
+    ylab("Time (yr)") +
     labs(fill = "Surface elev. (m)")
 
   velocity_plot <- ggplot(grid_test) +
@@ -369,7 +348,9 @@ for (s in 1:nsamples) {
     theme_bw() +
     theme(text = element_text(size = 24)) +
     scale_fill_distiller(palette = "Reds", direction = 1) +
-    labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")"))
+    xlab("Domain (km)") +
+    ylab("Time (yr)") +
+    labs(fill = bquote("Velocity (m" ~"yr"^-1 ~ ")"))
 
 
   if (log_transform) {
@@ -380,27 +361,29 @@ for (s in 1:nsamples) {
     friction_sim <- friction_arr[sim, 1:gl]
   }
 
-  df <- data.frame(
+  fric_df <- data.frame(
     domain = ssa_steady$domain[1:gl] / 1000, friction = friction_sim,
     fitted_fric = fitted_fric_sim
   )
-  friction_plot <- ggplot(df, aes(x = domain, y = friction)) +
-    geom_line(lwd = 1) +
-    geom_line(aes(x = domain, y = fitted_fric), col = "red", lwd = 1) +
+  friction_plot <- fric_df %>% ggplot() +
+    geom_line(aes(x = domain, y = fitted_fric), lwd = 1) +
+    # geom_line(aes(x = domain, y = friction), col = "red", lwd = 1) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
     xlab("Domain (km)") +
-    ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")"))
+    ylab(bquote("Friction (M Pa m"^"-1/3" ~ "yr"^"1/3" ~ ")"))
 
   bed_sim <- bed_arr[sim, ] + bed_mean
   fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
   bed_df <- data.frame(domain = ssa_steady$domain / 1000, bed = bed_sim, fitted_bed = fitted_bed_sim)
   
-  bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) +
-    geom_line(lwd = 1) +
-    geom_line(aes(x = domain, y = fitted_bed), col = "red", lwd = 1) +
+  bed_plot <- bed_df %>% ggplot() + 
+    geom_line(aes(x = domain, y = fitted_bed), lwd = 1) +
+    # geom_line(aes(x = domain, y = bed), col = "red", lwd = 1) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
+    # xlim(0, 800) + 
+    # ylim(-1250, -300) +
     xlab("Domain (km)") +
     ylab("Bed (m)")
 
@@ -412,9 +395,9 @@ for (s in 1:nsamples) {
 
 }
 
-png(file = paste0("./plots/simulations_", setf, "_", data_date, ".png"), 
-          width = 2400, height = 400 * nsamples)
-grid.arrange(grobs = plots, nrow = nsamples, ncol = 4)
+png(file = paste0("./plots/simulations_", setf, "_", data_date, "_01.png"), 
+          width = 1200, height = 900 * nsamples)
+grid.arrange(grobs = plots, nrow = 3, ncol = 2, layout_matrix= rbind(c(1,2), 3, 4))
 dev.off()
 
 # ## Plot an example ice sheet profile

@@ -1,8 +1,10 @@
 sim_obs <- function(param_list, years = 20,
+                    warmup = 0,
                     # steady_state, 
                     ini_velocity,
                     ini_thickness, 
                     smb = 0.5, # default of 0.5 m/yr
+                    basal_melt = 0, # default of 0 m/yr
                     log_transform = T) { # , bed_obs) {
     # N <- nsims
     # # years <- 20
@@ -106,35 +108,29 @@ sim_obs <- function(param_list, years = 20,
             years = years, steps_per_yr = 100,
             # save_model_output = TRUE,
             # perturb_hardness = FALSE,
-            add_process_noise = F,
+            add_process_noise = T,
             process_noise_info = process_noise_info,
             smb = smb_avg,
-            basal_melt = 0
+            basal_melt = basal_melt
         )
 
         ## Get surface observations (with noise added)
         surface_obs <- get_obs(reference)
 
         ## Save true thickness and velocity for comparison
-        true_surface_elevs <- reference$all_top_surface
-        true_thicknesses <- reference$all_thicknesses
-        true_velocities <- reference$all_velocities
-
-        # thickness_velocity_obs <- array(
-        # surface_obs <- array(
-        #     data = cbind(
-        #         # reference$all_thicknesses[, 2:(years + 1)],
-        #         reference$all_top_surface[, 2:(years + 1)],
-        #         reference$all_velocities[, 2:(years + 1)]
-        #     ),
-        #     dim = c(length(domain), years, 2)
-        # )
-
-        gl <- reference$grounding_line
-        # )
+        if (warmup == 0) {
+            true_surface_elevs <- reference$all_top_surface
+            true_thicknesses <- reference$all_thicknesses
+            true_velocities <- reference$all_velocities
+            gl <- reference$grounding_line
+        } else {
+            true_surface_elevs <- reference$all_top_surface[, -(1:warmup)]
+            true_thicknesses <- reference$all_thicknesses[, -(1:warmup)]
+            true_velocities <- reference$all_velocities[, -(1:warmup)]
+            gl <- reference$grounding_line[-(1:warmup)]
+        }
 
         simulated_data <- list(
-            # thickness_velocity_arr = thickness_velocity_obs,
             true_surface_elevs = true_surface_elevs,
             true_thicknesses = true_thicknesses,
             true_velocities = true_velocities,

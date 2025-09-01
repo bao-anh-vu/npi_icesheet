@@ -29,15 +29,18 @@ create_steady_state <- function(use_stored_steady_state = FALSE,
                       #  data_date,
                        add_process_noise_in_ref = FALSE,
                        years = 1000,
+                       phys_params,
                        domain,
+                       ini_thickness,
+                       ini_velocity,
                        friction_coef,
-                       bedrock, seed = 123) {
+                       bedrock) {
 
   # if (!use_stored_steady_state) {
     t1 <- proc.time()
 
-    C <- friction_coef # create_fric_coef(x, L) * 1e6 * (secpera)^m
-    b <- bedrock
+    # C <- friction_coef # create_fric_coef(x, L) * 1e6 * (secpera)^m
+    # b <- bedrock
 
     ## Run model to steady state
     print("Running model to steady state...")
@@ -45,11 +48,15 @@ create_steady_state <- function(use_stored_steady_state = FALSE,
     # ssa_out <- solve_ssa_nl(domain = domain, bedrock = b, friction_coef = C, tol = 0.01, steps_per_yr = 26,
     #                         seed = ssa_seed, save_obs = TRUE, perturb_hardness = FALSE)
     ssa_out <- solve_ssa_nl(
-      domain = domain, bedrock = b, friction_coef = C,
-      tol = 1e-03, 
-      years = years, 
-      steps_per_yr = 26,
-      seed = seed, 
+      domain = domain, 
+      ini_thickness = ini_thickness,
+      ini_velocity = ini_velocity,
+      bedrock = bedrock, 
+      friction_coef = friction_coef,
+      tol = 1e-04, 
+      # years = years, 
+      steps_per_yr = 26, 
+      phys_params = phys_params,
       perturb_hardness = FALSE,
       add_process_noise = FALSE
       # add_process_noise = add_process_noise_in_ref,

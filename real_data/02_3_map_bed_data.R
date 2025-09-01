@@ -27,8 +27,6 @@ bedmap2_agasea <- read.csv(paste0(data_dir, "/bedmap/UTIG_2004_AGASEA_AIR_BM2.cs
 
 desc <- read.csv(paste0(data_dir, "/bedmap/UTIG_2004_AGASEA_AIR_BM2.csv"), nrows = 18)
 
-browser()
-
 fillValue <- -9999
 bed_data_2009[bed_data_2009 == fillValue] <- NA
 bed_data_2018[bed_data_2018 == fillValue] <- NA
@@ -128,7 +126,7 @@ bed_plot <- bed_data %>% ggplot() +
 # print(bed_plot)
 # dev.off()
 
-delta <- 200
+delta <- 200 # take the closest bed observations within 200 m around each point along the flowline
 ## Map bed obs to flowline
 avg_nearest_four <- function(pos) {
         near_pts <- bed_data %>% filter(

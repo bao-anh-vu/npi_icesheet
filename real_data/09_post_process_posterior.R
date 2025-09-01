@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:10 #6:20
+sets <- 1:50 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -156,12 +156,12 @@ test_fric_coefs <- test_output[, 1:n_fric_basis] * test_data$sd_fric_coefs + tes
 test_bed_coefs <- test_output[, (n_fric_basis+1):(n_fric_basis+n_bed_basis)] * test_data$sd_bed_coefs + test_data$mean_bed_coefs
 test_gl <- test_output[, (n_fric_basis+n_bed_basis+1):ncol(test_output)] * test_data$sd_gl + test_data$mean_gl
 
-png(paste0(plot_dir, "/pred_fric_1.png"), width = 2000, height = 1200)
+png(paste0(plot_dir, "/pred_fric_coef_test.png"), width = 2000, height = 1200)
 plot(test_fric_coefs[1,], type = "l")
 lines(pred_fric_coefs[1,], col = "red")
 dev.off()
 
-png(paste0(plot_dir, "/pred_bed_1.png"), width = 2000, height = 1200)
+png(paste0(plot_dir, "/pred_bed_coef_test.png"), width = 2000, height = 1200)
 plot(test_bed_coefs[1,], type = "l")
 lines(pred_bed_coefs[1,], col = "red")
 dev.off()

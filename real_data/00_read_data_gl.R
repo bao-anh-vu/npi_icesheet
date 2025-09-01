@@ -138,10 +138,20 @@ print(gl_intst_plot)
 dev.off()
 
 ## Choose 2nd intersection point (more upstream) as gl position
-# gl_pos <- intersect_pts[2, ]
-# gl_pos <- as.numeric(gl_pos[, 1:2])
-# gl_pos
-# saveRDS(gl_pos, file = "./data/grounding_line/gl_pos.rds")
+gl_pos <- intersect_pts[2, ]
+gl_pos <- as.numeric(gl_pos[, 1:2])
+gl_pos
+saveRDS(gl_pos, file = "./data/grounding_line/gl_pos.rds")
+
+delta <- 120 # grid size
+# flowline_dist <- sqrt((flowline$x[2:nrow(flowline)] - flowline$x[1:(nrow(flowline) - 1)])^2 +
+#     (flowline$y[2:nrow(flowline)] - flowline$y[1:(nrow(flowline) - 1)])^2)
+flowline$ind <- 1:nrow(flowline)
+gl_near_pts <- flowline %>% filter(
+            x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
+            y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta)) #%>% 
+            # mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) 
+                
 
 # } else {
 #     gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))

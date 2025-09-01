@@ -46,7 +46,7 @@ if (length(gpus) > 0) {
 data_date <- "20241111" #"20241103" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #c(1,3,5) #1:5 #10
+sets <- 1:50 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -66,6 +66,7 @@ if (use_missing_pattern) {
 
     surface_obs_list <- lapply(1:dim(surface_obs_arr)[1], function(i) { surface_obs_arr[i,,,]})
 
+    ## Multiply the missing patterns by the surface_obs_list
     surface_obs_list_missing <- lapply(surface_obs_list, function(arr) {
     se <- arr[,,1] * surf_elev_missing_pattern
     vel <- arr[,,2] * vel_missing_pattern

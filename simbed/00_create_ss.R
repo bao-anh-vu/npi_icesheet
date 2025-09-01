@@ -80,17 +80,26 @@ m <- 1 / n # friction exponent
 ## Ice shelf specifications
 L <- 800e3 # length of domain
 
-## Boundary conditions at the ice divide (x = 0)
-x0 <- 0
-u0 <- 100 / secpera # (m/s)
-H0 <- 2000 # (m)
-
 # Discretise domain
-J <- 2000 # number of grid points
+J <- 2000 # number of grid spaces
 dx <- L / J # grid spacing
-x <- seq(x0, L, dx) # grid point locations
+x <- seq(0, L, dx) # grid point locations
 
 ## Params
+params <- list(
+    secpera = 31556926, #seconds per annum
+    n = 3.0, # exponent in Glen's flow law
+    rho_i = 917.0, #ice density
+    rho_w = 1028.0, #sea water density
+    #r <- rho / rho_w # define this ratio for convenience
+    g = 9.81, #gravity constant
+    # A = 4.227e-25, #1.4579e-25, # flow rate parameter
+    as = 0.5, # surface accumulation rate,
+    ab = 0 # basal melt rate, 
+)
+
+params$m <- 1/params$n
+params$B <- 0.4 * 1e6 * params$secpera ^ params$m
 
 ### Friction
 C <- create_fric_coef(x, L) * 1e6 * (secpera)^m
@@ -98,10 +107,31 @@ C <- create_fric_coef(x, L) * 1e6 * (secpera)^m
 ### Bed
 b <- create_bed(x)
 
+## Boundary conditions at the ice divide (x = 0)
+u0 <- 0 #100 / secpera # (m/s)
+H0 <- 1000 # (m)
+
+### Initial thickness
+h <- H0 - (H0 - 0)/(L - 0) * x
+
+### Initial velocity
+u <- u0 + 0.001 / params$secpera * x
+
+# ssa_steady <- create_steady_state(use_stored_steady_state = F,
+#                         add_process_noise_in_ref = F, 
+#                         rewrite_steady_state = F,
+#                         domain = x, 
+#                         friction_coef = C,
+#                         bedrock = b) 
+
 ssa_steady <- create_steady_state(use_stored_steady_state = F,
                         add_process_noise_in_ref = F, 
                         rewrite_steady_state = F,
+                        # years = 950,
+                        phys_params = params,
                         domain = x, 
+                        ini_thickness = h,
+                        ini_velocity = u,
                         friction_coef = C,
                         bedrock = b) 
 

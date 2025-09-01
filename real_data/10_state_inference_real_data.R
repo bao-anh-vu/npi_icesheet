@@ -72,8 +72,8 @@ inflate_cov <- F
 ## Presets
 data_date <- "20241111" # "20230518"
 output_date <- "20241111" # "20240518"
-Ne <- 100 # Ensemble size
-years <- 2#0 # 40
+Ne <- 500 # Ensemble size
+years <- 20 # 40
 steps_per_yr <- 52 # 100
 n_params <- 1 #10 # number of beds
 # n_bed_obs <- 100
@@ -86,7 +86,7 @@ plot_bed <- T
 plot_friction <- T
 
 ## SSA model info
-ssa_steady <- qread(file = paste("./data/training_data/steady_state.qs", sep = ""))
+ssa_steady <- qread(file = paste0("./data/training_data/steady_state/steady_state_", data_date, ".qs"))
 domain <- ssa_steady$domain
 J <- length(domain)
 
@@ -256,6 +256,26 @@ enkf_output_dir <- paste0("./output/cnn/", setsf, "/missing/enkf_real_data")
                     
                 } else {
 
+                    ## Initial thickness
+                    # se_grounded <- na.omit(surface_elev_s[, 1]) # Use surface elevation in the year 2000 to initialise ice thickness
+                    # H_ini <- se_grounded - bed_sample[1:length(se_grounded)]
+                    # missing <- which(is.na(surface_elev_s[, 1]))
+                    # rho <- 910.0
+                    # rho_w <- 1028.0
+                    # thickness_at_gl <- - bed_sample[missing][1] * rho_w / rho
+                    # thickness_at_tail <- seq(from = thickness_at_gl, by = -1, length.out = length(missing)-1) #rep(400, length(missing)-1) #- bed_sim[missing] * rho_w / rho # worked out based on grounding line conditions
+
+                    # H_ini_new <- c(H_ini, thickness_at_gl, thickness_at_tail) #+ offset
+                    # ini_thickness <- matrix(rep(H_ini_new, Ne), J, Ne)
+
+                    # ## For the initial surface obs, replace NA values with the last non-NA value
+                    # ini_surf_obs <- surface_elev_s[, 1]
+                    # # ini_surf_obs[which(is.na(ini_surf_obs))] <- nonNA[length(nonNA)]
+                    
+                    # # fill NA values with the average of the last 100 grid points #nonNA[length(nonNA)]
+                    # nonNA <- ini_surf_obs[!is.na(ini_surf_obs)]
+                    # ini_surf_obs[which(is.na(ini_surf_obs))] <- mean(nonNA[(length(nonNA) - 100):length(nonNA)])
+
                     # ## Process noise parameters
                     # ones <- rep(1, length(domain))
                     # D <- rdist(domain)
@@ -315,17 +335,15 @@ enkf_output_dir <- paste0("./output/cnn/", setsf, "/missing/enkf_real_data")
         # ini_velocity <- matrix(rep(ssa_steady$current_velocity, Ne), J, Ne)
     } else { # use a smoothed version of the observed velocity as initial velocity
     
-        vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
-        vel_curr <- rowMeans(vel_mat[, 15:ncol(vel_mat)])
+        # vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+        # vel_curr <- rowMeans(vel_mat[, 15:ncol(vel_mat)])
 
-        # ## Smooth the velocity out with loess
-        smoothed_velocity <- loess(vel_curr ~ domain, span = 0.1)$fitted
+        # # ## Smooth the velocity out with loess
+        # smoothed_velocity <- loess(vel_curr ~ domain, span = 0.1)$fitted
         # ini_velocity <- matrix(rep(smoothed_velocity, Ne), J, Ne)
 
         ini_velocity <- matrix(rep(ssa_steady$current_velocity, Ne), J, Ne)
 
-
-        browser()
     }
 
     ################################################################################

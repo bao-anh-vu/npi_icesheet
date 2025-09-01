@@ -116,24 +116,15 @@ simt1 <- proc.time()
             true_surface_elevs <- reference$all_top_surface
             true_thicknesses <- reference$all_thicknesses
             true_velocities <- reference$all_velocities
+            gl <- reference$grounding_line
+
         } else {
             true_surface_elevs <- reference$all_top_surface[, -(1:warmup)]
             true_thicknesses <- reference$all_thicknesses[, -(1:warmup)]
             true_velocities <- reference$all_velocities[, -(1:warmup)]
-        }
-        
-        # thickness_velocity_obs <- array(
-        # surface_obs <- array(
-        #     data = cbind(
-        #         # reference$all_thicknesses[, 2:(years + 1)],
-        #         reference$all_top_surface[, 2:(years + 1)],
-        #         reference$all_velocities[, 2:(years + 1)]
-        #     ),
-        #     dim = c(length(domain), years, 2)
-        # )
+            gl <- reference$grounding_line[-(1:warmup)]
 
-        gl <- reference$grounding_line[-(1:warmup)]
-        # )
+        }
 
         simulated_data <- list(
             # thickness_velocity_arr = thickness_velocity_obs,

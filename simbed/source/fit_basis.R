@@ -3,7 +3,7 @@ fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F,
     ## Place basis function centres along domain
     # basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis+2)
     # basis_centres <- basis_centres[2:(length(basis_centres)-1)] 
-                            
+
     basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis)
     testbasis <- local_basis(manifold = real_line(), 
                             loc = matrix(basis_centres),

@@ -146,6 +146,9 @@ enkfsa.velocity <- lapply(enkfsa.velocity, as.matrix)
 ##    Plotting results     ## 
 #############################
 
+# palette.colors(palette = "ggplot2")
+# #00BFC4 # teal
+
 if (use_missing_pattern) {
     plot_dir <- paste0("./plots/combined/Ne", Ne, "/missing/sample", sample_ind)
 } else {
@@ -201,25 +204,26 @@ if (plot_ice_thickness) {
         true_thickness.df <- data.frame(domain = domain / 1000, thickness = true_thicknesses[s, , t])
 
         # Plot title
-        title <- paste("t = ", t - 1, "a")
+        title <- paste("t = ", t - 1, "yr")
         thickness_plot <- ggplot(thickness.df) +
             geom_ribbon(
-                # data = thickness.df,
+                data = thickness.df,
                 aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-                fill = "blue", alpha = 0.2
+                fill = "#00BFC4", alpha = 0.2
             ) +
             geom_ribbon(
-                # data = thickness.df,
+                data = thickness.df,
                 aes(domain, ymin = cnn_lower, ymax = cnn_upper),
                 fill = "red", alpha = 0.2
             ) +
             theme_bw() +
             geom_line(data = true_thickness.df, aes(domain, thickness)) +
-            geom_line(data = thickness.df, aes(domain, enkfsa_mean), colour = "blue") +
+            geom_line(data = thickness.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
             geom_line(data = thickness.df, aes(domain, cnn_mean), colour = "red") +
             xlab("Domain (km)") +
             ylab("Ice thickness (m)") +
             # xlim(0, 500) +
+            theme(text = element_text(size = 18)) +
             ggtitle(title) +
             theme(plot.title = element_text(
                 hjust = 0.95, vjust = 0.5, face = "bold",
@@ -227,7 +231,7 @@ if (plot_ice_thickness) {
             ))
 
         # thickness_plots[[ind]] <- thickness_plot
-        png(paste0(plot_dir, "/thickness_enkf_", t - 1, ".png"), width = 2000, height = 1000, res = 300)
+        png(paste0(plot_dir, "/thickness_enkf_", t - 1, "_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
         print(thickness_plot)
         # grid.arrange(grobs = thickness_plots, ncol = 2)
         dev.off()
@@ -268,11 +272,11 @@ if (plot_velocity) {
         true_velocities.df <- data.frame(domain = domain / 1000, velocity = true_velocities[s, , t])
 
         # Plot title
-        title <- paste("t = ", t - 1, "a")
+        title <- paste("t = ", t - 1, "yr")
         velocity_plot <- ggplot(velocities.df) +
             geom_ribbon(
                 aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-                fill = "blue", alpha = 0.2
+                fill = "#00BFC4", alpha = 0.2
             ) +
             geom_ribbon(
                 aes(domain, ymin = cnn_lower, ymax = cnn_upper),
@@ -280,17 +284,18 @@ if (plot_velocity) {
             ) +
             theme_bw() +
             geom_line(data = true_velocities.df, aes(domain, velocity)) +
-            geom_line(data = velocities.df, aes(domain, enkfsa_mean), colour = "blue") +
+            geom_line(data = velocities.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
             geom_line(data = velocities.df, aes(domain, cnn_mean), colour = "red") +
             xlab("Domain (km)") +
             ylab("Velocity (m)") +
+            theme(text = element_text(size = 18)) +
             ggtitle(title) +
             theme(plot.title = element_text(
                 hjust = 0.95, vjust = 0.5, face = "bold",
                 margin = margin(t = 20, b = -30)
             ))
 
-        png(paste0(plot_dir, "/velocity_enkf", t - 1, ".png"), width = 2000, height = 1000, res = 300)
+        png(paste0(plot_dir, "/velocity_enkf", t - 1, "_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
         print(velocity_plot)
         # grid.arrange(grobs = vel_plots, ncol = 2)
         dev.off()
@@ -314,9 +319,9 @@ if (plot_gl) {
     plot(true_gl[s, ], type = "l", col = "black", lwd = 2, ylim = c(360, 363),
         xlab = "Time (years)", ylab = "Grounding line (km)")
     lines(cnn.gl, col = "red", lwd = 2) # CNN prediction
-    lines(enkfsa.gl, col = "blue", lwd = 2) # EnKF-SA prediction
+    lines(enkfsa.gl, col = "#00BFC4", lwd = 2) # EnKF-SA prediction
     lines(enkf_cnn.gl, col = "goldenrod", lwd = 2) # EnKF-CNN prediction
-    legend("bottomright", legend = c("True GL", "CNN", "EnKF-SA", "EnKF-CNN"), col = c("black", "red", "blue", "goldenrod"), lwd = 2)
+    legend("bottomright", legend = c("True GL", "CNN", "EnKF-SA", "EnKF-CNN"), col = c("black", "red", "#00BFC4", "goldenrod"), lwd = 2)
     dev.off()
 }
 
@@ -357,41 +362,44 @@ if (plot_bed) {
     true_bed.df <- data.frame(domain = domain / 1000, bed = true_bed[s, ])
 
     # Plot title
-    # title <- paste("t = ", t - 1, "a")
-    bed_plot <- ggplot() +
-        # geom_ribbon(
-        #     aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-        #     fill = "blue", alpha = 0.2
-        # ) +
-        # geom_ribbon(
-        #     aes(domain, ymin = cnn_lower, ymax = cnn_upper),
-        #     fill = "red", alpha = 0.2
-        # ) +
+    # title <- paste("t = ", t - 1, "yr")
+    bed_plot <- ggplot(bed.df) +
+        geom_ribbon(
+            aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
+            fill = "#00BFC4", alpha = 0.2
+        ) +
+        geom_ribbon(
+            aes(domain, ymin = cnn_lower, ymax = cnn_upper),
+            fill = "red", alpha = 0.2
+        ) +
         theme_bw() +
-        geom_line(data = bed.df, aes(domain, cnn_s1), colour = "red", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, cnn_s2), colour = "red", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, cnn_s3), colour = "red", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, cnn_s4), colour = "red", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, cnn_s5), colour = "red", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s1), colour = "blue", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s2), colour = "blue", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s3), colour = "blue", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s4), colour = "blue", alpha = 0.3, lwd = 0.5) +
-        geom_line(data = bed.df, aes(domain, enkf_s5), colour = "blue", alpha = 0.3, lwd = 0.5) +
+        # geom_line(data = bed.df, aes(domain, cnn_s1), colour = "red", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, cnn_s2), colour = "red", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, cnn_s3), colour = "red", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, cnn_s4), colour = "red", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, cnn_s5), colour = "red", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, enkf_s1), colour = "#00BFC4", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, enkf_s2), colour = "#00BFC4", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, enkf_s3), colour = "#00BFC4", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, enkf_s4), colour = "#00BFC4", alpha = 0.3, lwd = 0.4) +
+        # geom_line(data = bed.df, aes(domain, enkf_s5), colour = "#00BFC4", alpha = 0.3, lwd = 0.4) +
         geom_line(data = true_bed.df, aes(domain, bed)) +
-        geom_line(data = bed.df, aes(domain, enkfsa_mean), colour = "blue") +
+        geom_line(data = bed.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
         geom_line(data = bed.df, aes(domain, cnn_mean), colour = "red") +
         geom_vline(xintercept = true_gl[s, years], lty = 2, colour = "black") +
-        geom_point(data = bed_obs_df, aes(location, bed_elev), colour = "turquoise") +
+        geom_point(data = bed_obs_df, aes(location, bed_elev), colour = "black") +
+        xlim(0, 600) +
+        ylim(-1250, -300) +
+        theme(text = element_text(size = 18)) +
         xlab("Domain (km)") +
-        ylab("Bed elevation (m)") +
-        ggtitle(title) +
-        theme(plot.title = element_text(
-            hjust = 0.95, vjust = 0.5, face = "bold",
-            margin = margin(t = 20, b = -30)
-        ))
+        ylab("Bed elevation (m)") #+
+        # ggtitle(title) +
+        # theme(plot.title = element_text(
+        #     hjust = 0.95, vjust = 0.5, face = "bold",
+        #     margin = margin(t = 20, b = -30)
+        # ))
 
-    png(paste0(plot_dir, "/bed_enkf.png"), width = 2000, height = 1000, res = 300)
+    png(paste0(plot_dir, "/bed_enkf_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
     print(bed_plot)
     # grid.arrange(grobs = vel_plots, ncol = 2)
     dev.off()
@@ -442,42 +450,44 @@ if (plot_friction) {
     true_fric.df <- data.frame(domain = domain / 1000, fric = true_fric[s, ])
 
     # Plot title
-    # title <- paste("t = ", t - 1, "a")
+    # title <- paste("t = ", t - 1, "yr")
     friction_plot <- ggplot(friction.df) +
-        # geom_ribbon(
-        #     aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
-        #     fill = "blue", alpha = 0.2
-        # ) +
-        # geom_ribbon(
-        #     aes(domain, ymin = cnn_lower, ymax = cnn_upper),
-        #     fill = "red", alpha = 0.2
-        # ) +
+        geom_ribbon(
+            aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
+            fill = "#00BFC4", alpha = 0.2
+        ) +
+        geom_ribbon(
+            aes(domain, ymin = cnn_lower, ymax = cnn_upper),
+            fill = "red", alpha = 0.2
+        ) +
         theme_bw() +
-        geom_line(data = friction.df, aes(domain, cnn_s1), colour = "red", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, cnn_s2), colour = "red", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, cnn_s3), colour = "red", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, cnn_s4), colour = "red", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, cnn_s5), colour = "red", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s1), colour = "blue", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s2), colour = "blue", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s3), colour = "blue", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s4), colour = "blue", alpha = 0.2, lwd = 0.5) +
-        geom_line(data = friction.df, aes(domain, enkf_s5), colour = "blue", alpha = 0.2, lwd = 0.5) +
+        # geom_line(data = friction.df, aes(domain, cnn_s1), colour = "red", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, cnn_s2), colour = "red", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, cnn_s3), colour = "red", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, cnn_s4), colour = "red", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, cnn_s5), colour = "red", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, enkf_s1), colour = "#00BFC4", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, enkf_s2), colour = "#00BFC4", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, enkf_s3), colour = "#00BFC4", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, enkf_s4), colour = "#00BFC4", alpha = 0.2, lwd = 0.4) +
+        # geom_line(data = friction.df, aes(domain, enkf_s5), colour = "#00BFC4", alpha = 0.2, lwd = 0.4) +
         geom_line(data = true_fric.df, aes(domain, fric)) +
-        geom_line(data = friction.df, aes(domain, enkfsa_mean), colour = "blue") +
+        geom_line(data = friction.df, aes(domain, enkfsa_mean), colour = "#00BFC4") +
         geom_line(data = friction.df, aes(domain, cnn_mean), colour = "red") +
         geom_vline(xintercept = true_gl[s, years], lty = 2, colour = "black") +
         xlim(0, 400) +
-        ylim(0, 0.2) +
+        ylim(0, 0.1) +
+        theme(text = element_text(size = 18)) +
         xlab("Domain (km)") +
-        ylab(bquote("Friction (M Pa m"^{-1/3}~"a"^{1/3}~")")) +
-        ggtitle(title) +
-        theme(plot.title = element_text(
-            hjust = 0.95, vjust = 0.5, face = "bold",
-            margin = margin(t = 20, b = -30)
-        ))
+        ylab(bquote("Friction (M Pa m"^{-1/3}~"a"^{1/3}~")"))
+        
+        # ggtitle(title) +
+        # theme(plot.title = element_text(
+        #     hjust = 0.95, vjust = 0.5, face = "bold",
+        #     margin = margin(t = 20, b = -30)
+        # ))
 
-    png(paste0(plot_dir, "/friction_enkf.png"), width = 2000, height = 1000, res = 300)
+    png(paste0(plot_dir, "/friction_enkf_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
     print(friction_plot)
     # grid.arrange(grobs = vel_plots, ncol = 2)
     dev.off()
