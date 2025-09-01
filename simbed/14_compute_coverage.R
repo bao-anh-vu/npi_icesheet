@@ -172,7 +172,7 @@ for (r in 1:length(sample_ind)) {
 cnn.coverage_df <- data.frame(bed = mean(cnn.coverage_bed),
                         fric = mean(cnn.coverage_fric),
                         thickness = mean(cnn.coverage_thickness))
-print(coverage_df)
+print(cnn.coverage_df)
 
 # cnn.velocity <- lapply(cnn.velocity, function(s) lapply(s, as.matrix))
 # cnn.mean_velocity <- lapply(cnn.velocity, function(s) lapply(s, rowMeans))
@@ -190,40 +190,84 @@ Ne <- 1000 # Ensemble size for Aug-EnKF
 
 aug_enkf.output_dir <- as.list(aug_enkf.output_dir)
 thickness_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_thickness_sample", sample_ind[s], "_Ne", Ne, "_", output_date, ".qs"))
-aug_enkf.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
-
 bed_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_bed_sample", sample_ind[s], "_Ne", Ne, "_", output_date, ".qs"))
-fric_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_fric_sample", sample_ind[s], "_Ne", Ne, "_", output_date, ".qs"))
+fric_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_friction_sample", sample_ind[s], "_Ne", Ne, "_", output_date, ".qs"))
 # vel_files <- lapply(1:length(sample_ind), function(s) paste0(aug_enkf.output_dir[[s]], "/enkf_velocities_sample", sample_ind[s], "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
-# aug_enkf.velocity <- lapply(vel_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))
+
+aug_enkf.thickness <- lapply(thickness_files, qread) 
+aug_enkf.bed <- lapply(bed_files, qread) 
+aug_enkf.fric <- lapply(fric_files, qread) 
+# aug_enkf.velocity <- lapply(vel_files, qread) 
 
 # aug_enkf.thickness <- lapply(aug_enkf.thickness, function(s) lapply(s, as.matrix))
 # aug_enkf.thickness_fin <- lapply(aug_enkf.thickness, function(s) s[[3]])
 
+aug_enkf.coverage_thickness <- c()
+aug_enkf.coverage_bed <- c()
+aug_enkf.coverage_fric <- c()
 for (r in 1:length(sample_ind)) {
 # for (r in sample_ind) {
     s <- sample_ind[[r]] # index of sample in the test set (out of 500)
     cat("Processing sample", s, "for Aug-EnKF... \n")
-    aug_enkf.ens_t <- aug_enkf.thickness[[r]][[3]] # Take the last time
-    J <- nrow(aug_enkf.ens_t) # Number of grid points
+    aug_enkf.thickness_t <- aug_enkf.thickness[[r]][[3]] # Take the last time point
+    aug_enkf.bed_t <- aug_enkf.bed[[r]][[3]]
+    aug_enkf.fric_t <- aug_enkf.fric[[r]][[3]]
+
+    aug_enkf.ens_t <- rbind(aug_enkf.thickness_t, aug_enkf.bed_t, aug_enkf.fric_t) # Combine all state variables
+    J <- nrow(aug_enkf.thickness_t) # Number of grid points
     aug_enkf.covmat <- 1 / (ncol(aug_enkf.ens_t) - 1) * tcrossprod(aug_enkf.ens_t - rowMeans(aug_enkf.ens_t)) # diag(enkf_covmats[[t]])
-    aug_enkf.lower <- rowMeans(aug_enkf.ens_t[1:J, ]) + qnorm(0.025) * sqrt(diag(aug_enkf.covmat)[1:J])
-    aug_enkf.upper <- rowMeans(aug_enkf.ens_t[1:J, ]) + qnorm(0.975) * sqrt(diag(aug_enkf.covmat)[1:J])
-    aug_enkf.mean_thickness <- rowMeans(aug_enkf.ens_t)
+    aug_enkf.lower <- rowMeans(aug_enkf.ens_t) + qnorm(0.025) * sqrt(diag(aug_enkf.covmat))
+    aug_enkf.upper <- rowMeans(aug_enkf.ens_t) + qnorm(0.975) * sqrt(diag(aug_enkf.covmat))
 
+    aug_enkf.thickness_upper <- aug_enkf.upper[1:J]
+    aug_enkf.thickness_lower <- aug_enkf.lower[1:J]
+    aug_enkf.bed_upper <- aug_enkf.upper[J + 1:J]
+    aug_enkf.bed_lower <- aug_enkf.lower[J + 1:J]
+    aug_enkf.fric_upper <- exp(aug_enkf.upper[2*J + 1:J])
+    aug_enkf.fric_lower <- exp(aug_enkf.lower[2*J + 1:J])
 
+    aug_enkf.mean_thickness <- rowMeans(aug_enkf.thickness_t)
+    aug_enkf.mean_bed <- rowMeans(aug_enkf.bed_t)
+    aug_enkf.mean_fric <- rowMeans(exp(aug_enkf.fric_t))
 
-    aug_enkf.thickness_pts_within <- sum(true_thicknesses_fin[s, ] > aug_enkf.lower & true_thicknesses_fin[s, ] < aug_enkf.upper)
-    aug_enkf.coverage_thickness <- aug_enkf.thickness_pts_within / length(true_thicknesses_fin[s, ])
+    aug_enkf.thickness_pts_within <- sum(true_thicknesses_fin[s, ] > aug_enkf.thickness_lower & true_thicknesses_fin[s, ] < aug_enkf.thickness_upper)
+    aug_enkf.coverage_thickness[r] <- aug_enkf.thickness_pts_within / length(true_thicknesses_fin[s, ])
+
+    aug_enkf.bed_pts_within <- sum(true_bed[s, ] > aug_enkf.bed_lower & true_bed[s, ] < aug_enkf.bed_upper)
+    aug_enkf.coverage_bed[r] <- aug_enkf.bed_pts_within / length(true_bed[s, ])
+    
+    aug_enkf.fric_pts_within <- sum(true_fric[s, ] > aug_enkf.fric_lower & true_fric[s, ] < aug_enkf.fric_upper)
+    aug_enkf.coverage_fric[r] <- aug_enkf.fric_pts_within / length(true_fric[s, ])
 
     ## Plot to check
     png(paste0("./plots/coverage/cvg_aug_enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
-    plot(aug_enkf.upper, type = "l", col = "red", xlab = "Grid point", ylab = "Thickness (m)")
-    lines(aug_enkf.lower, col = "red")
+    plot(aug_enkf.thickness_upper, type = "l", col = "red", xlab = "Grid point", ylab = "Thickness (m)")
+    lines(aug_enkf.thickness_lower, col = "red")
     lines(true_thicknesses_fin[s, ])
     dev.off()
 
+    png(paste0("./plots/coverage/cvg_aug_enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
+    plot(aug_enkf.bed_upper, type = "l", col = "red", xlab = "Grid point", ylab = "Bed (m)")
+    lines(aug_enkf.bed_lower, col = "red")
+    lines(true_bed[s, ])
+    dev.off()
+
+    png(paste0("./plots/coverage/cvg_aug_enkf_fric_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
+    plot(aug_enkf.fric_upper, type = "l", col = "red", xlab = "Grid point", ylab = "Friction coeff")
+    lines(aug_enkf.fric_lower, col = "red")
+    lines(true_fric[s, ])
+    dev.off()
+
 }
+
+aug_enkf.coverage_df <- data.frame(bed = mean(aug_enkf.coverage_bed),
+                            fric = mean(aug_enkf.coverage_fric),
+                            thickness = mean(aug_enkf.coverage_thickness))
+
+## Compare coverage of CNN-EnKF, and Aug-EnKF
+coverage_df <- cbind(t(cnn.coverage_df), t(aug_enkf.coverage_df))
+colnames(coverage_df) <- c("N-EnKF", "Aug-EnKF")
+print(coverage_df)
 # aug_enkf.mean_thickness <- lapply(aug_enkf.thickness, function(s) lapply(s, rowMeans))
 
 # aug_enkf.velocity <- lapply(aug_enkf.velocity, function(s) lapply(s, as.matrix))
