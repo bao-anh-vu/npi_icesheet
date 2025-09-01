@@ -21,7 +21,7 @@ rmse <- function(estimated, true) {
 }
 
 ## 1. Read samples
-sample_ind <- 1:10 #c(1:4, 6:7, 10:15) # test samples to compare
+sample_ind <- 1:5 #c(1:4, 6:7, 10:15) # test samples to compare
 # s <- sample_ind
 # set.seed(2024)
 # chosen_test_samples <- sample(1:500, 50)
@@ -104,7 +104,7 @@ pred_fric <- qread(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".q
 pred_bed <- qread(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".qs"))
 pred_gl <- qread(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".qs"))
 
-print("Reading posterior samples from CNN...")
+print("Reading bed and friction posterior samples from N-EnKF...")
 # fric_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".rds"))
 # bed_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/bed_post_samples_", output_date, ".rds"))
 # gl_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/gl_post_samples_", output_date, ".rds"))
@@ -137,7 +137,7 @@ for (r in 1:length(sample_ind)) {
 # lines(true_bed[r, ])
 
 ## Read CNN-EnKF results
-print("Reading posterior samples from CNN-EnKF...")
+print("Reading thickness posterior samples from N-EnKF...")
 cnn_enkf.output_dir <- as.list(cnn_enkf.output_dir)
 thickness_files <- lapply(1:length(sample_ind), function(s) paste0(cnn_enkf.output_dir[[s]], "/enkf_thickness_sample", sample_ind[s], "_Ne500_", output_date, ".qs"))
 cnn.thickness <- lapply(thickness_files, qread) #(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne500_", output_date, ".qs", sep = ""))

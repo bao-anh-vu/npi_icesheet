@@ -3,7 +3,8 @@
 echo "Starting R scripts in parallel..."
 
 # List of arguments
-sample_inds=(13 14 15)
+sample_inds=(7 8)
+
 runs=(1 2 3 4 5)
 
 # Loop over arguments and run each R script in the background
@@ -11,7 +12,7 @@ for s in "${sample_inds[@]}"
 do
   for arg in "${runs[@]}"
   do
-    Rscript 09_state_inference_parallel.R "$s" "$arg" &
+    Rscript 05_state_inference_parallel.R "$s" "$arg" &
   done
 done
 
@@ -22,7 +23,7 @@ for s in "${sample_inds[@]}"
 do
   for arg in "${runs2[@]}"
   do
-    Rscript 09_state_inference_parallel.R "$s" "$arg" &
+    Rscript 05_state_inference_parallel.R "$s" "$arg" &
   done
 done
 

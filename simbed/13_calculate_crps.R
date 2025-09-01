@@ -22,10 +22,11 @@ rmse <- function(estimated, true) {
 }
 
 ## 1. Read samples
-sample_ind <- c(1:2, 6:7, 10:15) # test samples to compare
-set.seed(2024)
-chosen_test_samples <- sample(1:500, 50)
-set.seed(NULL)
+sample_ind <- 1:10 #c(1:2, 6:7, 10:15) # test samples to compare
+s <- sample_ind
+# set.seed(2024)
+# chosen_test_samples <- sample(1:500, 50)
+# set.seed(NULL)
 s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
 
 years <- 20

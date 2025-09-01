@@ -90,9 +90,10 @@ print(paste("Sample index:", sample_ind, "EnKF run number:", run))
 
 ## Sample from test set and do state inference
 set.seed(2024)
-chosen_test_samples <- sample(1:500, 50)
-set.seed(NULL)
-s <- chosen_test_samples[sample_ind]
+# chosen_test_samples <- sample(1:500, 50)
+# set.seed(NULL)
+# s <- chosen_test_samples[sample_ind]
+s <- sample_ind # test sample
 
 ## Plot settings
 plot_ice_thickness <- T

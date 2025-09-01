@@ -75,11 +75,11 @@ save_points <- c(1, floor(years / 2) + 1, years + 1)
 steps_per_yr <- 52 # 100
 
 # Choose 50 samples from the test set
-set.seed(2024)
-chosen_test_samples <- sample(1:500, 50)
-set.seed(NULL)
+# set.seed(2024)
+# chosen_test_samples <- sample(1:500, 50)
+# set.seed(NULL)
 sample_ind <- as.numeric(commandArgs(trailingOnly = TRUE))# 1:15
-test_samples <- chosen_test_samples[sample_ind] # test sample
+test_samples <- sample_ind #chosen_test_samples[sample_ind] # test sample
 
 # n_params <- 1 # 20 #number of beds
 # n_bed_obs <- 100
