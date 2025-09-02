@@ -16,17 +16,18 @@ thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
   
 ## Velocity data on Thwaites glacier
-  thwaites_vel <- readRDS(paste0(data_dir, "/vel_thwaites.rds"))
-  thwaites_vel <- thwaites_vel %>% filter(!is.na(v)) # remove NA velocities
+  vel_thwaites <- readRDS(paste0(data_dir, "/vel_thwaites.rds"))
+
+  vel_thwaites <- vel_thwaites %>% filter(!is.na(v)) # remove NA velocities
   
   ## Choose a point in the middle of the glacier
   half_range_x <- min(thwaites_points$X) + 150e3 #400e3 
   half_range_y <- min(thwaites_points$Y) + 450e3 #500e3 
 
-  x_unique <- unique(thwaites_vel$x) # x-coordinates
+  x_unique <- unique(vel_thwaites$x) # x-coordinates
   delta <- x_unique[2] - x_unique[1] # grid size
 
-  midpts <- thwaites_vel %>%
+  midpts <- vel_thwaites %>%
     filter(x >= (half_range_x - delta) & x <= half_range_x + delta & 
           y >= (half_range_y - delta) & y <= (half_range_y + delta))
 
@@ -35,7 +36,7 @@ thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
 
   ## Plot data around the chosen point
   margin <- 100e3
-  near_pts <- thwaites_vel #%>% filter(x >= (chosen_pt$x - margin) & x <= (chosen_pt$x + margin) &
+  near_pts <- vel_thwaites #%>% filter(x >= (chosen_pt$x - margin) & x <= (chosen_pt$x + margin) &
     # y >= (chosen_pt$y - margin) & y <= (chosen_pt$y + margin))
 
   png(paste0("./plots/flowline_start_point.png"), width = 800, height = 800)
@@ -50,6 +51,7 @@ thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
     theme_bw()
   dev.off()
 
+browser()
 
 if (extract_flowline) {
 
@@ -64,11 +66,11 @@ if (extract_flowline) {
   # velocities <- list()
   # velocities[[1]] <- as.numeric(chosen_pt[c("v", "vx", "vy")])
 
-  while (pos[1] > (min(thwaites_vel$x) + delta) & pos[2] > (min(thwaites_vel$y) + delta)) {
+  while (pos[1] > (min(vel_thwaites$x) + delta) & pos[2] > (min(vel_thwaites$y) + delta)) {
     # for (i in 1:10) {
 
     ## need to find 4 nearest grid points around the current position
-    near_pts <- thwaites_vel %>% filter(
+    near_pts <- vel_thwaites %>% filter(
       x >= (pos[1] - delta) & x <= (pos[1] + delta),
       y >= (pos[2] - delta) & y <= (pos[2] + delta)
     )
@@ -109,7 +111,7 @@ flowline_y <- sapply(positions, function(x) x[2])
 
 gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 
-plot_flowline <- ggplot(thwaites_vel) +
+plot_flowline <- ggplot(vel_thwaites) +
     geom_point(aes(x = x, y = y, colour = log10(v))) +
     scale_colour_distiller(
       palette = "Reds", direction = 1,
@@ -182,7 +184,7 @@ if (regrid_flowline) {
    flowline_regrid <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
 }
 
-plot_flowline_rg <- ggplot(thwaites_vel) +
+plot_flowline_rg <- ggplot(vel_thwaites) +
     geom_point(aes(x = x, y = y, colour = log10(v))) +
     scale_colour_distiller(
       palette = "BuPu", direction = 1,
