@@ -3,25 +3,25 @@
 library(dplyr)
 library(sf)
 library(ggplot2)
+library(qs)
 
-extract_flowline <- T
+extract_flowline <- F
 regrid_flowline <- T
 
 ## Read (averaged) velocity data
 setwd("~/SSA_model/CNN/real_data/")
-data_dir <- "./data"
+data_dir <- "data/"
 
 basin_data <- read_sf(paste0(data_dir, "/boundaries/Basins/Basins_Antarctica_v02.shp"))
 thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
   
 ## Velocity data on Thwaites glacier
-  vel_thwaites <- readRDS(paste0(data_dir, "/vel_thwaites.rds"))
-
+  vel_thwaites <- qread(paste0(data_dir, "velocity/vel_thwaites.qs"))
   vel_thwaites <- vel_thwaites %>% filter(!is.na(v)) # remove NA velocities
   
   ## Choose a point in the middle of the glacier
-  half_range_x <- min(thwaites_points$X) + 150e3 #400e3 
+  half_range_x <- min(thwaites_points$X) + 200e3 #400e3 
   half_range_y <- min(thwaites_points$Y) + 450e3 #500e3 
 
   x_unique <- unique(vel_thwaites$x) # x-coordinates
@@ -41,7 +41,7 @@ thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
 
   png(paste0("./plots/flowline_start_point.png"), width = 800, height = 800)
   ggplot() +
-    # geom_point(aes(x = x, y = y, colour = v)) +
+    # geom_point(data = near_pts, aes(x = x, y = y, colour = v)) +
     # scale_colour_distiller(
     #   palette = "Reds", direction = 1,
     #   name = "Velocity (m/a)"
@@ -51,7 +51,6 @@ thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
     theme_bw()
   dev.off()
 
-browser()
 
 if (extract_flowline) {
 
@@ -100,16 +99,19 @@ if (extract_flowline) {
     # velocities <- c(velocities, list(near_v))
   }
 
-  saveRDS(positions, paste0(data_dir, "/flowline_positions.rds"))
+  # saveRDS(positions, paste0(data_dir, "/flowline_positions.rds"))
+  qsave(positions, paste0(data_dir, "/flowline_positions.qs"))
 } else {
-  positions <- readRDS(paste0(data_dir, "/flowline_positions.rds"))
+  # positions <- readRDS(paste0(data_dir, "/flowline_positions.rds"))
+  positions <- qread(paste0(data_dir, "/flowline_positions.qs"))
 }
 
 # positions
 flowline_x <- sapply(positions, function(x) x[1])
 flowline_y <- sapply(positions, function(x) x[2])
 
-gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+# gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+gl_thwaites <- qread(paste0(data_dir, "/gl_thwaites.qs"))
 
 plot_flowline <- ggplot(vel_thwaites) +
     geom_point(aes(x = x, y = y, colour = log10(v))) +
@@ -133,12 +135,13 @@ plot_flowline <- ggplot(vel_thwaites) +
 
 ## Re-grid
 if (regrid_flowline) {
+  print("Re-gridding flowline...")
   sq_x_diff <- (flowline_x[2:length(flowline_x)] - flowline_x[1:(length(flowline_x) - 1)])^2
   sq_y_diff <- (flowline_y[2:length(flowline_y)] - flowline_y[1:(length(flowline_y) - 1)])^2
   dist <- sqrt(sq_x_diff + sq_y_diff)
   flowline_length <- sum(dist)
 
-  J <- 2100 #2001
+  J <- 2001 #2001
   grid_size <- flowline_length/J
 
   cumul_dist <- c(0, cumsum(dist))
@@ -179,9 +182,12 @@ if (regrid_flowline) {
   ## Truncate flowline to 2001 points
   # flowline_regrid <- flowline_regrid[1:2001, ]
 
-  saveRDS(flowline_regrid, paste0(data_dir, "/flowline_regrid.rds"))
+  print("Saving re-gridded flowline...")
+  # saveRDS(flowline_regrid, paste0(data_dir, "/flowline_regrid.rds"))
+  qsave(flowline_regrid, paste0(data_dir, "/flowline_regrid.qs"))
 } else {
-   flowline_regrid <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+  #  flowline_regrid <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+    flowline_regrid <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 }
 
 plot_flowline_rg <- ggplot(vel_thwaites) +
