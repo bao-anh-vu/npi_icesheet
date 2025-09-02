@@ -8,11 +8,11 @@ setwd("/home/babv971/SSA_model/CNN/simbed/")
 sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-set.seed(2024)
-chosen_test_samples <- sample(1:500, 50) # choose 50 samples from the test set
-set.seed(NULL)
+# set.seed(2024)
+# chosen_test_samples <- sample(1:500, 50) # choose 50 samples from the test set
+# set.seed(NULL)
 
-s <- 15
+s <- 20
 Ne <- 500
 years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
@@ -48,21 +48,27 @@ velocity_concat <- list()
 
 thickness_ens <- lapply(thickness_files, qread) 
 velocity_ens <- lapply(velocity_files, qread)
+bed_ens <- lapply(bed_files, qread)
+fric_ens <- lapply(fric_files, qread)
+
+list_lengths <- lapply(thickness_ens, length) # Or sapply(my_list, length)
+non_empty_indices <- unlist(list_lengths) > 0
+thickness_ens <- thickness_ens[non_empty_indices]
+velocity_ens <- velocity_ens[non_empty_indices]
+bed_ens <- bed_ens[non_empty_indices]
+fric_ens <- fric_ens[non_empty_indices]
 
 # thickness_year <- lapply(thickness_ens, function(ens) as.matrix(ens[[1]]))
 for (p in 1:length(save_points)) {
+    
     thickness_year <- lapply(thickness_ens, function(x) as.matrix(x[[p]]))
     thickness_concat[[p]] <- abind(thickness_year, along = 2)
-
     
     velocity_year <- lapply(velocity_ens, function(x) as.matrix(x[[p]]))
     velocity_concat[[p]] <- abind(velocity_year, along = 2)
 }
 
-bed_ens <- lapply(bed_files, qread)
 bed_concat <- abind(bed_ens, along = 2)
-
-fric_ens <- lapply(fric_files, qread)
 fric_concat <- abind(fric_ens, along = 2)
 
 print("Saving output...")

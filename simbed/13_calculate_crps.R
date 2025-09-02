@@ -27,7 +27,7 @@ s <- sample_ind
 # set.seed(2024)
 # chosen_test_samples <- sample(1:500, 50)
 # set.seed(NULL)
-s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
+# s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
 
 years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
@@ -194,7 +194,8 @@ true_gl_pos <- true_gl[, years] * 1000 # Take GL position at last time point for
 true_gl_ind <- sapply(1:length(true_gl_pos), function(x) which(domain == true_gl_pos[x]))#floor(true_gl_pos / 800 * 2001) # Convert to grid index
 
 if (recalculate_crps) {
-    state_samples <- sample(dim(cnn.thickness_fin[[1]])[2], 1000) # use 1000 samples from the concatenated ensemble
+    nsamples <- sapply(cnn.thickness_fin, function(x) dim(x)[2]) # minimum number of "particles", just in case there are some EnKF runs that fail
+    state_samples <- sample(min(nsamples), 100) # use 1000 samples from the concatenated ensemble
     
     ## CRPS for the bed
     print("Calculating CRPS for CNN...")
@@ -202,25 +203,13 @@ if (recalculate_crps) {
     cnn.fric_crps <- c()
     cnn.thickness_crps <- c()
     for (r in 1:length(s)) {
+        
         cnn.bed_crps[r] <- crps_multivariate(t(cnn.bed_samples[[r]]), true_bed[r, ])
         cnn.fric_crps[r] <- crps_multivariate(t(cnn.fric_samples[[r]][1:true_gl_ind[r], ]), true_fric[r, 1:true_gl_ind[r]])
         cnn.thickness_crps[r] <- crps_multivariate(t(cnn.thickness_fin[[r]][, state_samples]), true_thicknesses_fin[r, ])
     }
 
-    # ## CRPS for the friction
-
-    # cnn.fric_crps <- c()
-
-    # for (r in 1:length(s)) {
-    # }
-
-    # ## CRPS for the state
-    # # check what the size of the ensembles are here
-    # for (r in 1:length(s)) {
-    # }
-    # # cnn.thickness_crps <- crps_multivariate(t(cnn.thickness_fin[[sample_ind]]), true_bed)
-
-    print("Calculating CRPS for EnKF-StateAug...")
+    print("Calculating CRPS for Aug EnKF...")
     enkfsa.bed_crps <- c()
     enkfsa.fric_crps <- c()
     enkfsa.thickness_crps <- c()

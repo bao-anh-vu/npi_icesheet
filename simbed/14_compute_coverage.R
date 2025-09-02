@@ -21,7 +21,7 @@ rmse <- function(estimated, true) {
 }
 
 ## 1. Read samples
-sample_ind <- 1:5 #c(1:4, 6:7, 10:15) # test samples to compare
+sample_ind <- 1:10 #c(1:4, 6:7, 10:15) # test samples to compare
 # s <- sample_ind
 # set.seed(2024)
 # chosen_test_samples <- sample(1:500, 50)
@@ -130,6 +130,19 @@ for (r in 1:length(sample_ind)) {
 
     fric_pts_within <- sum(true_fric[s, ] > cnn.fric_q[1, ] & true_fric[s, ] < cnn.fric_q[2, ]) # Check if true bed is within the credible interval
     cnn.coverage_fric[r] <- fric_pts_within / length(true_fric[r, ])
+
+    png(paste0("./plots/coverage/n-enkf/bed_s", s, "_", output_date, ".png"), width = 800, height = 600)
+    plot(cnn.bed_q[1, ], type = "l", col = "red", xlab = "Grid point", ylab = "Thickness (m)")
+    lines(cnn.bed_q[2, ], col = "red")
+    lines(true_bed[s, ])
+    dev.off()
+
+    png(paste0("./plots/coverage/n-enkf/fric_s", s, "_", output_date, ".png"), width = 800, height = 600)
+    plot(cnn.fric_q[1, ], type = "l", col = "red", ylim = c(0, 0.1),
+    xlab = "Grid point", ylab = "Friction coeff")
+    lines(cnn.fric_q[2, ], col = "red")
+    lines(true_fric[s, ])
+    dev.off()
 }
 
 ## Plot the sample prediction + credible intervals to check visually
@@ -162,7 +175,7 @@ for (r in 1:length(sample_ind)) {
     cnn.thickness_pts_within <- sum(true_thicknesses_fin[s, ] > cnn.lower & true_thicknesses_fin[s, ] < cnn.upper)
     cnn.coverage_thickness[r] <- cnn.thickness_pts_within / length(true_thicknesses_fin[s, ])
 
-    png(paste0("./plots/coverage/cvg_cnn_thickness_sample", s, "_", output_date, ".png"), width = 800, height = 600)
+    png(paste0("./plots/coverage/n-enkf/thickness_s", s, "_", output_date, ".png"), width = 800, height = 600)
     plot(cnn.upper, type = "l", col = "red", xlab = "Grid point", ylab = "Thickness (m)")
     lines(cnn.lower, col = "red")
     lines(true_thicknesses_fin[s, ])
@@ -240,19 +253,19 @@ for (r in 1:length(sample_ind)) {
     aug_enkf.coverage_fric[r] <- aug_enkf.fric_pts_within / length(true_fric[s, ])
 
     ## Plot to check
-    png(paste0("./plots/coverage/cvg_aug_enkf_thickness_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
+    png(paste0("./plots/coverage/aug_enkf/thickness_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
     plot(aug_enkf.thickness_upper, type = "l", col = "red", xlab = "Grid point", ylab = "Thickness (m)")
     lines(aug_enkf.thickness_lower, col = "red")
     lines(true_thicknesses_fin[s, ])
     dev.off()
 
-    png(paste0("./plots/coverage/cvg_aug_enkf_bed_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
+    png(paste0("./plots/coverage/aug_enkf/bed_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
     plot(aug_enkf.bed_upper, type = "l", col = "red", xlab = "Grid point", ylab = "Bed (m)")
     lines(aug_enkf.bed_lower, col = "red")
     lines(true_bed[s, ])
     dev.off()
 
-    png(paste0("./plots/coverage/cvg_aug_enkf_fric_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
+    png(paste0("./plots/coverage/aug_enkf/fric_sample", s, "_Ne", Ne, "_", output_date, ".png"), width = 800, height = 600)
     plot(aug_enkf.fric_upper, type = "l", col = "red", xlab = "Grid point", ylab = "Friction coeff")
     lines(aug_enkf.fric_lower, col = "red")
     lines(true_fric[s, ])
