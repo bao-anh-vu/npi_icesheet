@@ -37,11 +37,13 @@ sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 ## Test sample index
-set.seed(2024)
-chosen_test_samples <- sample(1:500, 50)
-set.seed(NULL)
-sample_ind <- 1 #commandArgs(trailingOnly = TRUE) # sample index
-s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
+# set.seed(2024)
+# chosen_test_samples <- sample(1:500, 50)
+# set.seed(NULL)
+# sample_ind <- 1 #commandArgs(trailingOnly = TRUE) # sample index
+# s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
+sample_ind <- as.numeric(commandArgs(trailingOnly = TRUE))
+s <- sample_ind
 
 years <- 20
 save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)

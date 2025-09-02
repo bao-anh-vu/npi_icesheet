@@ -79,10 +79,9 @@ run_enkf_missing <- function(domain, years, steps_per_yr, ini_thickness, ini_bed
     # Convert ensemble from list back to matrix
     ens_all <- matrix(unlist(ens.list), nrow = 4*J, ncol = Ne)
   
-png(paste0("./plots/temp/thickness_ens_", year, "_s10.png"))
-matplot(ens_all[1:J, ], type = "l")
-dev.off()
-
+# png(paste0("./plots/temp/thickness_ens_", year, ".png"))
+# matplot(ens_all[1:J, ], type = "l")
+# dev.off()
 
     # Save the mean velocity
     # mean_prev_velocity <- rowMeans(prev_velocity)

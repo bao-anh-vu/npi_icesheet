@@ -89,7 +89,7 @@ run <- as.numeric(args[2]) # enkf run number (1-10)
 print(paste("Sample index:", sample_ind, "EnKF run number:", run))
 
 ## Sample from test set and do state inference
-set.seed(2024)
+# set.seed(2024)
 # chosen_test_samples <- sample(1:500, 50)
 # set.seed(NULL)
 # s <- chosen_test_samples[sample_ind]
