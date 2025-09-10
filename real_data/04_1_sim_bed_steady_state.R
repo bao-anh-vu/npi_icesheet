@@ -37,8 +37,10 @@ data_date <- "20241103"
 smooth_bed <- T
 
 ## Flowline data
-flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-J <- 2001 # number of grid points
+# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
+J <- nrow(flowline)
+# J <- 2001 # number of grid points
 # flowline <- flowline[1:J, ]
 flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
 flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
@@ -51,11 +53,30 @@ bed <- bed[1:J]
 bed_sd <- bed_sd[1:J]
 
 bed_obs_df <- data.frame(ind = 1:J, loc = flowline_dist, bed_elev = bed, bed_sd = bed_sd)
-bed_avail_ind <- which(!is.na(bed))
-bed_sd_avail_ind <- which(!is.na(bed_sd))
-common_avail_ind <- intersect(bed_avail_ind, bed_sd_avail_ind)
 
+# ## Calculate bed elevation at GL based on flotation condition
+# gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
+# gl_ind <- gl_pos$ind
+
+# ## Condition at GL: bed = surface elevation / (rho_w/rho_i + 1)
+# params <- list(
+#   rho_i = 917.0, # ice density
+#   rho_w = 1028.0 # sea water density
+# )
+# surf_elev_mat <- qread(paste0(data_dir, "surface_elev/surf_elev_mat.qs"))
+# se_gl <- mean(surf_elev_mat[gl_ind, ]) # use the time-averaged surface observation at GL
+
+# bed_gl <- se_gl / (1 - params$rho_w / params$rho_i)
+# bed_obs_df$bed_elev[gl_ind] <- bed_gl
+# bed_obs_df$bed_sd[gl_ind] <- 0 
+
+# Construct bed based on observations
 ## Choose the first and last 25 observations, then randomly choose another 50 in between
+# bed_avail_ind <- which(!is.na(bed))
+# bed_sd_avail_ind <- which(!is.na(bed_sd))
+# common_avail_ind <- intersect(bed_avail_ind, bed_sd_avail_ind)
+common_avail_ind <- bed_obs_df %>% filter(!is.na(bed_elev) & !is.na(bed_sd)) %>% pull(ind)
+
 chosen_bed_ind_head <- common_avail_ind[1:25] #Choose the first 50 bed observations
 chosen_bed_ind_tail <- common_avail_ind[(length(common_avail_ind) - 24):length(common_avail_ind)] #Choose the first 50 bed observations
 chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_tail)
@@ -65,21 +86,9 @@ chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_mid, chosen_bed_ind_tail
 
 # if index is in chosen_bed_ind, then chosen = 1, else 0
 bed_obs_df$chosen <- ifelse(bed_obs_df$ind %in% chosen_bed_ind, 1, 0)
+# bed_obs_df$chosen[gl_ind] <- 1 # also choose the bed "observation" at GL
 
 qsave(bed_obs_df, file = paste0(data_dir, "/bed_obs_df.qs"))
-
-## Mark GL position
-gl_pos <- readRDS(file = paste0(data_dir, "/grounding_line/gl_pos.rds"))
-delta <- 500
-pts_near_gl <- flowline %>% filter(
-        x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
-        y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta)
-        ) %>%
-        mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) %>%
-        # arrange(dist) %>%
-        slice_min(dist, n = 1) #%>%
-
-gl_ind <- which(flowline$x == pts_near_gl$x)
 
 chosen_bed_df <- bed_obs_df %>% filter(chosen == 1) %>% na.omit()
 

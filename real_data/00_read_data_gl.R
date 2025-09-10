@@ -7,6 +7,7 @@ library(ggplot2)
 library(RColorBrewer)
 # library(lattice) 
 library(sf) # for shapefiles
+library(qs)
 # library(sfheaders)
 # library(sp)
 
@@ -141,7 +142,6 @@ dev.off()
 gl_pos <- intersect_pts[2, ]
 gl_pos <- as.numeric(gl_pos[, 1:2])
 gl_pos
-saveRDS(gl_pos, file = "./data/grounding_line/gl_pos.rds")
 
 delta <- 120 # grid size
 # flowline_dist <- sqrt((flowline$x[2:nrow(flowline)] - flowline$x[1:(nrow(flowline) - 1)])^2 +
@@ -149,9 +149,16 @@ delta <- 120 # grid size
 flowline$ind <- 1:nrow(flowline)
 gl_near_pts <- flowline %>% filter(
             x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
-            y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta)) #%>% 
-            # mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) 
+            y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta)) %>% 
+            mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) %>%
+            slice_min(dist, n = 1) 
                 
+gl_df <- data.frame(gl_x = gl_pos[1], gl_y = gl_pos[2],
+                    gl_nearest_gridpt_x = gl_near_pts$x, gl_nearest_gridpt_y = gl_near_pts$y,
+                    ind = gl_near_pts$ind) 
+
+# saveRDS(gl_pos, file = "./data/grounding_line/gl_pos.rds")
+qsave(gl_df, file = "./data/grounding_line/gl_pos.qs")
 
 # } else {
 #     gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))

@@ -14,17 +14,27 @@ library(abind)
 # library(sp)
 # library(parallel)
 
-years <- 2000:2020
+years <- 2010:2020
 data_dir <- "./data"
 
 ## Missing pattern for surface elevation data
 # year <- 2000
+flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
+J <- nrow(flowline) # number of grid points
+
 surf_elev_mat <- matrix(NA, nrow = J, ncol = length(years))
 for (i in 1:length(years)) {
     year <- years[i]
-    surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
+    # surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
+    surf_elev_data <- qread(file = paste0(data_dir, "/surface_elev/surf_elev_", year, ".qs"))
     surf_elev_mat[, i] <- unlist(surf_elev_data)[1:J]
 }
+
+## There may be some mismatch between the surface elevation data and grounding line data
+## Discard any observations that are beyond the grounding line
+gl_pos <- qread(file = paste0(data_dir, "/grounding_line/gl_pos.qs"))
+gl_ind <- gl_pos$ind
+surf_elev_mat[(gl_ind+1):nrow(surf_elev_mat), ] <- NA
 
 qsave(surf_elev_mat, "./data/surface_elev/surf_elev_mat.qs")
 

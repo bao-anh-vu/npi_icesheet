@@ -7,6 +7,7 @@ library(RColorBrewer)
 library(sp)
 library(sf)
 library(parallel)
+library(qs)
 # library(lattice)
 
 setwd("~/SSA_model/CNN/real_data/")
@@ -107,11 +108,12 @@ thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 # thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
 
 ## Grounding line data
-gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
-
+# gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+gl_thwaites <- qread(paste0(data_dir, "grounding_line/gl_thwaites.qs"))
 ## Flowline
-flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-        
+# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
+
 print("Plotting...")
 bed_plot <- bed_data %>% ggplot() + 
     geom_point(aes(x = x, y = y, colour = factor(year)), alpha = 0.5) + 
@@ -153,17 +155,20 @@ t12 <- system.time({
 })
 
 ## Mark GL position
-gl_pos <- readRDS(file = "./data/grounding_line/gl_pos.rds")
-delta_gl <- 500
-pts_near_gl <- flowline %>% filter(
-        x >= (gl_pos[1] - delta_gl) & x <= (gl_pos[1] + delta_gl),
-        y >= (gl_pos[2] - delta_gl) & y <= (gl_pos[2] + delta_gl)
-        ) %>%
-        mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) %>%
-        # arrange(dist) %>%
-        slice_min(dist, n = 1) #%>%
+# gl_pos <- readRDS(file = "./data/grounding_line/gl_pos.rds")
+gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
 
-gl_ind <- which(flowline$x == pts_near_gl$x)
+# delta_gl <- 500
+# pts_near_gl <- flowline %>% filter(
+#         x >= (gl_pos[1] - delta_gl) & x <= (gl_pos[1] + delta_gl),
+#         y >= (gl_pos[2] - delta_gl) & y <= (gl_pos[2] + delta_gl)
+#         ) %>%
+#         mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) %>%
+#         # arrange(dist) %>%
+#         slice_min(dist, n = 1) #%>%
+
+# gl_ind <- which(flowline$x == pts_near_gl$x)
+gl_ind <- gl_pos$ind
 
 bed_elev_nearest <- sapply(bed_elev, function(x) x$bed_nearest)
 # saveRDS(bed_elev_nearest, file = "./data/bed_elev_nearest.rds")

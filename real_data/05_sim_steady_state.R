@@ -1,17 +1,17 @@
 setwd("~/SSA_model/CNN/real_data/")
 
+library(qs)
 library(dplyr)
-library(ggplot2)
 library(fields)
 library(Matrix)
+library(matrixStats)
+library(R.utils)
+library(mvtnorm)
+library(ggplot2)
 # library("qlcMatrix")
 # library("fastmatrix")
 # library("expm")
-library(R.utils)
 # library("sp")
-library(matrixStats) # for the rowMaxs() function
-library(mvtnorm)
-library(qs)
 # library(sf)
 
 source("./source/create_params.R")
@@ -20,6 +20,7 @@ source("./source/solve_ssa_nl_relax.R")
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
 source("./source/surface_elev.R")
+source("./source/simulate_friction.R")
 # source("./source/fit_basis.R")
 
 rerun_steady_state <- T
@@ -39,7 +40,8 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 1.5 * 1e6 * params$secpera^params$m
+params$B <- 1.4 * 1e6 * params$secpera^params$m
+params$A <- params$B^(-params$n)
 
 ## Flowline data
 # flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
@@ -56,13 +58,18 @@ bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"
 print("Simulating friction coefficient...")
 
 ## Simulate friction coefficient
-# secpera <- 31556926 #seconds per annum
-# n <- 3.0 # exponent in Glen's flow law
-# m <- 1/n # friction exponent
+# fric.sill <- 8e-5
+# fric.nugget <- 0
+# fric.range <- 10e3
+
+# fric_sim <- simulate_friction2(
+#     nsim = 1, domain = flowline_dist,
+#     sill = fric.sill, nugget = fric.nugget,
+#     range = fric.range
+# ) 
 L <- flowline_dist[J] - flowline_dist[1]
 fric_sim <- create_fric_coef(flowline_dist, L) * 1e6 * (params$secpera)^params$m
-# fric_val <- seq(0.025, 0.015, length.out = J) #* 1e6 * (params$secpera)^params$m
-# fric_val <- rep(0.025, J)
+# fric_val <- seq(0.01, 0.02, length.out = J) #* 1e6 * (params$secpera)^params$m
 # fric_sim <- fric_val * 1e6 * (params$secpera)^params$m
 
 png(file = paste0("./plots/steady_state/friction_coef_", data_date, ".png"), width = 800, height = 600)
@@ -152,8 +159,27 @@ if (rerun_steady_state) {
     steady_state <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
 }
 
-## Then start ``thinning'' the ice by using present-day average melt rate
-## Basal melt data (only available on shelves???)
+png(file = paste0("./plots/steady_state/steady_state_", data_date, ".png"), width = 800, height = 600)
+
+par(mfrow = c(2,1))
+matplot(flowline_dist/1000, steady_state$current_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
+    xlab = "Distance along flowline (km)", ylab = "Elevation (m)", main = paste0("Relaxation year ", relax_years))
+matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
+# lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
+legend("topright", legend = c(paste0("Simulated (", relax_years, "years post-steady)"), "Observed"), 
+    col = c("grey", "red"), lty = 1, bty = "n")
+
+matplot(flowline_dist/1000, steady_state$current_velocity, type = "l", col = "grey", ylim = c(0, 4000),
+    xlab = "Distance along flowline (km)", ylab = "Velocity (m/a)")
+matlines(flowline_dist/1000, vel_mat, col = "red", lty = 1)
+# lines(flowline_dist/1000, steady_state$current_velocity, col = "salmon")
+# lines(flowline_dist/1000, relaxation$current_velocity, col = "red")
+legend("topleft", legend = c("Simulated (20 year post-steady)", "Observed"), 
+    col = c("grey", "red"), lty = 1, bty = "n")
+dev.off()
+
+# ## Then start ``thinning'' the ice by using present-day average melt rate
+# ## Basal melt data (only available on shelves???)
 # if (use_basal_melt_data) {
 #   melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
 #   # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
@@ -162,73 +188,77 @@ if (rerun_steady_state) {
 #   avg_melt_rate[1:(melt_nonmissing[1]-1)] <- -1 #seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
 #   avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) #mean(avg_melt_rate[melt_nonmissing])
 #   avg_melt_rate <- - avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
-
 # } else {
 #   avg_melt_rate <- rep(0, J)
 # }
 # params$ab <- avg_melt_rate # melt rate (m/s)
 
-### Also reduce ice rigidity
-# params$B <- 1.3 * 1e6 * params$secpera^params$m
+# ## Plot average melt rate
+# png(file = paste0("./plots/steady_state/avg_melt_rate_", data_date, ".png"), width = 800, height = 600)
+# plot(flowline_dist/1000, params$ab, type = "l", 
+#     xlab = "Distance along flowline (km)", ylab = "Basal melt rate (m/a)")
+# abline(v = flowline_dist[length(se_grounded)]/1000, lty = 2, col = "red")
+# dev.off()
 
-### For this part I also add process noise
-### Process noise parameters (for ice thickness)
-exp_cov <- function(d, l) {
-  return(exp(-3 * d / l))
-}
+# ### Also reduce ice rigidity
+# params$B <- 1.2 * 1e6 * params$secpera^params$m
 
-ones <- rep(1, length(flowline_dist))
-D <- rdist(flowline_dist)
-l <- 50e3
-R <- exp_cov(D, l)
+# ### For this part I also add process noise
+# ### Process noise parameters (for ice thickness)
+# exp_cov <- function(d, l) {
+#   return(exp(-3 * d / l))
+# }
 
-# R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
-L <- t(chol(R))
-L <- as(L, "dgCMatrix")
-process_noise_info <- list(corrmat_chol = L, length_scale = l)
+# ones <- rep(1, length(flowline_dist))
+# D <- rdist(flowline_dist)
+# l <- 50e3
+# R <- exp_cov(D, l)
 
+# # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
+# L <- t(chol(R))
+# L <- as(L, "dgCMatrix")
+# process_noise_info <- list(corrmat_chol = L, length_scale = l)
 
-cat("Relaxing model for ", relax_years, "years post-steady state...")
+# relax_years <- 10
+# cat("Running model for ", relax_years, "years post-steady state...")
 
-relaxation <- solve_ssa_nl(domain = flowline_dist, 
-                            bedrock = bed_sim, 
-                            friction_coef = fric_sim, 
-                            phys_params = params,
-                            # tol = 1e-03, 
-                            years = relax_years, #500,
-                            steps_per_yr = 100, 
-                            add_process_noise = F,
-                            process_noise_info = process_noise_info,
-                            ini_thickness = steady_state$current_thickness,
-                            ini_velocity = steady_state$current_velocity,
-                            use_relaxation = T,
-                            observed_thickness = H_ini_all
-                            # relax_rate = relax_rate
-                        )
+# relaxation <- solve_ssa_nl(domain = flowline_dist, 
+#                             bedrock = bed_sim, 
+#                             friction_coef = fric_sim, 
+#                             phys_params = params,
+#                             # tol = 1e-03, 
+#                             years = relax_years, #500,
+#                             steps_per_yr = 100, 
+#                             add_process_noise = F,
+#                             process_noise_info = process_noise_info,
+#                             ini_thickness = steady_state$current_thickness,
+#                             ini_velocity = steady_state$current_velocity#,
+#                             # use_relaxation = T,
+#                             # observed_thickness = H_ini_all
+#                             # relax_rate = relax_rate
+#                         )
 
-qsave(relaxation, file = paste0(data_dir, "training_data/steady_state/steady_state_relax_", data_date, ".qs"))
+# qsave(relaxation, file = paste0(data_dir, "training_data/steady_state/steady_state_relax_", data_date, ".qs"))
 
-png(file = paste0("./plots/steady_state/relaxation_", data_date, ".png"), width = 800, height = 600)
+# png(file = paste0("./plots/steady_state/relaxation_", data_date, ".png"), width = 800, height = 600)
 
-par(mfrow = c(2,1))
-matplot(flowline_dist/1000, relaxation$all_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
-    xlab = "Distance along flowline (km)", ylab = "Elevation (m)", main = paste0("Relaxation year ", relax_years))
-matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
-lines(flowline_dist/1000, steady_state$current_top_surface, col = "salmon")
-# lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
-legend("topright", legend = c(paste0("Simulated (", relax_years, "years post-steady)"), "Observed"), 
-    col = c("grey", "red"), lty = 1, bty = "n")
+# par(mfrow = c(2,1))
+# matplot(flowline_dist/1000, relaxation$all_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
+#     xlab = "Distance along flowline (km)", ylab = "Elevation (m)", main = paste0("Relaxation year ", relax_years))
+# matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
+# lines(flowline_dist/1000, steady_state$current_top_surface, col = "salmon")
+# # lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
+# legend("topright", legend = c(paste0("Simulated (", relax_years, "years post-steady)"), "Observed"), 
+#     col = c("grey", "red"), lty = 1, bty = "n")
 
-matplot(flowline_dist/1000, relaxation$all_velocities, type = "l", col = "grey", ylim = c(0, 4000),
-    xlab = "Distance along flowline (km)", ylab = "Velocity (m/a)")
-matlines(flowline_dist/1000, vel_mat, col = "red", lty = 1)
-lines(flowline_dist/1000, steady_state$current_velocity, col = "salmon")
-# lines(flowline_dist/1000, relaxation$current_velocity, col = "red")
-legend("topleft", legend = c("Simulated (20 year post-steady)", "Present-day"), 
-    col = c("grey", "red"), lty = 1, bty = "n")
-dev.off()
-
-
+# matplot(flowline_dist/1000, relaxation$all_velocities, type = "l", col = "grey", ylim = c(0, 4000),
+#     xlab = "Distance along flowline (km)", ylab = "Velocity (m/a)")
+# matlines(flowline_dist/1000, vel_mat, col = "red", lty = 1)
+# lines(flowline_dist/1000, steady_state$current_velocity, col = "salmon")
+# # lines(flowline_dist/1000, relaxation$current_velocity, col = "red")
+# legend("topleft", legend = c("Simulated (20 year post-steady)", "Observed"), 
+#     col = c("grey", "red"), lty = 1, bty = "n")
+# dev.off()
 
 
 

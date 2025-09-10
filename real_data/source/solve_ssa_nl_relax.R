@@ -73,9 +73,10 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          fixed_H0 = FALSE, fixed_u0 = TRUE,
                         #  variable_bed = TRUE, random_bed = TRUE,
                          add_process_noise = FALSE,
-                         process_noise_info = NULL
-                        #  use_relaxation = FALSE,
-                        #  relax_rate = 0,
+                         process_noise_info = NULL,
+                         use_relaxation = FALSE,
+                         observed_thickness = NULL,
+                         relax_rate = 0
                         #  basal_melt = 0, smb = 0.5
                          ) {
 
@@ -95,8 +96,6 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   
   Mg <- as - ab # surface mass balance
   z0 <- 0 # ocean surface elevation
-
-
 
   # ## Define physical parameters
   # secpera <- 31556926 #seconds per annum
@@ -225,22 +224,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   u_mat[, 1] <- as.vector(u_ini)
   H_mat[, 1] <- as.vector(H_ini)
-  zs_mat[, 1] <- get_surface_elev(H_ini, b)
-
-
-GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
-z_b_0 <- zs_mat[, 1] - H_curr
-png("./plots/steady_state/z_curr0.png")
-par(mfrow = c(2, 1))
-
-plot(x/1000, zs_mat[,1], ylim = c(-2000, 2000), type = "l")
-lines(x/1000, z_b_0, col = "black")
-lines(x/1000, b, col = "grey")
-abline(h = 0, col = "turquoise", lty = 2)
-abline(v = x[GL]/1000, col = "red", lty = 2)
-
-plot(u_curr, type = "l")
-dev.off()
+  zs_mat[, 1] <- get_surface_elev(H = H_ini, b = b, rho = rho, rho_w = rho_w)
 
   ## Years to save output
   obs_ind <- seq(0, years * steps_per_yr, steps_per_yr) # measure_freq = # times to measure per year
@@ -255,8 +239,6 @@ dev.off()
       GL <- gl_migrate(H_curr, b, z0, rho, rho_w)
       # GL_position <- c(GL_position, GL) #/ J * L / 1000
       
-      # cat("GL position: ", GL / J * L / 1000,  "\t")
-      
       if (GL <= 1) {
         cat("Ice sheet is no longer grounded. \n")
         break
@@ -264,26 +246,42 @@ dev.off()
     }
     
     ## Plot ice geometry every 100 years
-    if (i %% (steps_per_yr * 100) == 0) {
+    if (i == 1 | i %% (steps_per_yr * 10) == 0) {
+    # if (i == 1 | i %% 100 == 0) {
+      
       cat("Year: ", i/steps_per_yr, "\t")
       
       z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
       z_b_curr <- z_curr - H_curr
-      png(paste0("./plots/steady_state/z_curr", ceiling(i / steps_per_yr), ".png"))
+
+cat("GL position: ", GL / J * L / 1000,  "\t")
+      
+if (use_relaxation) {
+  plot_name <- "z_curr_relax"
+} else {
+  plot_name <- "z_curr"
+}
+
+      png(paste0("./plots/steady_state/", plot_name, ceiling(i / steps_per_yr), ".png"))
+      # png(paste0("./plots/steady_state/z_curr", i, ".png"))
       
       par(mfrow = c(2, 1))
       
-      plot(x/1000, z_curr, type = "l", ylim = c(-500, 2000), 
+      plot(x/1000, z_curr, type = "l", ylim = c(-2000, 2000), 
             xlab = "Domain (km)", ylab = "Elevation (m)", main = paste("Year", ceiling(i / steps_per_yr)))
       lines(x/1000, z_b_curr, col = "black")
-      # lines(x/1000, zs_mat[, 1], col = "salmon") # initial ice geometry
+      lines(x/1000, zs_mat[, 1], col = "salmon") # initial ice geometry
       abline(v = x[GL]/1000, col = "black", lty = 2)
-      # abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2) # initial GL
+      abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2) # initial GL
       abline(h = 0, col = "turquoise", lty = 2)
       lines(x/1000, b, col = "grey")
 
       # png(paste0("./plots/steady_state/u_curr", ceiling(i / steps_per_yr), ".png"))
       plot(x/1000, u_curr, type = "l", xlab = "Domain (km)", ylab = "Velocity (m/yr)")
+      lines(x/1000, u_mat[, 1], col = "salmon") # initial velocity
+      abline(v = x[GL]/1000, col = "black", lty = 2)
+      abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2) # initial GL
+      legend("bottomright", legend = c("Current", "Initial"), col = c("black", "salmon"), lty = 1)
       dev.off()
 
     }
@@ -291,10 +289,16 @@ dev.off()
     # Now use this velocity to solve the mass balance equation
     if (evolve_thickness) {
 
+      if (use_relaxation) {
+        # relax_years <- 200 #00
+        tau <- 50 # relaxation timescale in years
+        relax_rate <- (observed_thickness - H_curr) / tau # m/yr
+      }
+
       H_new <- solve_thickness(u_curr, H_curr, x, b, steps_per_yr = steps_per_yr,
                                 # use_relaxation = use_relaxation, 
                                 # relax_thickness = H_ini, 
-                                # relax_rate = dS_dt,
+                                relax_rate = relax_rate,
                                 as = as, ab = ab)
 
       if (add_process_noise && i %in% obs_ind) {
@@ -307,9 +311,11 @@ dev.off()
       }
       
       H_diff <- max(abs(H_new - H_curr))
+
+      # browser()
       # cat("Iter", i, ": ")
       # if (i %% 1000 == 0) {
-      #   cat("Change in H (m): ", H_diff, "\n")
+        # cat("Change in H (m): ", H_diff, "\n")
       # }
       
       H_curr <- H_new
@@ -327,7 +333,10 @@ dev.off()
       # Set new velocity to current velocity
       u_curr <- u_new
 
+# browser()
+
     }
+    
     
     ## Store surface velocity, ice thickness and surface elevation
     if (i %in% obs_ind) {

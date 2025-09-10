@@ -16,8 +16,10 @@ data_dir <- "./data/"
 
 smb_thwaites <- qread(file = paste0(data_dir, "/SMB/smb_shelf_thwaites.qs"))
 
-flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
 # flowline <- na.omit(flowline)
+
+flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
 avg_nearest_four <- function(df, pos, grid_size) {
@@ -52,7 +54,7 @@ for (col in 3:ncol(smb_thwaites)) {
     colnames(smb_df) <- c("x", "y", "val")
 
     ## Map SMB data to flowline
-    smb_mapped <- lapply(flowline_pos, avg_nearest_four, 
+    smb_mapped <- mclapply(flowline_pos, avg_nearest_four, 
                         df = smb_df, grid_size = 1920, mc.cores = 10L)
 
     # smb_nearest <- sapply(smb_mapped, function(x) x$v_nearest)

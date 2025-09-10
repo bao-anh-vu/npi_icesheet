@@ -1,0 +1,151 @@
+loess                  package:stats                   R Documentation
+
+_L_o_c_a_l _P_o_l_y_n_o_m_i_a_l _R_e_g_r_e_s_s_i_o_n _F_i_t_t_i_n_g
+
+_D_e_s_c_r_i_p_t_i_o_n:
+
+     Fit a locally polynomial surface determined by one or more
+     numerical predictors, using local fitting.
+
+_U_s_a_g_e:
+
+     loess(formula, data, weights, subset, na.action, model = FALSE,
+           span = 0.75, enp.target, degree = 2,
+           parametric = FALSE, drop.square = FALSE, normalize = TRUE,
+           family = c("gaussian", "symmetric"),
+           method = c("loess", "model.frame"),
+           control = loess.control(...), ...)
+     
+_A_r_g_u_m_e_n_t_s:
+
+ formula: a formula specifying the numeric response and one to four
+          numeric predictors (best specified via an interaction, but
+          can also be specified additively).  Will be coerced to a
+          formula if necessary.
+
+    data: an optional data frame, list or environment (or object
+          coercible by ‘as.data.frame’ to a data frame) containing the
+          variables in the model.  If not found in ‘data’, the
+          variables are taken from ‘environment(formula)’, typically
+          the environment from which ‘loess’ is called.
+
+ weights: optional weights for each case.
+
+  subset: an optional specification of a subset of the data to be used.
+
+na.action: the action to be taken with missing values in the response
+          or predictors.  The default is given by
+          ‘getOption("na.action")’.
+
+   model: should the model frame be returned?
+
+    span: the parameter alpha which controls the degree of smoothing.
+
+enp.target: an alternative way to specify ‘span’, as the approximate
+          equivalent number of parameters to be used.
+
+  degree: the degree of the polynomials to be used, normally 1 or 2.
+          (Degree 0 is also allowed, but see the ‘Note’.)
+
+parametric: should any terms be fitted globally rather than locally?
+          Terms can be specified by name, number or as a logical vector
+          of the same length as the number of predictors.
+
+drop.square: for fits with more than one predictor and ‘degree = 2’,
+          should the quadratic term be dropped for particular
+          predictors?  Terms are specified in the same way as for
+          ‘parametric’.
+
+normalize: should the predictors be normalized to a common scale if
+          there is more than one?  The normalization used is to set the
+          10% trimmed standard deviation to one.  Set to false for
+          spatial coordinate predictors and others known to be on a
+          common scale.
+
+  family: if ‘"gaussian"’ fitting is by least-squares, and if
+          ‘"symmetric"’ a re-descending M estimator is used with
+          Tukey's biweight function.  Can be abbreviated.
+
+  method: fit the model or just extract the model frame.  Can be
+          abbreviated.
+
+ control: control parameters: see ‘loess.control’.
+
+     ...: control parameters can also be supplied directly (_if_
+          ‘control’ is not specified).
+
+_D_e_t_a_i_l_s:
+
+     Fitting is done locally.  That is, for the fit at point x, the fit
+     is made using points in a neighbourhood of x, weighted by their
+     distance from x (with differences in ‘parametric’ variables being
+     ignored when computing the distance).  The size of the
+     neighbourhood is controlled by alpha (set by ‘span’ or
+     ‘enp.target’).  For alpha < 1, the neighbourhood includes
+     proportion alpha of the points, and these have tricubic weighting
+     (proportional to (1 - (dist/maxdist)^3)^3).  For alpha > 1, all
+     points are used, with the ‘maximum distance’ assumed to be
+     alpha^(1/p) times the actual maximum distance for p explanatory
+     variables.
+
+     For the default family, fitting is by (weighted) least squares.
+     For ‘family="symmetric"’ a few iterations of an M-estimation
+     procedure with Tukey's biweight are used.  Be aware that as the
+     initial value is the least-squares fit, this need not be a very
+     resistant fit.
+
+     It can be important to tune the control list to achieve acceptable
+     speed.  See ‘loess.control’ for details.
+
+_V_a_l_u_e:
+
+     An object of class ‘"loess"’, with ‘print()’, ‘summary()’,
+     ‘predict’ and ‘anova’ methods.
+
+_N_o_t_e:
+
+     As this is based on ‘cloess’, it is similar to but not identical
+     to the ‘loess’ function of S.  In particular, conditioning is not
+     implemented.
+
+     The memory usage of this implementation of ‘loess’ is roughly
+     quadratic in the number of points, with 1000 points taking about
+     10Mb.
+
+     ‘degree = 0’, local constant fitting, is allowed in this
+     implementation but not documented in the reference.  It seems very
+     little tested, so use with caution.
+
+_A_u_t_h_o_r(_s):
+
+     B. D. Ripley, based on the ‘cloess’ package of Cleveland, Grosse
+     and Shyu.
+
+_S_o_u_r_c_e:
+
+     The 1998 version of ‘cloess’ package of Cleveland, Grosse and
+     Shyu.  A later version is available as ‘dloess’ at
+     <https://netlib.org/a/>.
+
+_R_e_f_e_r_e_n_c_e_s:
+
+     W. S. Cleveland, E. Grosse and W. M. Shyu (1992) Local regression
+     models. Chapter 8 of _Statistical Models in S_ eds J.M. Chambers
+     and T.J. Hastie, Wadsworth & Brooks/Cole.
+
+_S_e_e _A_l_s_o:
+
+     ‘loess.control’, ‘predict.loess’.
+
+     ‘lowess’, the ancestor of ‘loess’ (with different defaults!).
+
+_E_x_a_m_p_l_e_s:
+
+     cars.lo <- loess(dist ~ speed, cars)
+     predict(cars.lo, data.frame(speed = seq(5, 30, 1)), se = TRUE)
+     # to allow extrapolation
+     cars.lo2 <- loess(dist ~ speed, cars,
+                       control = loess.control(surface = "direct"))
+     predict(cars.lo2, data.frame(speed = seq(5, 30, 1)), se = TRUE)
+     
+

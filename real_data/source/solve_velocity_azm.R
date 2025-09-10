@@ -26,10 +26,9 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
   u <- prev_velocity
   H <- thickness
    
-  u0 <- velocity_bc
-  
   ## Convert input velocity into m/s
   u <- u / secpera
+  u0 <- u[1] #velocity_bc
   
   ## Domain
   x <- domain

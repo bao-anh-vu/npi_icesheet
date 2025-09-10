@@ -91,7 +91,7 @@ simulate_friction2 <- function(nsim, domain, sill = 8e-5, nugget = 0, range = 2.
   
   ## Unconditional simulation of the basal friction coefficient
   Lmat <- t(chol(fric.sigma))
-  fric.mu <- 0.020 #* 1e6 * (secpera)^m
+  fric.mu <- 0.025 #* 1e6 * (secpera)^m
   
   C_sims <- matrix(0, nrow = length(x), ncol = nsim)
   for (k in 1:nsim) { #vectorise!!!

@@ -28,7 +28,7 @@ sim_params <- function(nsims, domain, bed_obs) {
     ## Simulate beds
     print("Simulating beds...")
     
-    bed_sim_output <- simulate_bed(N, domain = domain, 
+    bed_sim_output <- simulate_bed(nsims, domain = domain, 
                             obs_locations = bed_obs$ind, 
                             obs = bed_obs$bed_elev, 
                             sill = 1000, nugget = 0) 

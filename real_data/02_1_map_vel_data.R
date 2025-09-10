@@ -10,6 +10,7 @@ library(sf) # for shapefiles
 # library(sfheaders)
 library(sp)
 library(parallel)
+library(qs)
 
 # library(raster)
 
@@ -18,19 +19,22 @@ setwd("~/SSA_model/CNN/real_data/")
 reread_data <- F
 remap_vel <- T
 
-data_dir <- "./data"
+data_dir <- "./data/"
 
 ## Basin shapefile
 # unzip("./boundaries/Basins_Antarctica_v02.zip", junkpaths = FALSE)
-basin_data <- read_sf(paste0(data_dir, "/boundaries/Basins/Basins_Antarctica_v02.shp"))
+basin_data <- read_sf(paste0(data_dir, "boundaries/Basins/Basins_Antarctica_v02.shp"))
 thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 
 ## Grounding line data
-gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+# gl_thwaites <- readRDS(paste0(data_dir, "gl_thwaites.rds"))
+gl_thwaites <- qread(paste0(data_dir, "grounding_line/gl_thwaites.qs"))
+
 # ggplot(thwaites_bound) +
 #   geom_sf(color = "black", fill = NA) +
 #   theme_bw()
-years <- 2000:2020
+
+years <- 2011:2020
 
 vel_data <- list()
 for (year in years) {
@@ -39,7 +43,7 @@ for (year in years) {
     cat("Mapping velocity data for year", year, "\n")
 
         ## Velocity data
-        vel_data <- nc_open(paste0(data_dir, "/velocity/ITS_LIVE_velocity_120m_RGI19A_", year, "_v02.nc"))
+        vel_data <- nc_open(paste0(data_dir, "velocity/ITS_LIVE_velocity_120m_RGI19A_", year, "_v02.nc"))
 
 
         # flowline_x <- sapply(flowline, function(x) x[1])
@@ -76,9 +80,11 @@ for (year in years) {
 
         ## Try filtering grid points in v with coordinates in x_thwaites and y_thwaites
         thwaites_vel <- grid %>% filter(x %in% x_thwaites & y %in% y_thwaites)
-        saveRDS(thwaites_vel, file = paste0(data_dir, "/velocity/vel_thwaites_", year, ".rds"))
+        # saveRDS(thwaites_vel, file = paste0(data_dir, "velocity/vel_thwaites_", year, ".rds"))
+        qsave(thwaites_vel, file = paste0(data_dir, "velocity/vel_thwaites_", year, ".qs"))
     } else {
-        thwaites_vel <- readRDS(paste0(data_dir, "/velocity/vel_thwaites_", year, ".rds"))
+        # thwaites_vel <- readRDS(paste0(data_dir, "velocity/vel_thwaites_", year, ".rds"))
+        thwaites_vel <- qread(paste0(data_dir, "velocity/vel_thwaites_", year, ".qs"))
     }
 
     if (remap_vel) {
@@ -105,8 +111,9 @@ for (year in years) {
 
 
         delta <- 120 # grid size
-        flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-        
+        # flowline <- readRDS(paste0(data_dir, "flowline_regrid.rds"))
+        flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
+
         flowline <- na.omit(flowline)
         flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
         t12 <- system.time({
@@ -118,31 +125,24 @@ for (year in years) {
         flowline$vel_nearest <- velocities_nearest
         flowline$vel_avg <- velocities_avg
 
-        saveRDS(flowline, file = paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
+        # saveRDS(flowline, file = paste0(data_dir, "velocity/flowline_vel_mapped_", year, ".rds"))
+        qsave(flowline, file = paste0(data_dir, "velocity/flowline_vel_mapped_", year, ".qs"))
     } else {
-        flowline <- readRDS(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
+        # flowline <- readRDS(paste0(data_dir, "velocity/flowline_vel_mapped_", year, ".rds"))
+        flowline <- qread(paste0(data_dir, "velocity/flowline_vel_mapped_", year, ".qs"))
         vel_data[[year]] <- flowline
     }
 
     ## Plot velocity along flowline
-    gl_pos <- readRDS(paste0(data_dir, "/grounding_line/gl_pos.rds"))
-
-    delta <- 120 # grid size
-    # flowline_dist <- sqrt((flowline$x[2:nrow(flowline)] - flowline$x[1:(nrow(flowline) - 1)])^2 +
-    #     (flowline$y[2:nrow(flowline)] - flowline$y[1:(nrow(flowline) - 1)])^2)
-    flowline$ind <- 1:nrow(flowline)
-    gl_near_pts <- flowline %>% filter(
-                x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
-                y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta)) #%>% 
-                # mutate(dist = sqrt((x - gl_pos[1])^2 + (y - gl_pos[2])^2)) 
-                
+    # gl_pos <- readRDS(paste0(data_dir, "grounding_line/gl_pos.rds"))
+    gl_pos <- qread(paste0(data_dir, "grounding_line/gl_pos.qs"))
 
     png(paste0("./plots/velocity/vel_flowline_1d_", year, ".png"), width = 800, height = 500)
     # plot(flowline$vel_nearest, type = "l")
     plot(1:nrow(flowline), flowline$vel_avg, type = "l", 
     main = paste0("Velocity for ", year), 
     xlab = "Point along flowline", ylab = "Velocity (m/a)")
-    abline(v = gl_near_pts$ind, col = "salmon", lty = 2, lwd = 2)
+    abline(v = gl_pos$ind, col = "salmon", lty = 2, lwd = 2)
     dev.off()
 
     tail_len <- 500

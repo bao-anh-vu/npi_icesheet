@@ -14,17 +14,18 @@ library(abind)
 # library(sp)
 # library(parallel)
 
-years <- 2000:2020
+years <- 2010:2020
 data_dir <- "./data"
 velocities <- list()
 recombine_data <- T
 
-flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-
+# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 if (recombine_data) {
     for (i in 1:length(years)) {
         year <- years[i]
-        velocity_i <- readRDS(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
+        # velocity_i <- readRDS(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
+        velocity_i <- qread(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".qs"))
         velocity_i$year <- year
         velocity_i$gridpt <- 1:nrow(velocity_i)
         velocities[[i]] <- velocity_i
@@ -111,13 +112,15 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 ## Median polishing
 vel_smoothed <- matrix(NA, nrow = J, ncol = length(years))
 
-gl_pos <- readRDS(paste0(data_dir, "/grounding_line/gl_pos.rds")) ## grounding line position
-delta <- 120 # grid size
-flowline$ind <- 1:nrow(flowline)
-gl_near_pts <- flowline %>% filter(
-                x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
-                y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta))
-gl_ind <- gl_near_pts$ind
+# gl_pos <- readRDS(paste0(data_dir, "/grounding_line/gl_pos.rds")) ## grounding line position
+gl_pos <- qread(paste0(data_dir, "/grounding_line/gl_pos.qs")) ## grounding line position
+gl_ind <- gl_pos$ind
+# delta <- 120 # grid size
+# flowline$ind <- 1:nrow(flowline)
+# gl_near_pts <- flowline %>% filter(
+#                 x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
+#                 y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta))
+# gl_ind <- gl_near_pts$ind
 
 ## If before GL, use 20 intervals; if after GL, use 50 intervals
 # n_intervals <- 20

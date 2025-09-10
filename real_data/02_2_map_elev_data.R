@@ -10,6 +10,7 @@ library(sf) # for shapefiles
 # library(sfheaders)
 library(sp)
 library(parallel)
+library(qs)
 
 # library(raster)
 
@@ -26,9 +27,11 @@ basin_data <- read_sf(paste0(data_dir, "/boundaries/Basins/Basins_Antarctica_v02
 thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 
 ## Grounding line data
-gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+# gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+gl_thwaites <- qread(paste0(data_dir, "/grounding_line/gl_thwaites.qs"))
 
-surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/height_thwaites.rds"))
+# surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/height_thwaites.rds"))
+surf_elev_data <- qread(file = paste0(data_dir, "/surface_elev/height_thwaites.qs"))
 
 ## Map surface elevation data to flowline
 
@@ -50,7 +53,7 @@ avg_nearest_four <- function(pos, values) {
     return(near_height)
 }
 
-years <- 2000:2020
+years <- 2010:2020
 # test <- surf_elev_data %>% select(x, y, height2013, height2020) %>% 
 #         mutate(height_diff = height2020 - height2013) 
 
@@ -59,10 +62,11 @@ for (year in years) {
     cat("Mapping surface elevation data to flowline for", year, "\n")
 
     delta <- 1920 # grid size
-    flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+    # flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+    flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
     flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
-    gl <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+    # gl <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 
     annual_surf_elev <- surf_elev_data %>% select(x, y, all_of(var))
 
@@ -71,7 +75,7 @@ for (year in years) {
                         scale_colour_distiller(palette = "Blues", direction = 1, 
                                     name = "Height (m)") + 
                         geom_sf(data = thwaites_bound, color = "black", fill = NA) +
-                        geom_point(data = gl, mapping = aes(x = X, y = Y), color = "salmon", size = 0.05) +
+                        geom_point(data = gl_thwaites, mapping = aes(x = X, y = Y), color = "salmon", size = 0.05) +
                         geom_point(data = flowline, mapping = aes(x = x, y = y), color = "black", size = 0.1) + 
                         theme_bw()
 
@@ -87,7 +91,8 @@ for (year in years) {
     plot(unlist(surf_elev), type = "l")
     dev.off()
 
-    saveRDS(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
+    # saveRDS(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
+    qsave(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".qs"))
 }
 
 
