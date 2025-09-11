@@ -35,14 +35,13 @@ source("./source/fit_basis.R")
 source("./source/surface_elev.R")
 source("./source/create_params.R")
 # source("./source/create_ref.R")
-source("./source/solve_ssa_nl.R")
+source("./source/solve_ssa_nl_relax.R")
 source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
 source("./source/get_surface_obs.R")
 source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
-
 
 ## Some flags
 regenerate_sims <- T
@@ -58,11 +57,25 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111" #"20241103" 
 N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 11:50 #10 #:10
+sets <- 1:10 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 warmup <- 0
-years <- 20 + warmup
-nbasis <- 60 
+years <- 10 + warmup
+nbasis <- 100 
+
+## Physical params
+params <- list(
+  secpera = 31556926, # seconds per annum
+  n = 3.0, # exponent in Glen's flow law
+  rho_i = 917.0, # ice density
+  rho_w = 1028.0, # sea water density
+  g = 9.81 # gravity constant
+  # A = 4.227e-25, #1.4579e-25, # flow rate parameter
+)
+
+params$m <- 1 / params$n
+params$B <- 1.4 * 1e6 * params$secpera^params$m
+params$A <- params$B^(-params$n)
 
 # 0. Load ice sheet at steady state
 ssa_steady <- qread(file = paste0(train_data_dir, "/steady_state/steady_state_", data_date, ".qs"))
@@ -76,28 +89,28 @@ surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
 
 ## Scaling units for friction coefficients
-secpera <- 31556926
-fric_scale <- 1e6 * secpera^(1 / 3)
+fric_scale <- 1e6 * params$secpera^(1 / params$n)
 
 ## SMB data
 smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
 smb_avg <- colMeans(smb_data_racmo, na.rm = T)
+params$as <- smb_avg # surface accumulation rate (m/s)
 
-## Basal melt data (only available on shelves???)
-if (use_basal_melt_data) {
-  melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
-  # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
-  avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
-  melt_nonmissing <- which(!is.na(avg_melt_rate))
-  avg_melt_rate[1:(melt_nonmissing[1]-1)] <- -2 #seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
-  avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) #mean(avg_melt_rate[melt_nonmissing])
-  avg_melt_rate <- - avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
+# ## Basal melt data (only available on shelves???)
+# if (use_basal_melt_data) {
+#   melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
+#   # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
+#   avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
+#   melt_nonmissing <- which(!is.na(avg_melt_rate))
+#   avg_melt_rate[1:(melt_nonmissing[1]-1)] <- -2 #seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
+#   avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) #mean(avg_melt_rate[melt_nonmissing])
+#   avg_melt_rate <- - avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
 
-} else {
-  avg_melt_rate <- rep(1, length(domain))
-}
-
-browser()
+# } else {
+#   avg_melt_rate <- rep(1, length(domain))
+# }
+avg_melt_rate <- rep(0, length(domain)) # assume no melt for now
+params$ab <- avg_melt_rate # basal melt rate (m/s)
 # plot(avg_melt_rate, type = "l")
 
 t1 <- proc.time()
@@ -121,7 +134,6 @@ if (regenerate_sims) {
     sim_param_list <- sim_param_output$sim_param_list
     bed_sims <- sim_param_list$bedrock
     fric_sims <- sim_param_list$friction
-
 
     bed_sim_list[[i]] <- bed_sims
     fric_sim_list[[i]] <- fric_sims
@@ -167,7 +179,7 @@ if (regenerate_sims) {
       domain = domain,
       fric_arr = fric_sims,
       log_transform = log_transform,
-      lengthscale = 8e3
+      lengthscale = 10e3
     )
 
     ## De-mean the bedrock
@@ -177,7 +189,8 @@ if (regenerate_sims) {
 
     ## Fit basis to de-meaned bedrock
     bed_basis <- fit_bed_basis(nbasis = nbasis, domain = domain, 
-                              bed_arr = bed_arr_demean) 
+                              bed_arr = bed_arr_demean,
+                              lengthscale = 2.5e3) 
     bed_basis$mean <- bed_mean
 
     png(file = paste0("./plots/friction/friction_basis_", setf, "_", data_date, ".png"))
@@ -200,10 +213,15 @@ if (regenerate_sims) {
       )
     })
 
+    ## Plot the fitted friction and bed
+
+
     ## Generate observations based on the simulated bed and friction
     test <- try(
       sim_results <- sim_obs(
         param_list = fitted_param_list,
+        domain = domain,
+        phys_params = params,
         years = years, # sim_beds = T,
         warmup = warmup,
         ini_thickness = ssa_steady$current_thickness,
@@ -255,10 +273,9 @@ if (regenerate_sims) {
     ## Should scale the friction values here
     # friction_arr_s <- friction_arr_s/fric_scale
 
-    true_surface_elevs <- generated_data$true_surface_elevs
-    true_thicknesses <- generated_data$true_thicknesses
-    true_velocities <- generated_data$true_velocities
-
+    # true_surface_elevs <- generated_data$true_surface_elevs
+    # true_thicknesses <- generated_data$true_thicknesses
+    # true_velocities <- generated_data$true_velocities
 
     if (save_sims) {
       setf <- formatC(set, width = 2, flag = "0")
@@ -268,9 +285,9 @@ if (regenerate_sims) {
       qsave(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
       qsave(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".qs"))
       qsave(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".qs"))
-      qsave(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".qs"))
-      qsave(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".qs"))
-      qsave(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".qs"))
+      # qsave(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".qs"))
+      # qsave(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".qs"))
+      # qsave(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".qs"))
     }
   }
 } else {
@@ -328,7 +345,7 @@ surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs")
 vel_mat2 <- qread(file = "./data/velocity/all_velocity_arr.qs")
 vel_mat <- qread(file = "./data/velocity/vel_smoothed.qs")
 
-sim <- 7
+sim <- 2
 png("./plots/temp/sim_vs_real.png", width = 500, height = 600)
 
 par(mfrow = c(2, 1))
