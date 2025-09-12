@@ -273,9 +273,9 @@ if (regenerate_sims) {
     ## Should scale the friction values here
     # friction_arr_s <- friction_arr_s/fric_scale
 
-    # true_surface_elevs <- generated_data$true_surface_elevs
-    # true_thicknesses <- generated_data$true_thicknesses
-    # true_velocities <- generated_data$true_velocities
+    true_surface_elevs <- generated_data$true_surface_elevs
+    true_thicknesses <- generated_data$true_thicknesses
+    true_velocities <- generated_data$true_velocities
 
     if (save_sims) {
       setf <- formatC(set, width = 2, flag = "0")
@@ -285,9 +285,9 @@ if (regenerate_sims) {
       qsave(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
       qsave(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".qs"))
       qsave(bed_arr_s, file = paste0(train_data_dir, "/bed_arr_", setf, "_", data_date, ".qs"))
-      # qsave(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".qs"))
-      # qsave(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".qs"))
-      # qsave(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".qs"))
+      qsave(true_surface_elevs, file = paste0(train_data_dir, "/true_surface_elevs_", setf, "_", data_date, ".qs"))
+      qsave(true_thicknesses, file = paste0(train_data_dir, "/true_thicknesses_", setf, "_", data_date, ".qs"))
+      qsave(true_velocities, file = paste0(train_data_dir, "/true_velocities_", setf, "_", data_date, ".qs"))
     }
   }
 } else {

@@ -51,7 +51,7 @@ source("./source/posterior_loss.R")
 ## Read datay
 data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 1:10 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

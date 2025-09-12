@@ -25,16 +25,16 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #6:20
+sets <- 1:10 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 if (use_missing_pattern) {
-    data_dir <- paste0("./data/training_data/", setsf, "/missing")
-    output_dir <- paste0("./output/cnn/", setsf, "/missing")
+    data_dir <- paste0("./data/training_data/", setsf, "/missing/")
+    output_dir <- paste0("./output/cnn/", setsf, "/missing/")
 } else {
-    data_dir <- paste0("./data/training_data/", setsf, "/nonmissing")
-    output_dir <- paste0("./output/cnn/", setsf, "/nonmissing")
+    data_dir <- paste0("./data/training_data/", setsf, "/nonmissing/")
+    output_dir <- paste0("./output/cnn/", setsf, "/nonmissing/")
 }
 
 test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
@@ -51,7 +51,7 @@ png(paste0(output_dir, "/true_fric_1.png"), width = 2000, height = 1200)
 plot(friction_basis$fitted_values[1, ], type = "l")
 dev.off()
 
-ssa_steady <- qread(file = paste("./data/training_data/steady_state.qs", sep = ""))
+ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_", data_date, ".qs"))
 domain <- ssa_steady$domain
 
 ## Bed observations
@@ -86,9 +86,9 @@ history <- qread(file = paste0(output_dir, "/history_", data_date, ".qs"))
 # coord_cartesian(xlim = c(1, epochs))
 
 if (use_missing_pattern) {
-    plot_dir <- paste0("./plots/cnn/", setsf, "/missing")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
 } else {
-    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
 
 }
 
@@ -156,13 +156,12 @@ test_fric_coefs <- test_output[, 1:n_fric_basis] * test_data$sd_fric_coefs + tes
 test_bed_coefs <- test_output[, (n_fric_basis+1):(n_fric_basis+n_bed_basis)] * test_data$sd_bed_coefs + test_data$mean_bed_coefs
 test_gl <- test_output[, (n_fric_basis+n_bed_basis+1):ncol(test_output)] * test_data$sd_gl + test_data$mean_gl
 
-png(paste0(plot_dir, "/pred_fric_coef_test.png"), width = 2000, height = 1200)
-plot(test_fric_coefs[1,], type = "l")
+png(paste0(plot_dir, "/pred_coef_test.png"), width = 2000, height = 1200)
+par(mfrow = c(2, 1))
+plot(test_fric_coefs[1,], type = "l", main = "Friction basis coefficients")
 lines(pred_fric_coefs[1,], col = "red")
-dev.off()
 
-png(paste0(plot_dir, "/pred_bed_coef_test.png"), width = 2000, height = 1200)
-plot(test_bed_coefs[1,], type = "l")
+plot(test_bed_coefs[1,], type = "l", main = "Bed basis coefficients")
 lines(pred_bed_coefs[1,], col = "red")
 dev.off()
 
@@ -219,6 +218,8 @@ for (s in 1:nrow(pred_chol)) {
     Lg <- construct_L_matrix(pred_chol[s, (Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
     Lmats[[s]] <- bdiag(Lb, Lc, Lg)
 }
+
+browser()
 
 # ## Need to sample from the posterior distribution of the coefs
 # ## then transform them to actual friction, bed, gl

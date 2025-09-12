@@ -10,6 +10,7 @@ library(tensorflow)
 library(abind)
 library(parallel)
 library(qs)
+
 ## Flags
 # sim_beds <- T
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
@@ -46,13 +47,13 @@ if (length(gpus) > 0) {
 data_date <- "20241111" #"20241103" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:50 #c(1,3,5) #1:5 #10
+sets <- 1:10 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
 train_data_dir <- "./data/training_data"
 
-## Read thickness and velocity hdata
+## Read surface elevation and velocity hdata
 print("Reading surface data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/surface_obs_arr_", x, "_", data_date, ".qs"))
 surface_obs_list <- lapply(files, qread)
@@ -79,10 +80,11 @@ if (use_missing_pattern) {
     
 }
 
+
 test <- sapply(1:dim(surface_obs_arr)[1], function(i) ifelse(max(surface_obs_arr[i,,,]) > 10000 | min(surface_obs_arr[i,,,]) < -100, 1, 0))
 bad_sims <- which(test == 1)
 
-surface_obs_arr <- surface_obs_arr[-bad_sims, , ,]
+if (length(bad_sims) > 0) { surface_obs_arr <- surface_obs_arr[-bad_sims, , ,] }
 
 ## Calculate the mean of surface_obs_arr over the first 3 dimensions
 if (dim(surface_obs_arr)[1] <= 10000) { # if fewer than 10000 simulations, use all of them
@@ -91,18 +93,10 @@ if (dim(surface_obs_arr)[1] <= 10000) { # if fewer than 10000 simulations, use a
     n_for_mean <- sample(1:dim(surface_obs_arr)[1], 10000)
 }
 
-# test <- apply(surface_obs_arr, 4, mean)
-# n_for_mean <- sample(1:dim(surface_obs_arr)[1], 100)
 surf_elev_mean <- mean(surface_obs_arr[n_for_mean, , , 1]) # just use the mean from the first set
 velocity_mean <- mean(surface_obs_arr[n_for_mean, , , 2])
 surf_elev_sd <- sd(surface_obs_arr[n_for_mean, , , 1])
 velocity_sd <- sd(surface_obs_arr[n_for_mean, , , 2])
-
-
-# velocity_mean2 <- mean(surface_obs_list[[2]][,,,1])
-# surf_elev_mean2 <- mean(surface_obs_list[[2]][,,,2])
-# velocity_sd2 <- sd(surface_obs_list[[2]][,,,1])
-# surf_elev_sd2 <- sd(surface_obs_list[[2]][,,,2])
 
 rm(surface_obs_list)
 
@@ -156,9 +150,6 @@ bed_basis_coefs <- abind(bed_basis_coefs_list, along = 1)
 bed_basis_mat <- qread(files[[1]])$basis_mat
 rm(bed_basis_coefs_list)
 
-
-# }
-
 ## Read grounding line data
 print("Reading grounding line data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/gl_arr_", x, "_", data_date, ".qs"))
@@ -173,14 +164,17 @@ curr_mem_usage <- sum(sapply(ls(), function(x) {
 ## From here on: u = velocity, h = ice thickness
 
 ## Filter out bad simulations
-true_surface_arr <- true_surface_arr[-bad_sims, , ,]
-true_thickness_arr <- true_thickness_arr[-bad_sims, , ,]
-true_velocity_arr <- true_velocity_arr[-bad_sims, , ,]
-fric_arr <- fric_arr[-bad_sims,]
-fric_basis_coefs <- fric_basis_coefs[-bad_sims, ]
-bed_arr <- bed_arr[-bad_sims,]
-bed_basis_coefs <- bed_basis_coefs[-bad_sims, ]
-gl_arr <- gl_arr[-bad_sims, ]
+if (length(bad_sims) > 0) {
+    print(paste0("Removing ", length(bad_sims), " bad simulations..."))
+    true_surface_arr <- true_surface_arr[-bad_sims, , ,]
+    true_thickness_arr <- true_thickness_arr[-bad_sims, , ,]
+    true_velocity_arr <- true_velocity_arr[-bad_sims, , ,]
+    fric_arr <- fric_arr[-bad_sims,]
+    fric_basis_coefs <- fric_basis_coefs[-bad_sims, ]
+    bed_arr <- bed_arr[-bad_sims,]
+    bed_basis_coefs <- bed_basis_coefs[-bad_sims, ]
+    gl_arr <- gl_arr[-bad_sims, ]
+}
 
 ## Standardise input
 print("Standardising input...")
