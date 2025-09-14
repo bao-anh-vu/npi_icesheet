@@ -100,11 +100,12 @@ create_model_posterior <- function(input_dim, output_dim, n_basis_funs, n_gl) {
         padding = "same", activation = "relu"
     ) %>%
     layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-    # layer_conv_2d(filters = 256, kernel_size = c(3, 3),
-    #                 padding = "same", activation = "relu") %>%
+    # layer_conv_2d(
+    #     filters = 256, kernel_size = c(2, 2),
+    #     padding = "same", activation = "relu") %>%
     # layer_max_pooling_2d(pool_size = c(2, 2)) %>%
     layer_flatten() %>%
-    layer_dropout(rate = 0.25) %>%
+    layer_dropout(rate = 0.5) %>%
     # layer_dense(units = 256, activation = "relu") %>%
     layer_dense(units = output_dim)
 

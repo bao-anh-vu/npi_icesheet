@@ -159,11 +159,13 @@ if (rerun_steady_state) {
     steady_state <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
 }
 
+n_years_steady <- ncol(steady_state$all_top_surface) - 1
 png(file = paste0("./plots/steady_state/steady_state_", data_date, ".png"), width = 800, height = 600)
 
 par(mfrow = c(2,1))
 matplot(flowline_dist/1000, steady_state$current_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
-    xlab = "Distance along flowline (km)", ylab = "Elevation (m)", main = paste0("Relaxation year ", relax_years))
+    xlab = "Distance along flowline (km)", ylab = "Elevation (m)", 
+    main = paste0("Steady state after ", n_years_steady, "years"))
 matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
 legend("topright", legend = c(paste0("Simulated (", relax_years, "years post-steady)"), "Observed"), 
@@ -259,6 +261,7 @@ dev.off()
 # legend("topleft", legend = c("Simulated (20 year post-steady)", "Observed"), 
 #     col = c("grey", "red"), lty = 1, bty = "n")
 # dev.off()
+
 
 
 

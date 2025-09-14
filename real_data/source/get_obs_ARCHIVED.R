@@ -7,7 +7,7 @@ get_obs <- function(reference, data_date, n_obs = 50, get_new_obs = FALSE, rewri
     all_ref_velocities <- reference$all_velocities
     # ref_top_surface <- reference$top_surface
     all_top_surface <- reference$all_top_surface
-    
+    gl <- reference$grounding_line
     ## 1. Bed observations ##
     
     ## Randomly select 50 locations between x = 0 and x = 800 km
@@ -29,8 +29,9 @@ get_obs <- function(reference, data_date, n_obs = 50, get_new_obs = FALSE, rewri
     n_vel_obs <- length(obs_velocities[, 1])
     
     for (j in 1:ncol(all_ref_velocities)) {
-      vel_std <- pmin(0.5 * all_ref_velocities[, j], 20) # Constrain stdev of measurement noise to be less than 0.25 * velocity
-      # vel_std <- pmin(0.05 * all_ref_velocities[, j], 5)
+      gl_j <- gl[j] # grounding line position at year j
+      # vel_std <- pmin(0.25 * all_ref_velocities[, j], 20) # Constrain stdev of measurement noise to be less than 0.25 * velocity
+      vel_std <- c(rep(5, gl_j), rep(20, n_vel_obs - gl_j)) # set constant stdev of 5 m/s beyond grounding line
       vel_std[vel_std <= 0] <- 0.01 #1e-05
       # vel_cov <- diag(vel_std^2, nrow(all_ref_velocities)) # measurement noise for the velocity
       
@@ -49,6 +50,8 @@ get_obs <- function(reference, data_date, n_obs = 50, get_new_obs = FALSE, rewri
     plot(obs_velocities[, 2], type = "l", main = "Velocity at t = 1a")
     plot(obs_velocities[, ncol(obs_velocities)], type = "l", main = "Velocity at t = 50a")
     
+browser()
+
     ## 3. Top surface elevation observations ##
     # cov_surface <- diag(10^2, length(ref_top_surface)) # measurement noise for the top surface
     n_surface_obs <- nrow(all_top_surface) * ncol(all_top_surface)
