@@ -51,7 +51,7 @@ source("./source/posterior_loss.R")
 ## Read datay
 data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 1:20 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -178,39 +178,29 @@ if (rerun_cnn) {
   history <- qread(file = paste0(output_dir, "/history_", data_date, ".qs"))
 }
 
-loss_plot <- history %>%
-  plot() +
-  coord_cartesian(xlim = c(1, epochs))
+# loss_plot <- history %>%
+#   plot() +
+#   coord_cartesian(xlim = c(1, epochs))
   
-# ## Plot the loss
-png(paste0("./plots/cnn/", setsf, "/loss_", data_date, ".png"))
-print(loss_plot)
+# # ## Plot the loss
+# png(paste0("./plots/cnn/", setsf, "/loss_", data_date, ".png"))
+# print(loss_plot)
+# dev.off()
+
+if (use_missing_pattern) {
+    plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
+} else {
+    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
+
+}
+
+if (!dir.exists(plot_dir)) {
+    dir.create(plot_dir)
+}
+
+png(paste0(plot_dir, "loss.png"), width = 1000, height = 500)
+plot(history$metrics$loss[2:100], type = "l")
+lines(history$metrics$val_loss[2:100], col = "red")
+legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
 dev.off()
-# ## Get rid of first training loss
-# plot(history$metrics$loss[2:60],type = "l")
-# lines(history$metrics$val_loss[2:60], col = "red")
-
-# browser()
-
-# ## Predict friction coefficients on test set
-# pred_coefs_new <- model %>% predict(test_input)
-# saveRDS(pred_coefs_new, file = paste0("./output/pred_coefs_", setf, "_", data_date, ".rds"))
-
-# results <- model %>% evaluate(test_input, test_output, batch_size = batch_size)
-# cat("test loss, test acc:", results)
-
-# # Save the entire model as a SavedModel.
-# save_model_tf(model, "output/my_model")
-
-# restored_model <- load_model_tf('output/my_model')
-
-# # Re-evaluate the model
-# new <- restored_model %>% fit(
-#     train_input, 
-#     train_output,
-#     epochs = 10,
-#     batch_size = 64,
-#     validation_data = list(val_input, val_output),
-#     callbacks = list(cp_callback)
-# )
 

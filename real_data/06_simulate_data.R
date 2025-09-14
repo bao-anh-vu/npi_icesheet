@@ -48,7 +48,7 @@ regenerate_sims <- T
 refit_basis <- T
 save_sims <- T
 log_transform <- T
-use_basal_melt_data <- T
+use_basal_melt_data <- F
 
 ## Directory for training data
 train_data_dir <- "./data/training_data"
@@ -159,6 +159,14 @@ if (regenerate_sims) {
       qsave(fric_sims, file = paste0(train_data_dir, "/fric_sims_", data_date, ".qs"))
     }
   }
+
+## Plot parameter simulations
+# fric_sims <- qread(file = paste0("./data/training_data/fric_sims_", data_date, ".qs"))
+png(file = paste0("./plots/temp/param_sims_", data_date, ".png"), width = 600, height = 500)
+par(mfrow = c(2,1))
+matplot(t(bed_sims[1:3, ]), type = "l", ylab = "Bedrock Elev", xlab = "Distance along flowline")
+matplot(t(fric_sims[1:3, ]), type = "l", ylab = "Friction Coef", xlab = "Distance along flowline")
+dev.off()
 
   ## Concatenate the bed simulations and take the mean
   bed_sims_arr <- abind(bed_sim_list, along = 1)
@@ -313,8 +321,8 @@ if (regenerate_sims) {
 }
 
 t2 <- proc.time()
-
-
+print(t2 - t1)
+# true_vels <- qread(file = paste0("data/training_data/true_velocities_02_", data_date, ".qs"))
 
 ########################################
 ##          Plot simulations          ##

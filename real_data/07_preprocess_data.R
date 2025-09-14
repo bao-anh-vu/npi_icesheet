@@ -16,7 +16,7 @@ library(qs)
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
 save_data <- T
 standardise_output <- T
-use_missing_pattern <- T
+use_missing_pattern <- F
 
 # library(tensorflow)
 # reticulate::use_condaenv("myenv", required = TRUE)
@@ -28,7 +28,7 @@ gpus <- tf$config$experimental$list_physical_devices('GPU')
 
 if (length(gpus) > 0) {
   tryCatch({
-    # Restrict TensorFlofw to only allocate 4GB of memory on the first GPU
+    # Restrict TensorFlow to only allocate 4GB of memory on the first GPU
     tf$config$experimental$set_virtual_device_configuration(
       gpus[[1]],
       list(tf$config$experimental$VirtualDeviceConfiguration(memory_limit=4096*10))
@@ -47,7 +47,7 @@ if (length(gpus) > 0) {
 data_date <- "20241111" #"20241103" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #c(1,3,5) #1:5 #10
+sets <- 1:20 #c(1,3,5) #1:5 #10
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
