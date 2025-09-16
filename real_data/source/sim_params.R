@@ -14,7 +14,7 @@ sim_params <- function(nsims, domain, bed_obs) {
 
     fric.sill <- 8e-5
     fric.nugget <- 0
-    fric.range <- 10e3
+    fric.range <- 5e3
 
     simulated_friction <- simulate_friction2(
         nsim = nsims, domain = domain,

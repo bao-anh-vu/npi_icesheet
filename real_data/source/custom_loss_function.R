@@ -28,7 +28,7 @@ quantile_loss_wrap <- function(tau) {
   quantile_loss <- function(y_true, y_pred) {
     K <- backend() ## this calls tensorflow
     bool_val <- K$greater(y_pred, y_true)
-    ind_val <- K$where(bool_val, 1, 0)
+    ind_val <- tf$where(bool_val, 1, 0)
 
     # taus <- K$constant(rep(tau, dim(ind_val)), dtype = ind_val$dtype)
     loss <- (y_pred - y_true) * (ind_val - tau)

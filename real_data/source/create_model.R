@@ -27,7 +27,7 @@ create_model <- function(input_dim, output_dim) {
 
     model %>% compile(
         loss = "mse",
-        optimizer = optimizer_adam(learning_rate = 0.001),
+        optimizer = optimizer_adam(learning_rate = 0.0005),
         metrics = list("mean_squared_error")
     )
     model
