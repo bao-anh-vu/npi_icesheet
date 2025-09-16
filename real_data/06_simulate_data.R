@@ -57,11 +57,11 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111" #"20241103" 
 N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #50 #:10
+sets <- 15:20 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 warmup <- 0
 years <- 10 + warmup
-nbasis <- 100 
+nbasis <- 100
 
 ## Physical params
 params <- list(
@@ -187,7 +187,7 @@ dev.off()
       domain = domain,
       fric_arr = fric_sims,
       log_transform = log_transform,
-      lengthscale = 10e3
+      lengthscale = 5e3
     )
 
     ## De-mean the bedrock
@@ -201,18 +201,6 @@ dev.off()
                               lengthscale = 2.5e3) 
     bed_basis$mean <- bed_mean
 
-    png(file = paste0("./plots/friction/friction_basis_", setf, "_", data_date, ".png"))
-    plot_domain <- 1:J #1000
-    plot(domain[plot_domain], friction_basis$true_vals[2, plot_domain], type = "l")
-    lines(domain[plot_domain], friction_basis$fitted_values[2, plot_domain], col  = "red")
-    dev.off()
-
-    png(file = paste0("./plots/bed/bed_basis_", setf, "_", data_date, ".png"))
-    plot_domain <- 1:J
-    plot(domain[plot_domain], bed_basis$true_vals[1, plot_domain], type = "l")
-    lines(domain[plot_domain], bed_basis$fitted_values[1, plot_domain], col  = "red")
-    dev.off()
-
     ## Pair the bed-friction observations into a list
     fitted_param_list <- lapply(1:N, function(r) {
       list(
@@ -222,7 +210,17 @@ dev.off()
     })
 
     ## Plot the fitted friction and bed
+    png(file = paste0("./plots/friction/friction_basis_", setf, "_", data_date, ".png"), width = 800, height = 400)
+    plot_domain <- 1:J #1000
+    plot(domain[plot_domain], friction_basis$true_vals[1, plot_domain], type = "l")
+    lines(domain[plot_domain], friction_basis$fitted_values[1, plot_domain], col  = "red")
+    dev.off()
 
+    png(file = paste0("./plots/bed/bed_basis_", setf, "_", data_date, ".png"))
+    plot_domain <- 1:J
+    plot(domain[plot_domain], bed_basis$true_vals[1, plot_domain], type = "l")
+    lines(domain[plot_domain], bed_basis$fitted_values[1, plot_domain], col  = "red")
+    dev.off()
 
     ## Generate observations based on the simulated bed and friction
     test <- try(
@@ -348,6 +346,13 @@ fitted_bed <- bed_basis$fitted_values
 # fitted_friction <- fitted_friction[-bad_sims, ]
 # fitted_bed <- fitted_bed[-bad_sims, ]
 
+## Plot surface observations for a simulation
+png("plots/cnn/input/surface_obs_sim.png", width = 6, height = 8, units = "in", res = 300)
+par(mfrow = c(2, 1))
+matplot(surface_obs_arr[1,,,1], type = "l", main = "Surface elevation (m)", ylab = "Surface elev. (m)", xlab = "Domain (grid points)")
+matplot(surface_obs_arr[1,,,2], type = "l", main = "Velocity (m/yr)", ylab = "Velocity (m/yr)", xlab = "Domain (grid points)")
+dev.off()
+
 ## Check if the generated data is close to real data here
 surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs")
 vel_mat2 <- qread(file = "./data/velocity/all_velocity_arr.qs")
@@ -371,7 +376,7 @@ lines(ssa_steady$current_velocity, col = "blue")
 
 dev.off()
 
-## Hovmoller plots
+## Hovmoller plots of some simulations
 plots <- list()
 
 nsamples <- 4
@@ -452,7 +457,7 @@ for (s in 1:nsamples) {
 
 }
 
-png(file = paste0("./plots/simulations_", setf, "_", data_date, ".png"), 
+png(file = paste0("./plots/cnn/input/simulations_", setf, "_", data_date, ".png"), 
           width = 2400, height = 400 * nsamples)
 grid.arrange(grobs = plots, nrow = nsamples, ncol = 4)
 dev.off()

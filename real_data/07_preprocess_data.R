@@ -16,7 +16,7 @@ library(qs)
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
 save_data <- T
 standardise_output <- T
-use_missing_pattern <- F
+use_missing_pattern <- T
 
 # library(tensorflow)
 # reticulate::use_condaenv("myenv", required = TRUE)
@@ -44,10 +44,10 @@ if (length(gpus) > 0) {
 }
 
 ## Read data
-data_date <- "20241111" #"20241103" # "20220329"
+data_date <- "20241111" 
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:20 #c(1,3,5) #1:5 #10
+sets <- 1:20
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -67,7 +67,7 @@ if (use_missing_pattern) {
 
     surface_obs_list <- lapply(1:dim(surface_obs_arr)[1], function(i) { surface_obs_arr[i,,,]})
 
-    ## Multiply the missing patterns by the surface_obs_list
+    ## Multiply the missing patterns by the surface_obs array
     surface_obs_list_missing <- lapply(surface_obs_list, function(arr) {
     se <- arr[,,1] * surf_elev_missing_pattern
     vel <- arr[,,2] * vel_missing_pattern
@@ -80,7 +80,7 @@ if (use_missing_pattern) {
     
 }
 
-
+## Filter out bad simulations (e.g. with very unreasonable values)
 test <- sapply(1:dim(surface_obs_arr)[1], function(i) ifelse(max(surface_obs_arr[i,,,]) > 10000 | min(surface_obs_arr[i,,,]) < -100, 1, 0))
 bad_sims <- which(test == 1)
 
