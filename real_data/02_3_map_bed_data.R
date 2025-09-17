@@ -107,12 +107,15 @@ basin_data <- read_sf(paste0(data_dir, "/boundaries/Basins/Basins_Antarctica_v02
 thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 # thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
 
-## Grounding line data
-# gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
-gl_thwaites <- qread(paste0(data_dir, "grounding_line/gl_thwaites.qs"))
 ## Flowline
-# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
 flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
+
+## Grounding line data over all of Thwaites
+gl_thwaites <- qread(paste0(data_dir, "grounding_line/gl_thwaites.qs"))
+
+## Mark GL position on the flowline
+gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
+
 
 print("Plotting...")
 bed_plot <- bed_data %>% ggplot() + 
@@ -128,7 +131,7 @@ bed_plot <- bed_data %>% ggplot() +
 # print(bed_plot)
 # dev.off()
 
-delta <- 200 # take the closest bed observations within 200 m around each point along the flowline
+delta <- 100 # take the closest bed observations within 200 m around each point along the flowline
 ## Map bed obs to flowline
 avg_nearest_four <- function(pos) {
         near_pts <- bed_data %>% filter(
@@ -148,15 +151,11 @@ avg_nearest_four <- function(pos) {
         return(near_bed)
 }
 
-# avg_nearest_four(as.numeric(flowline[1,]))
 flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 t12 <- system.time({
         bed_elev <- mclapply(flowline_pos, avg_nearest_four, mc.cores = 10L)
 })
 
-## Mark GL position
-# gl_pos <- readRDS(file = "./data/grounding_line/gl_pos.rds")
-gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
 
 # delta_gl <- 500
 # pts_near_gl <- flowline %>% filter(
@@ -173,8 +172,8 @@ gl_ind <- gl_pos$ind
 bed_elev_nearest <- sapply(bed_elev, function(x) x$bed_nearest)
 # saveRDS(bed_elev_nearest, file = "./data/bed_elev_nearest.rds")
 
-png(paste0("./plots/bed/bed_elev_nearest.png"), width = 800, height = 800)
-plot(bed_elev_nearest, type = "l")
+png(paste0("./plots/bed/bed_elev_nearest.png"), width = 800, height = 500)
+plot(bed_elev_nearest, type = "o")
 abline(v = gl_ind, lty = 2)
 dev.off()
 
