@@ -140,10 +140,15 @@ if (rerun_cnn) {
 # ## Plot the loss
 plot_dir_mean <- paste0("./plots/neural_bayes/", setsf, "/")
 
-png(paste0(plot_dir_mean, "loss_mean_", data_date, ".png"), width = 1000, height = 500)
-plot(history$metrics$loss, type = "l")
-lines(history$metrics$val_loss, col = "red")
-legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
+loss_plot <- history %>%
+        plot() +
+        coord_cartesian(xlim = c(1, epochs))
+
+png(paste0(plot_dir_mean, "loss_mean_", data_date, ".png"))
+print(loss_plot)
+# plot(history$metrics$loss, type = "l")
+# lines(history$metrics$val_loss, col = "red")
+# legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
 dev.off()
 
 # ## Get rid of first training loss

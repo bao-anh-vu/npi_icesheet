@@ -17,6 +17,7 @@ library(tensorflow)
 library(ggplot2)
 library(qs)
 library(abind)
+library(dplyr)
 
 ## Flags
 save_pred <- T
@@ -27,34 +28,26 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #6:20
+sets <- 1:20 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 if (use_missing_pattern) {
-    data_dir <- paste0("./data/training_data/", setsf, "/missing")
-    output_dir <- paste0("./output/cnn/", setsf, "/missing")
+    data_dir <- paste0("./data/training_data/", setsf, "/missing/")
+    output_dir <- paste0("./output/cnn/", setsf, "/missing/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
 } else {
-    data_dir <- paste0("./data/training_data/", setsf, "/nonmissing")
-    output_dir <- paste0("./output/cnn/", setsf, "/nonmissing")
+    data_dir <- paste0("./data/training_data/", setsf, "/nonmissing/")
+    output_dir <- paste0("./output/cnn/", setsf, "/nonmissing/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
 }
 
-# if (test_on_train) {
-#     train_data <- qread(file = paste0(data_dir, "/train_data_", data_date, ".qs"))
-# }
-
-# setf <- formatC(sets[1], width = 2, flag = "0")
-# friction_basis <- qread(file = paste0("./data/training_data/friction_basis_", setf, "_", data_date, ".qs"))
-# dim(friction_basis$basis_mat)      
-
-# png(paste0(output_dir, "/true_fric_1.png"), width = 2000, height = 1200)
-# plot(friction_basis$fitted_values[1, ], type = "l")
-# dev.off()
-
-ssa_steady <- qread(file = paste("./data/training_data/steady_state.qs", sep = ""))
+ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_", data_date, ".qs"))
 domain <- ssa_steady$domain
+
 test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
 
+## Also load real data
 surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
 velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
@@ -109,16 +102,16 @@ model <- create_model_posterior(input_dim = input_dim,
 summary(model)
 
 ### Plot the loss
-history <- qread(file = paste0(output_dir, "/history_", data_date, ".qs"))
+history <- qread(file = paste0(output_dir, "history_", data_date, ".qs"))
 # history %>% plot() #+
 # coord_cartesian(xlim = c(1, epochs))
 
-if (use_missing_pattern) {
-    plot_dir <- paste0("./plots/cnn/", setsf, "/missing")
-} else {
-    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing")
+# if (use_missing_pattern) {
+#     plot_dir <- paste0("./plots/cnn/", setsf, "/missing")
+# } else {
+#     plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing")
 
-}
+# }
 
 # if (save_plots) {
 
@@ -190,12 +183,12 @@ test_gl <- test_output[, (n_fric_basis+n_bed_basis+1):ncol(test_output)] * test_
 
 png(paste0(plot_dir, "/pred_fric_real.png"), width = 2000, height = 1200)
 plot(pred_fric_coefs, type = "l")
-lines(test_fric_coefs[1,], col = "red")
+# lines(test_fric_coefs[1,], col = "red")
 dev.off()
 
 png(paste0(plot_dir, "/pred_bed_real.png"), width = 2000, height = 1200)
 plot(pred_bed_coefs, type = "l")
-lines(test_bed_coefs[1,], col = "red")
+# lines(test_bed_coefs[1,], col = "red")
 dev.off()
 
 ## Compute predicted vs original friction 
@@ -286,22 +279,22 @@ gl_uq <- gl_q[2,]
 
 ## Plot the results
 png(paste0(plot_dir, "/fric_samples.png"), width = 1000, height = 500)
-plot(fric_lq, type = "l", col = "grey", lwd = 2)
-lines(fric_uq, col = "grey", lwd = 2)
-lines(pred_fric, col = "red", lwd = 2)
+plot(domain/1e3, fric_lq, type = "l", col = "grey", lwd = 2)
+lines(domain/1e3, fric_uq, col = "grey", lwd = 2)
+lines(domain/1e3, pred_fric, col = "red", lwd = 2)
 dev.off()
 
 ## Validate against the rest of the bed obs
-bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
+bed_obs_df <- qread(file = "./data/bed_obs_df.qs")
 bed_obs_train <- bed_obs_df %>% filter(chosen == 1)
 bed_obs_val <- bed_obs_df %>% filter(chosen == 0)
 
 png(paste0(plot_dir, "/bed_samples.png"), width = 1000, height = 500)
-plot(bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Grid point", ylab = "Elevation (m)")
-lines(bed_uq, col = "grey", lwd = 2)
-lines(pred_bed, col = "red", lwd = 2)
-points(bed_obs_train$ind, bed_obs_train$bed_elev, col = "black", pch = 20)
-points(bed_obs_val$ind, bed_obs_val$bed_elev, col = "cyan")
+plot(domain/1e3, bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Grid point", ylab = "Elevation (m)")
+lines(domain/1e3, bed_uq, col = "grey", lwd = 2)
+lines(domain/1e3, pred_bed, col = "red", lwd = 2)
+points(domain/1e3, bed_obs_train$ind, bed_obs_train$bed_elev, col = "black", pch = 20)
+points(domain/1e3, bed_obs_val$ind, bed_obs_val$bed_elev, col = "cyan")
 dev.off()
 
 ## Save predictions

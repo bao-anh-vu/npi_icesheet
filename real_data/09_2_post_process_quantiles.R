@@ -73,7 +73,7 @@ domain <- ssa_steady$domain
 
 ## Bed observations
 bed_obs_df <- qread(file = "./data/bed_obs_df.qs")
-bed_obs_validate <- bed_obs_df %>% filter(chosen == 0)
+bed_obs_validate <- bed_obs_df %>% filter(chosen == 0 & !is.na(bed_elev) & !is.na(bed_sd))
 bed_obs_chosen <- bed_obs_df %>% filter(chosen == 1)
 
 ##############################
@@ -211,11 +211,11 @@ history_med <- qread(file = paste0(output_dir_med, "history_", data_date, ".qs")
 # history %>% plot() #+
 # coord_cartesian(xlim = c(1, epochs))
 png(paste0(plot_dir, "/loss_median_", data_date, ".png"), width = 1000, height = 500)
-par(mfrow = c(2,1))
-plot(history_med$metrics$loss[2:100], type = "l", 
+# par(mfrow = c(2,1))
+plot(history_med$metrics$loss, type = "l", 
         xlab = "Iteration", ylab = "Loss",
         main = paste0("Loss when training the 50th quantile"))
-lines(history_med$metrics$val_loss[2:100], col = "red")
+lines(history_med$metrics$val_loss, col = "red")
 legend("topright", legend = c("Training", "Validation"), 
         col = c("black", "red"), lty = 1, cex = 0.8)
 dev.off()
@@ -274,8 +274,8 @@ for (q in 1:length(quantiles)) {
     # history %>% plot() #+
     # coord_cartesian(xlim = c(1, epochs))
     png(paste0(plot_dir, "/loss_quantile_", q_string, "_", data_date, ".png"), width = 1000, height = 500)
-    par(mfrow = c(2,1))
-    plot(history_quantile$metrics$loss[2:100], type = "l", 
+    par(mfrow = c(1,1))
+    plot(history_quantile$metrics$loss, type = "l", 
             xlab = "Iteration", ylab = "Loss",
             main = paste0("Loss when training the", quantile*100, "th quantile"))
     lines(history_quantile$metrics$val_loss[2:100], col = "red")
@@ -338,14 +338,14 @@ par(mfrow = c(2,1))
 plot(test_fric_coefs[s,], lwd = 1.5, #ylim = c(-5, 5),
     type = "l", main = "Friction basis coefficients")
 lines(pred_fric_coefs[s,], col = "red")
-lines(pred_fric_coefs_med[s,], col = "blue")
+# lines(pred_fric_coefs_med[s,], col = "red")
 lines(pred_quantiles[[1]]$fric[s, ], col = "salmon")
 lines(pred_quantiles[[2]]$fric[s, ], col = "salmon")
 
 plot(test_bed_coefs[s,], lwd = 1.5, type = "l", 
     main = "Bed elevation basis coefficients")
 lines(pred_bed_coefs[s,], col = "red")
-lines(pred_bed_coefs_med[s,], col = "blue")
+# lines(pred_bed_coefs_med[s,], col = "red")
 lines(pred_quantiles[[1]]$bed[s, ], col = "salmon")
 lines(pred_quantiles[[2]]$bed[s, ], col = "salmon")
 dev.off()
@@ -353,15 +353,15 @@ dev.off()
 ## Plot predicted coefficients on real data too
 png(paste0("./plots/neural_bayes/", setsf, "/pred_coefs_real.png"), width = 1000, height = 1000)
 par(mfrow = c(2,1))
-plot(pred_fric_coefs_real, lwd = 1.5, #ylim = c(-5, 5),
+plot(pred_fric_coefs_real, lwd = 1.5, col = "red", #ylim = c(-5, 5),
     type = "l", main = "Friction basis coefficients (real data)")
-lines(pred_fric_coefs_med_real, col = "blue")
+# lines(pred_fric_coefs_med_real, col = "blue")
 lines(pred_quantiles_real[[1]]$fric, col = "salmon")
 lines(pred_quantiles_real[[2]]$fric, col = "salmon")
 
-plot(pred_bed_coefs_real, lwd = 1.5, type = "l", 
+plot(pred_bed_coefs_real, lwd = 1.5, col = "red", type = "l", 
     main = "Bed elevation basis coefficients (real data)")
-lines(pred_bed_coefs_med_real, col = "blue")
+# lines(pred_bed_coefs_med_real, col = "blue")
 lines(pred_quantiles_real[[1]]$bed, col = "salmon")
 lines(pred_quantiles_real[[2]]$bed, col = "salmon")
 dev.off()
@@ -539,19 +539,19 @@ if (save_plots) {
     par(mfrow = c(length(samples) / 2, 2))
     for (i in 1:length(samples)) {
         par(mar = c(6, 8, 4, 2))
-        gl <- test_data$grounding_line[i] / 800 * 2001
+        # gl_i <- test_data$grounding_line[i] / domain[length(domain)] * length(domain)
         plot_domain <- 1:length(domain) # ceiling(gl)
 
-        plot(domain[plot_domain]/1000, test_fric[, i], 
+        plot(domain[plot_domain]/1000, test_fric[, i], lwd = 2,
             ylim = c(0, 0.1),
             type = "l", 
             ylab = "Friction (unit)", xlab = "Domain (km)", 
             cex.axis = 3, cex.lab = 4)
         # lines(domain[plot_domain]/1000, true_fric[i, ], col = "red")
-        lines(domain[plot_domain]/1000, pred_fric[, i], col = "red")
-        lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "skyblue")
-        lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "skyblue")
-        abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
+        lines(domain[plot_domain]/1000, pred_fric[, i], lwd = 2, col = "red")
+        lines(domain[plot_domain]/1000, fric_lq[[i]], lwd = 2, lty = 1, col = "royalblue")
+        lines(domain[plot_domain]/1000, fric_uq[[i]], lwd = 2, lty = 1, col = "royalblue")
+        abline(v = test_gl[samples[i], years], lty = 2, lwd = 3)
     }
 
     dev.off()
@@ -568,8 +568,8 @@ if (save_plots) {
     #     plot(test_fric[, i], pred_fric[, i], 
     #         ylab = "Predicted friction (unit)", xlab = "True friction (unit)", 
     #         cex.axis = 3, cex.lab = 4)
-    #     # lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "skyblue")
-    #     # lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "skyblue")
+    #     # lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "royalblue")
+    #     # lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "royalblue")
     #     abline(a = 0, b = 1, col = "red")
     # }
 
@@ -577,11 +577,11 @@ if (save_plots) {
 
     ## Friction plot on real data
     png(paste0(plot_dir, "/pred_fric_real.png"), width = 1000, height = 500)
-    plot(pred_fric_real, type = "l", 
+    plot(domain/1e3, pred_fric_real, type = "l", ylim = c(0, 0.1),
         ylab = "Friction (unit)", xlab = "Domain (km)", 
         cex.axis = 2, cex.lab = 2)
-    lines(fric_lq_real, lty = 1, col = "skyblue")
-    lines(fric_uq_real, lty = 1, col = "skyblue")
+    lines(domain/1e3, fric_lq_real, lty = 1, col = "royalblue")
+    lines(domain/1e3, fric_uq_real, lty = 1, col = "royalblue")
     dev.off()
 
     ## Bed plot
@@ -598,10 +598,10 @@ if (save_plots) {
         )
         # lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
         lines(domain[plot_domain] / 1000, pred_bed[plot_domain, i], lwd = 3, col = "red")
-        lines(domain[plot_domain] / 1000, bed_lq[[i]], lty = 1, lwd = 3, col = "skyblue")
-        lines(domain[plot_domain] / 1000, bed_uq[[i]], lty = 1, lwd = 3, col = "skyblue")
-        
-        abline(v = test_data$test_gl[i], lty = 1, lwd = 3)
+        lines(domain[plot_domain] / 1000, bed_lq[[i]], lty = 1, lwd = 3, col = "royalblue")
+        lines(domain[plot_domain] / 1000, bed_uq[[i]], lty = 1, lwd = 3, col = "royalblue")
+        points(bed_obs_chosen$loc/1000, bed_obs_chosen$bed_elev, pch = 16, cex = 1.5, col = "turquoise")
+        abline(v = test_gl[samples[i], years], lty = 2, lwd = 3)
     }
     dev.off()
 
@@ -617,8 +617,8 @@ if (save_plots) {
     #     plot(test_bed[, i], pred_bed[, i], 
     #         ylab = "Predicted bed elevation (m)", xlab = "True bed elevation (m)", 
     #         cex.axis = 3, cex.lab = 4)
-    #     # lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "skyblue")
-    #     # lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "skyblue")
+    #     # lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "royalblue")
+    #     # lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "royalblue")
     #     abline(a = 0, b = 1, col = "red")
     # }
 
@@ -626,12 +626,14 @@ if (save_plots) {
 
     ## Bed plot on real data
     png(paste0(plot_dir, "/pred_bed_real.png"), width = 1000, height = 500)
-    plot(domain/1e3, pred_bed_real, type = "l", 
+    plot_domain <- 1:length(domain) #1500
+    plot(domain[plot_domain]/1e3, pred_bed_real[plot_domain], type = "l", 
         ylab = "Bed elevation (m)", xlab = "Domain (km)", 
         cex.axis = 2, cex.lab = 2)
-    lines(domain/1e3, bed_lq_real, lty = 1, col = "skyblue")
-    lines(domain/1e3, bed_uq_real, lty = 1, col = "skyblue")
-    points(bed_obs_validate$loc/1e3, bed_obs_validate$bed_elev, pch = 16, cex = 1.5, col = "red")
+    lines(domain[plot_domain]/1e3, bed_lq_real[plot_domain], lty = 1, col = "salmon")
+    lines(domain[plot_domain]/1e3, bed_uq_real[plot_domain], lty = 1, col = "salmon")
+    points(bed_obs_chosen$loc/1e3, bed_obs_chosen$bed_elev, pch = 16, cex = 1.5, col = "turquoise")
+    points(bed_obs_validate$loc/1e3, bed_obs_validate$bed_elev, pch = 1, cex = 1.5, col = "red")
     dev.off()
 
     ## Grounding line plot
@@ -649,8 +651,8 @@ if (save_plots) {
         )
         # lines(domain[plot_domain] / 1000, test_fric[i, ], lwd = 2, col = "blue")
         lines(pred_gl[i, ], 1:years, lwd = 2, col = "red")
-        lines(pred_gl_lq[i, ], 1:years, lty = 1, lwd = 3, col = "skyblue")
-        lines(pred_gl_uq[i, ], 1:years, lty = 1, lwd = 3, col = "skyblue")
+        lines(pred_gl_lq[i, ], 1:years, lty = 1, lwd = 3, col = "royalblue")
+        lines(pred_gl_uq[i, ], 1:years, lty = 1, lwd = 3, col = "royalblue")
         
         # abline(v = test_data$test_gl[i], lwd = 3, lty = 2)
     }
@@ -668,8 +670,8 @@ if (save_plots) {
     #     plot(test_gl[, i], pred_gl[, i],  
     #         ylab = "Predicted bed elevation (m)", xlab = "True bed elevation (m)", 
     #         cex.axis = 3, cex.lab = 4)
-    #     # lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "skyblue")
-    #     # lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "skyblue")
+    #     # lines(domain[plot_domain]/1000, fric_lq[[i]], lty = 1, col = "royalblue")
+    #     # lines(domain[plot_domain]/1000, fric_uq[[i]], lty = 1, col = "royalblue")
     #     abline(a = 0, b = 1, col = "red")
     # }
 

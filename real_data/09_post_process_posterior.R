@@ -20,7 +20,7 @@ library(dplyr)
 save_pred <- T
 save_plots <- T
 log_transform <- T
-test_on_train <- T
+test_on_train <- F
 use_missing_pattern <- T
 
 ## Read data
