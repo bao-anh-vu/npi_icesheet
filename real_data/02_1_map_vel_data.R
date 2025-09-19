@@ -34,7 +34,7 @@ gl_thwaites <- qread(paste0(data_dir, "grounding_line/gl_thwaites.qs"))
 #   geom_sf(color = "black", fill = NA) +
 #   theme_bw()
 
-years <- 2010:2011
+years <- 2010:2020
 
 vel_data <- list()
 for (year in years) {

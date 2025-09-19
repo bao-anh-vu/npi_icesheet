@@ -35,7 +35,7 @@ J <- length(domain)
 nbasis <- 150
 
 ## Read simulated parameters
-sets <- 1:10
+sets <- 1:50
 
 bed_sim_list <- list()
 fric_sim_list <- list()
@@ -68,7 +68,7 @@ for (i in 1:length(sets)) {
         domain = domain,
         fric_arr = fric_sims,
         log_transform = T,
-        lengthscale = 5e3
+        lengthscale = 2.5e3
     )
 
     ## De-mean the bedrock

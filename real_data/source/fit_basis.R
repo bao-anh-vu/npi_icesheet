@@ -1,5 +1,5 @@
 fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F,
-                                lengthscale = 10e3, parallelise = F) {
+                                lengthscale = 10e3, parallelise = T) {
     ## Place basis function centres along domain
     # basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis+2)
     # basis_centres <- basis_centres[2:(length(basis_centres)-1)] 
@@ -8,19 +8,12 @@ fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F,
     testbasis <- local_basis(manifold = real_line(), 
                             loc = matrix(basis_centres),
                             type = "bisquare",
-                            # scale = rep(5e3, nbasis))
                             scale = rep(lengthscale, nbasis))
                            
     # show_basis(testbasis)
 
     basis_fns <- lapply(testbasis@fn, function(f) f(domain))
-    # plot(domain, basis_fns[[10]])
     basis_mat <- do.call(cbind, basis_fns)
-    # matplot(domain/1000, basis_mat, type = "l", col= "salmon", lty = 1, lwd = 1.5,
-    #         xlab = "Domain (km)", xlim = c(0, 200))
-
-    # ## Log transform
-    # log_fric <- log(fric_arr)
 
     if (log_transform) {
         fric_arr <- log(fric_arr)
@@ -71,7 +64,7 @@ fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F,
 ## Basis for the bedrock
 fit_bed_basis <- function(nbasis, domain, bed_arr,
                         lengthscale = 5e3,
-                            parallelise = F) {
+                            parallelise = T) {
     ## Place basis function centres along domain
     # basis_centres <- seq(domain[1], domain[length(domain)], length.out = nbasis+2)
     # basis_centres <- basis_centres[2:(length(basis_centres)-1)] 

@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:10 #6:20
+sets <- 1:50 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -212,6 +212,10 @@ bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = ncol(pred_
 pred_bed <- pred_bed_demean + bed_mean_mat
 test_bed <- test_bed_demean + bed_mean_mat
 
+###################################
+##   Uncertainty quantification  ##
+###################################
+
 ## Covariance matrix
 pred_chol <- pred_output[, (n_mean_elements+1):ncol(pred_output)]
 
@@ -231,7 +235,7 @@ for (s in 1:nrow(pred_chol)) {
 L1 <- Lmats[[1]]
 L1_inv <- solve(L1)
 Q <- t(L1_inv) %*% L1_inv
-image(Q)
+# image(Q)
 
 # ## Need to sample from the posterior distribution of the coefs
 # ## then transform them to actual friction, bed, gl
@@ -406,7 +410,7 @@ true_gl <- test_data$true_gl #* test_data$sd_gl + test_data$mean_gl
 samples <- sample(1:nrow(test_output), 6)
 
 if (save_plots) {
-    
+    print("Saving plots...")
     ## Friction plots
     png(paste0(plot_dir, "/pred_vs_true_fric", plot_tag, ".png"), width = 2000, height = 1200)
 
@@ -419,7 +423,7 @@ if (save_plots) {
         par(mar = c(6, 8, 4, 2))
         gl <- test_data$grounding_line[s] / 800 * 2001
 
-        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", ylim = c(0, 0.1),
+        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", #ylim = c(0, 0.1),
             ylab = "Friction (unit)", xlab = "Domain (km)", lwd = 3,
             cex.axis = 3, cex.lab = 4,
             main = paste0("Sample ", s))

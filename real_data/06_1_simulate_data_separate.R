@@ -57,7 +57,7 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111" #"20241103" 
 N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #50 #:10
+sets <- 31:50 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 warmup <- 0
 years <- 10 + warmup
