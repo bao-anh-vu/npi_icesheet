@@ -47,16 +47,18 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 
 ## 1. Read bed data
 # bed_old <- readRDS(file = "./data/bed_elev_nearest.rds")
-bed <- readRDS(file = "./data/bedmap_obs.rds")
-bed_sd <- unlist(readRDS(file = "./data/bedmap_sd.rds"))
+# bed <- readRDS(file = "./data/bedmap_obs.rds")
+# bed_sd <- unlist(readRDS(file = "./data/bedmap_sd.rds"))
+bed <- qread(file = paste0(data_dir, "bedmap_obs.qs"))
+bed_sd <- unlist(qread(file = paste0(data_dir, "bedmap_sd.qs")))
 bed <- bed[1:J] 
 bed_sd <- bed_sd[1:J]
 
 bed_obs_df <- data.frame(ind = 1:J, loc = flowline_dist, bed_elev = bed, bed_sd = bed_sd)
 
 # ## Calculate bed elevation at GL based on flotation condition
-# gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
-# gl_ind <- gl_pos$ind
+gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
+gl_ind <- gl_pos$ind
 
 # ## Condition at GL: bed = surface elevation / (rho_w/rho_i + 1)
 # params <- list(
@@ -77,18 +79,19 @@ bed_obs_df <- data.frame(ind = 1:J, loc = flowline_dist, bed_elev = bed, bed_sd 
 # common_avail_ind <- intersect(bed_avail_ind, bed_sd_avail_ind)
 common_avail_ind <- bed_obs_df %>% filter(!is.na(bed_elev) & !is.na(bed_sd)) %>% pull(ind)
 
-chosen_bed_ind_head <- common_avail_ind[1:25] #Choose the first 50 bed observations
-chosen_bed_ind_tail <- common_avail_ind[(length(common_avail_ind) - 24):length(common_avail_ind)] #Choose the first 50 bed observations
-chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_tail)
-set.seed(2024)
-chosen_bed_ind_mid <- sample(setdiff(common_avail_ind, chosen_bed_ind), 50) #then randomly select another 50 bed observations after
-chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_mid, chosen_bed_ind_tail)
+set.seed(2025)
+chosen_bed_ind <- sample(common_avail_ind, 50, replace = F)
+# chosen_bed_ind_head <- common_avail_ind[1:25] #Choose the first 50 bed observations
+# chosen_bed_ind_tail <- common_avail_ind[(length(common_avail_ind) - 24):length(common_avail_ind)] #Choose the first 50 bed observations
+# chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_tail)
+# chosen_bed_ind_mid <- sample(setdiff(common_avail_ind, chosen_bed_ind), 50) #then randomly select another 50 bed observations after
+# chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_mid, chosen_bed_ind_tail)
 
 # if index is in chosen_bed_ind, then chosen = 1, else 0
 bed_obs_df$chosen <- ifelse(bed_obs_df$ind %in% chosen_bed_ind, 1, 0)
 # bed_obs_df$chosen[gl_ind] <- 1 # also choose the bed "observation" at GL
 
-qsave(bed_obs_df, file = paste0(data_dir, "/bed_obs_df.qs"))
+# qsave(bed_obs_df, file = paste0(data_dir, "/bed_obs_df.qs"))
 
 chosen_bed_df <- bed_obs_df %>% filter(chosen == 1) %>% na.omit()
 
@@ -137,20 +140,33 @@ if (smooth_bed) {
 # bed_sim2 <- out$sims[, 2]
 # bed_sim3 <- out$sims[, 3]
 # bed_sim4 <- out$sims[, 4]
+bed_sim_plot <- bed_obs_df %>% ggplot(aes(x = loc, y = bed_elev)) +
+        geom_line() + 
+        geom_point(aes(col = factor(chosen)), alpha = 0.5, size = 3) + #, shape = 21, size = 3) +
+        geom_vline(xintercept = flowline_dist[gl_ind], lty = 2) +
+        geom_line(data = data.frame(x = flowline_dist, y = bed_sim), aes(x = x, y = y), col = "grey60") +
+        theme_bw() +
+        theme(text = element_text(size = 20)) 
 
 png(paste0("./plots/bed/bed_sim.png"), width = 1000, height = 500)
-bed_obs_df %>% ggplot(aes(x = loc, y = bed_elev)) +
-        geom_line() + 
-        geom_point(aes(col = factor(chosen))) +
+print(bed_sim_plot)
+dev.off()
+
+bed_obs_chosen <- bed_obs_df %>% filter(chosen == 1) 
+
+png(paste0("./plots/bed/bed_obs_chosen.png"), width = 1000, height = 500)
+bed_obs_chosen %>% ggplot(aes(x = loc, y = bed_elev)) +
+        geom_point(alpha = 0.5, size = 3) + #, shape = 21, size = 3) +
         geom_vline(xintercept = flowline_dist[gl_ind], lty = 2) +
-        geom_line(data = data.frame(x = flowline_dist, y = bed_sim), aes(x = x, y = y), col = "gray") +
+        geom_line(data = data.frame(x = flowline_dist, y = bed_sim), aes(x = x, y = y), col = "grey60") +
         # geom_line(data = data.frame(x = flowline_dist, y = fitted(bed_loess)), aes(x = x, y = y), col = "red") +
         # geom_line(data = data.frame(x = flowline_dist, y = bed_sim2), aes(x = x, y = y), col = "blue") +
         # # xlim(2e+05, 3e+05) +
         # geom_line(data = data.frame(x = flowline_dist, y = bed_sim3), aes(x = x, y = y), col = "green") +
         # geom_line(data = data.frame(x = flowline_dist, y = bed_sim4), aes(x = x, y = y), col = "purple") +
-        theme_bw()
+        theme_bw() +
+        theme(text = element_text(size = 20)) 
 dev.off()
 
 ## Save
-qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
+# qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))

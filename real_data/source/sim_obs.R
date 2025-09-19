@@ -7,26 +7,16 @@ sim_obs <- function(param_list,
                     ini_velocity,
                     ini_thickness, 
                     smb = 0.5, # default of 0.5 m/yr
-                    basal_melt = 0, # default of 0 m/yr
-                    log_transform = T) { # , bed_obs) {
+                    basal_melt = 0#, # default of 0 m/yr
+                    # log_transform = T
+                    ) { # , bed_obs) {
 
     ## Simulate ice thickness and velocity observations
     print("Simulating observations...")
 
-    ## Process noise parameters (for ice thickness)
-    # ones <- rep(1, length(domain))
-    # D <- rdist(domain)
-    # l <- 50e3
-    # R <- exp_cov(D, l)
-
-    # L <- t(chol(R))
-    # L <- as(L, "dgCMatrix")
-    # process_noise_info <- list(corrmat_chol = L, length_scale = l)
-
-    if (log_transform) {
-        # param_list$fric <- exp(param_list$fric)
-        param_list <- lapply(param_list, function(x) {x$friction <- exp(x$friction); x})
-    } 
+    # if (log_transform) {
+    #     param_list <- lapply(param_list, function(x) {x$friction <- exp(x$friction); x})
+    # } 
 
     ## Measurement noise for the velocity observations ##
     ones <- rep(1, length(domain))
@@ -135,7 +125,7 @@ sim_obs <- function(param_list,
 
     return(list(
         params = param_list,
-        log_transform = log_transform,
+        # log_transform = log_transform,
         results = sim_results,
         bad_sims = bad_sims,
         errors = errors

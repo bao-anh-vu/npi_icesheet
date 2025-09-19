@@ -10,22 +10,24 @@ library(parallel)
 setwd("~/SSA_model/CNN/real_data/")
 
 print("Reading BedMap data...")
-data_dir <- "./data/bedmap"
+data_dir <- "./data/"
 
 ## Basin data
 basin_data <- read_sf(paste0("./data/boundaries/Basins/Basins_Antarctica_v02.shp"))
 thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 
 ## Grounding line data
-gl_thwaites <- readRDS(paste0("./data/gl_thwaites.rds"))
+gl_thwaites <- qread(paste0(data_dir, "grounding_line/gl_thwaites.qs"))
 
 ## Flowline
-flowline <- readRDS("./data/flowline_regrid.rds")
-# saveRDS(na.omit(flowline), "./data/flowline_regrid.rds")
+flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
+
+## Mark GL position on the flowline
+gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
 
 ## Bed data
-bas_data_2018 <- read_sf(paste0(data_dir, "/BAS_2018_Thwaites_AIR_BM3/BAS_2018_Thwaites_AIR_BM3_points.shp"))
-bas_data_2019 <- read_sf(paste0(data_dir, "/BAS_2019_Thwaites_AIR_BM3/BAS_2019_Thwaites_AIR_BM3_points.shp"))
+bas_data_2018 <- read_sf(paste0(data_dir, "bedmap/BAS_2018_Thwaites_AIR_BM3/BAS_2018_Thwaites_AIR_BM3_points.shp"))
+bas_data_2019 <- read_sf(paste0(data_dir, "bedmap/BAS_2019_Thwaites_AIR_BM3/BAS_2019_Thwaites_AIR_BM3_points.shp"))
 # head(bas_data_2018$geometry)
 
 bed_data_2018 <- bas_data_2018 %>% select(Mean_bed, SD_bed, geometry) %>% mutate(year = 2018)
@@ -70,7 +72,7 @@ dev.off()
 
 ## Map bed data to flowline
 
-delta <- 500 # grid size
+delta <- 200 # grid size
 # flowline_dist <- sqrt((flowline$x[2:nrow(flowline)] - flowline$x[1:(nrow(flowline) - 1)])^2 +
 #     (flowline$y[2:nrow(flowline)] - flowline$y[1:(nrow(flowline) - 1)])^2)
 # flowline$ind <- 1:nrow(flowline)
@@ -126,5 +128,5 @@ png(paste0("./plots/bed/bed_elev_flowline_new.png"), width = 800, height = 800)
 plot(unlist(bed_elev_avg), type = "l")
 dev.off()
 
-saveRDS(bed_elev_avg, file = "./data/bedmap_obs.rds")
-saveRDS(bed_sd_avg, file = "./data/bedmap_sd.rds")
+qsave(bed_elev_avg, file = "./data/bedmap_obs.qs")
+qsave(bed_sd_avg, file = "./data/bedmap_sd.qs")

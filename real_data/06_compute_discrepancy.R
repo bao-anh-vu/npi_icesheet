@@ -48,7 +48,8 @@ bed_obs_df <- qread(file = paste0(data_dir, "/bed_obs_df.qs"))
 bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
 
 ## Read surface data
-vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+# vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+vel_mat <- qread("./data/velocity/vel_smoothed.qs") # adjusted observed velocities
 surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs") # this is on grounded ice only
 
 ## Grounding line data
@@ -106,7 +107,6 @@ bed_sims <- sim_param_list$bedrock
 fric_scale <- 1e6 * params$secpera^(1 / params$n)
 fric_sims <- sim_param_list$friction * fric_scale
     
-
 ## Run simulations for different friction coefficient fields
 ## starting from steady state
 
@@ -187,7 +187,7 @@ par(mfrow = c(nsims/2, 2))
 for (s in 1:nsims) {
     matplot(flowline_dist/1000, vel_discr[[s]], type = "l", lty = 1, #col = rgb(0,0,0,0.25),
         # cex = 5, 
-        ylim = c(-8000, 2000),
+        ylim = c(-2000, 6000),
         xlab = "Distance along flowline (km)", ylab = "Velocity discrepancy (m/yr)",
         main = paste0("Velocity discrepancy for simulation ", s))
     abline(h = 0, col = "grey", lty = 2)
@@ -235,6 +235,13 @@ years <- dim(vel_mat)[2]
 vel_discr_mat <- matrix(rep(avg_vel_discr, years), nrow = J, ncol = years)
 se_discr_mat <- matrix(rep(avg_se_discr, years), nrow = J, ncol = years)
 
+adj_se_mat <- surf_elev_mat - se_discr_mat
+# adj_vel_mat <- vel_mat - vel_discr_mat
+
+## Save adjusted observed data
+qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", data_date, ".qs"))
+# qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", data_date, ".qs"))
+
 ## Plot the average discrepancy
 pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 15, height = 20)
 
@@ -256,7 +263,7 @@ for (s in 1:nsims) {
     ylim = c(0, 4000),
     xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)", 
     main = "(Adjusted) observed vs simulated velocity")
-    matlines(flowline_dist/1000, vel_mat - discr_mat, 
+    matlines(flowline_dist/1000, vel_mat - vel_discr_mat, 
         type = "l", col = "salmon", lwd = 2)
     legend("topright", legend = c("Simulated", "Observed - avg discrepancy"), 
         col = c("grey", "salmon"), lwd = 2, bty = "n")
@@ -272,13 +279,14 @@ plot(flowline_dist/1000, avg_se_discr, type = "l", col = "blue", lwd = 2,
     main = "Average surface elevation discrepancy")
 abline(h = 0, col = "grey", lty = 2)
 abline(v = gl, lty = 2)
+
 par(mfrow = c(nsims/2, 2))
 for (s in 1:nsims) {
     matplot(flowline_dist/1000, se_sims[[s]], type = "l", col = "black", lwd = 2,
     ylim = c(0, 1600),
     xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)", 
     main = "(Adjusted) observed vs simulated surface elevation")
-    matlines(flowline_dist/1000, surf_elev_mat - matrix(rep(avg_se_discr, dim(surf_elev_mat)[2]), nrow = J, ncol = dim(surf_elev_mat)[2]), 
+    matlines(flowline_dist/1000, adj_se_mat, 
         type = "l", col = "salmon", lwd = 2)
     legend("topright", legend = c("Simulated", "Observed - avg discrepancy"), 
         col = c("grey", "salmon"), lwd = 2, bty = "n")

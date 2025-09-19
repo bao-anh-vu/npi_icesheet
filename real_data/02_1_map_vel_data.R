@@ -34,7 +34,7 @@ gl_thwaites <- qread(paste0(data_dir, "grounding_line/gl_thwaites.qs"))
 #   geom_sf(color = "black", fill = NA) +
 #   theme_bw()
 
-years <- 2011:2020
+years <- 2010:2011
 
 vel_data <- list()
 for (year in years) {
@@ -110,7 +110,7 @@ for (year in years) {
         }
 
 
-        delta <- 120 # grid size
+        delta <- 120 # grid size 
         # flowline <- readRDS(paste0(data_dir, "flowline_regrid.rds"))
         flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
 

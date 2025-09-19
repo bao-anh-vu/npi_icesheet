@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:20 #6:20
+sets <- 1:10 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -174,10 +174,12 @@ png(paste0(plot_dir, "pred_coef", plot_tag, ".png"), width = 1000, height = 200*
 par(mfrow = c(length(samples), 2))
 
 for (s in samples) {
-    plot(test_fric_coefs[s,], type = "l", main = "Friction basis coefficients")
+    plot(test_fric_coefs[s,], 
+        type = "l", main = "Friction basis coefficients")
     lines(pred_fric_coefs[s,], col = "red")
 
-    plot(test_bed_coefs[s,], type = "l", main = "Bed basis coefficients")
+    plot(test_bed_coefs[s,], 
+        type = "l", main = "Bed basis coefficients")
     lines(pred_bed_coefs[s,], col = "red")
 }
 dev.off()
@@ -408,7 +410,7 @@ if (save_plots) {
     ## Friction plots
     png(paste0(plot_dir, "/pred_vs_true_fric", plot_tag, ".png"), width = 2000, height = 1200)
 
-    plot_domain <- 1:length(domain) # ceiling(gl)
+    plot_domain <- 1:1200 #length(domain) # ceiling(gl)
 
     par(mfrow = c(length(samples) / 2, 2))
     # for (i in 1:length(samples)) {
@@ -417,7 +419,7 @@ if (save_plots) {
         par(mar = c(6, 8, 4, 2))
         gl <- test_data$grounding_line[s] / 800 * 2001
 
-        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", 
+        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", ylim = c(0, 0.1),
             ylab = "Friction (unit)", xlab = "Domain (km)", lwd = 3,
             cex.axis = 3, cex.lab = 4,
             main = paste0("Sample ", s))

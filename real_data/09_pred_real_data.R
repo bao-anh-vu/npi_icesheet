@@ -279,7 +279,8 @@ gl_uq <- gl_q[2,]
 
 ## Plot the results
 png(paste0(plot_dir, "/fric_samples.png"), width = 1000, height = 500)
-plot(domain/1e3, fric_lq, type = "l", col = "grey", lwd = 2)
+plot(domain/1e3, fric_lq, type = "l", col = "grey", lwd = 2,
+     xlab = "Flowline (km)", ylab = "Friction coefficient")
 lines(domain/1e3, fric_uq, col = "grey", lwd = 2)
 lines(domain/1e3, pred_fric, col = "red", lwd = 2)
 dev.off()
@@ -290,11 +291,11 @@ bed_obs_train <- bed_obs_df %>% filter(chosen == 1)
 bed_obs_val <- bed_obs_df %>% filter(chosen == 0)
 
 png(paste0(plot_dir, "/bed_samples.png"), width = 1000, height = 500)
-plot(domain/1e3, bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Grid point", ylab = "Elevation (m)")
+plot(domain/1e3, bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Flowline (km)", ylab = "Elevation (m)")
 lines(domain/1e3, bed_uq, col = "grey", lwd = 2)
 lines(domain/1e3, pred_bed, col = "red", lwd = 2)
-points(domain/1e3, bed_obs_train$ind, bed_obs_train$bed_elev, col = "black", pch = 20)
-points(domain/1e3, bed_obs_val$ind, bed_obs_val$bed_elev, col = "cyan")
+points(bed_obs_train$loc/1e3, bed_obs_train$bed_elev, col = "black", pch = 20)
+points(bed_obs_val$loc/1e3, bed_obs_val$bed_elev, col = "cyan")
 dev.off()
 
 ## Save predictions

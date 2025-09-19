@@ -24,7 +24,7 @@ source("./source/simulate_friction.R")
 # source("./source/fit_basis.R")
 
 rerun_steady_state <- T
-use_basal_melt_data <- T
+use_basal_melt_data <- F
 
 data_dir <- "./data/"
 data_date <- "20241111" #"20241103"
@@ -109,6 +109,7 @@ abline(v = flowline_dist[length(se_grounded)]/1000, lty = 2, col = "red")
 dev.off()
 
 ## Velocity
+# vel_mat <- qread("./data/velocity/vel_smoothed.qs")
 vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
 years <- ncol(vel_mat)
 vel_curr <- rowMeans(vel_mat[, (years-5):years]) # average over the last 10 years
@@ -168,7 +169,7 @@ matplot(flowline_dist/1000, steady_state$current_top_surface, type = "l", col = 
     main = paste0("Steady state after ", n_years_steady, "years"))
 matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
-legend("topright", legend = c(paste0("Simulated (", relax_years, "years post-steady)"), "Observed"), 
+legend("topright", legend = c(paste0("Simulated steady-state"), "Observed"), 
     col = c("grey", "red"), lty = 1, bty = "n")
 
 matplot(flowline_dist/1000, steady_state$current_velocity, type = "l", col = "grey", ylim = c(0, 4000),
@@ -176,7 +177,7 @@ matplot(flowline_dist/1000, steady_state$current_velocity, type = "l", col = "gr
 matlines(flowline_dist/1000, vel_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, steady_state$current_velocity, col = "salmon")
 # lines(flowline_dist/1000, relaxation$current_velocity, col = "red")
-legend("topleft", legend = c("Simulated (20 year post-steady)", "Observed"), 
+legend("topleft", legend = c(paste0("Simulated steady-state"), "Observed"), 
     col = c("grey", "red"), lty = 1, bty = "n")
 dev.off()
 

@@ -54,7 +54,7 @@ source("./source/custom_loss_function.R")
 ## Read data
 data_date <- "20241111"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:20 # c(1,3,5) #11:15 #:5 #6:10 #arg
+sets <- 1:10 # c(1,3,5) #11:15 #:5 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

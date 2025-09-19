@@ -18,25 +18,39 @@ years <- 2010:2020
 data_dir <- "./data"
 velocities <- list()
 recombine_data <- T
+censor_data <- T ## censor velocity data from GL onwards
 
 # flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
 flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
-if (recombine_data) {
-    for (i in 1:length(years)) {
-        year <- years[i]
-        # velocity_i <- readRDS(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
-        velocity_i <- qread(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".qs"))
-        velocity_i$year <- year
-        velocity_i$gridpt <- 1:nrow(velocity_i)
-        velocities[[i]] <- velocity_i
-    }
+J <- nrow(flowline) # number of grid points
 
-    J <- nrow(flowline) # number of grid points
-    velocities_only <- lapply(velocities, function(x) x %>% select(vel_avg))
-    velocities_truncated <- lapply(velocities_only, function(x) x[1:J, ])
-    velocity_arr <- abind(velocities_truncated, along = 2)
+## Grounding line data
+gl_pos <- qread(paste0(data_dir, "/grounding_line/gl_pos.qs")) ## grounding line position
+gl_ind <- gl_pos$ind
 
-    qsave(velocity_arr, "./data/velocity/all_velocity_arr.qs")
+# if (recombine_data) {
+for (i in 1:length(years)) {
+    year <- years[i]
+    # velocity_i <- readRDS(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".rds"))
+    velocity_i <- qread(paste0(data_dir, "/velocity/flowline_vel_mapped_", year, ".qs"))
+    velocity_i$year <- year
+    velocity_i$gridpt <- 1:nrow(velocity_i)
+    velocities[[i]] <- velocity_i
+}
+
+velocities_only <- lapply(velocities, function(x) x %>% select(vel_avg))
+velocities_truncated <- lapply(velocities_only, function(x) x[1:J, ])
+velocity_arr <- abind(velocities_truncated, along = 2)
+
+qsave(velocity_arr, "./data/velocity/all_velocity_arr.qs")
+
+png("./plots/temp/velocity_arr.png", width = 750, height = 500)
+matplot(velocity_arr, col = "grey", type = "l")
+abline(v = gl_ind, col = "black", lty = 2)
+dev.off()
+
+## Manually "mask" some unreliable velocity values in 2010
+velocity_arr[1:500, 1] <- NA # discard first 500 grid points in 2010 as the values seem unreliable
 
     ## Concatenate all velocity data
     velocities_df <- bind_rows(velocities)
@@ -70,7 +84,7 @@ if (recombine_data) {
         ggtitle("Thwaites Glacier Velocity Over Time") +
         theme(plot.title = element_text(hjust = 0.5))
 
-    png("./plots/velocity/missing_pattern.png", width = 800, height = 600)
+    png("./plots/missing_pattern/vel_missing_ptn.png", width = 800, height = 600)
     print(vel_mp_plot)
     dev.off()
 
@@ -80,16 +94,20 @@ if (recombine_data) {
         as.matrix() %>%
         matrix(nrow = J, ncol = length(years))
 
+    if (censor_data) {
+        vel_missing_pattern[(gl_ind + 1):J, ] <- 0
+        # velocity_arr[(gl_ind + 1):J, ] <- NA
+    }
 
     qsave(vel_missing_pattern, "./data/velocity/missing_pattern.qs")
-} else {
-    velocity_arr <- qread("./data/velocity/all_velocity_arr.qs")
-    vel_missing_pattern <- qread("./data/velocity/missing_pattern.qs")
-}
+# } else {
+#     velocity_arr <- qread("./data/velocity/all_velocity_arr.qs")
+#     vel_missing_pattern <- qread("./data/velocity/missing_pattern.qs")
+# }
 
-J <- nrow(flowline) # number of grid points
-flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
-flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
+
+
+
 
 ## Smooth velocity data
 # vel_smoothed <- matrix(NA, nrow = nrow(velocity_arr), ncol = ncol(velocity_arr))
@@ -110,11 +128,14 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 # }
 
 ## Median polishing
+flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
+flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
+
 vel_smoothed <- matrix(NA, nrow = J, ncol = length(years))
 
 # gl_pos <- readRDS(paste0(data_dir, "/grounding_line/gl_pos.rds")) ## grounding line position
-gl_pos <- qread(paste0(data_dir, "/grounding_line/gl_pos.qs")) ## grounding line position
-gl_ind <- gl_pos$ind
+# gl_pos <- qread(paste0(data_dir, "/grounding_line/gl_pos.qs")) ## grounding line position
+# gl_ind <- gl_pos$ind
 # delta <- 120 # grid size
 # flowline$ind <- 1:nrow(flowline)
 # gl_near_pts <- flowline %>% filter(
@@ -124,11 +145,12 @@ gl_ind <- gl_pos$ind
 
 ## If before GL, use 20 intervals; if after GL, use 50 intervals
 # n_intervals <- 20
-interval_size_before_gl <- gl_ind %/% 5
-interval_size_after_gl <- (J - gl_ind) %/% 3
+interval_size_before_gl <- 100# gl_ind %/% 5
+interval_size_after_gl <- 200 #(J - gl_ind) %/% 3
     
 # i <- 1    
-for (i in 1:length(years)) {
+smooth_years <- years[1:3] # only smooth first 3 years (2010-2012) as the other years look fine
+for (i in 1:length(smooth_years)) {
     year <- years[i]
     vel_yr <- velocity_arr[, i]
  
@@ -162,13 +184,15 @@ for (i in 1:length(years)) {
 
 }
 
+vel_smoothed2 <- cbind(vel_smoothed[, 1:3], velocity_arr[, 4:ncol(velocity_arr)])
+
 png("./plots/temp/vel_smoothed.png", width = 750, height = 500)
 matplot(velocity_arr, col = "grey", type = "l")
 matlines(vel_smoothed, col = "salmon")
 abline(v = gl_ind, col = "black", lty = 2)
 dev.off()
 
-qsave(vel_smoothed, "./data/velocity/vel_smoothed.qs")
+qsave(vel_smoothed2, "./data/velocity/vel_smoothed.qs")
 
 
 # ## Missing pattern for surface elevation data

@@ -131,7 +131,7 @@ bed_plot <- bed_data %>% ggplot() +
 # print(bed_plot)
 # dev.off()
 
-delta <- 100 # take the closest bed observations within 200 m around each point along the flowline
+delta <- 25 # take the closest bed observations within 200 m around each point along the flowline
 ## Map bed obs to flowline
 avg_nearest_four <- function(pos) {
         near_pts <- bed_data %>% filter(
@@ -172,7 +172,7 @@ gl_ind <- gl_pos$ind
 bed_elev_nearest <- sapply(bed_elev, function(x) x$bed_nearest)
 # saveRDS(bed_elev_nearest, file = "./data/bed_elev_nearest.rds")
 
-png(paste0("./plots/bed/bed_elev_nearest.png"), width = 800, height = 500)
+png(paste0("./plots/bed/bed_obs.png"), width = 800, height = 500)
 plot(bed_elev_nearest, type = "o")
 abline(v = gl_ind, lty = 2)
 dev.off()
