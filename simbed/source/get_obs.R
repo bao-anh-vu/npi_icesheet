@@ -48,7 +48,7 @@ get_obs <- function(reference, data_date, n_obs = 50, get_new_obs = FALSE, rewri
     par(mfrow = c(1, 2))
     plot(obs_velocities[, 2], type = "l", main = "Velocity at t = 1a")
     plot(obs_velocities[, ncol(obs_velocities)], type = "l", main = "Velocity at t = 50a")
-    
+browser()    
     ## 3. Top surface elevation observations ##
     # cov_surface <- diag(10^2, length(ref_top_surface)) # measurement noise for the top surface
     n_surface_obs <- nrow(all_top_surface) * ncol(all_top_surface)

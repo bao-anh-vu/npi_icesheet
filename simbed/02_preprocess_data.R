@@ -16,7 +16,7 @@ library(qs)
 ## Flags
 # sim_beds <- T
 # output_var <- "bed" # "friction" # "grounding_line" # "bed_elevation
-save_data <- F
+save_data <- T
 standardise_output <- T
 use_missing_pattern <- T
 
@@ -49,7 +49,7 @@ source("./source/seq_mean_var.R")
 data_date <- "20240320" # "20220329"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 50 #1:50 
+sets <- 1:10 #1:50 
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 

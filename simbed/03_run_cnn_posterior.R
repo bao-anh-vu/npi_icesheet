@@ -44,7 +44,7 @@ source("./source/posterior_loss.R")
 ## Read data
 data_date <- "20240320"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 1:10 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -70,6 +70,7 @@ train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$gr
 val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
+
 t1 <- proc.time()
 
 # if (rerun_cnn) {
@@ -92,7 +93,7 @@ summary(model)
 
 # Create a callback that saves the model's weights
 if (use_missing_pattern) {
-  output_dir <- paste0("./output/posterior/", setsf, "/missing")
+  output_dir <- paste0("./output/posterior/", setsf, "/missing_test")
 } else {
   output_dir <- paste0("./output/posterior/", setsf, "/nonmissing")
 }

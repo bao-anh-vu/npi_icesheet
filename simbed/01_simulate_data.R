@@ -54,7 +54,7 @@ data_date <- "20240320" # "20220329"
 N <- 1000 # number of simulations per set
 warmup <- 0
 years <- 20 + warmup
-sets <- 1:50 #11:20
+sets <- 1:10 #11:20
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -301,6 +301,14 @@ bed_arr <- bed_basis$true_vals
 fitted_bed <- bed_basis$fitted_values
 bed_mean <- bed_basis$mean
 
+## Plot velocity array for a simulation
+png("plots/input/surface_obs_sim.png", width = 6, height = 8, units = "in", res = 300)
+par(mfrow = c(2, 1))
+matplot(surface_obs_arr[1,,,1], type = "l", main = "Surface elevation (m)", ylab = "Surface elev. (m)", xlab = "Domain (grid points)")
+matplot(surface_obs_arr[1,,,2], type = "l", main = "Velocity (m/yr)", ylab = "Velocity (m/yr)", xlab = "Domain (grid points)")
+dev.off()
+
+## Hovmoller plots of surface elevation and velocity
 plots <- list()
 
 nsamples <- 1
