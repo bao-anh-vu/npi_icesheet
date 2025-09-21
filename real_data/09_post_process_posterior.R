@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #6:20
+sets <- 1:10 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -215,6 +215,7 @@ test_bed <- test_bed_demean + bed_mean_mat
 ###################################
 ##   Uncertainty quantification  ##
 ###################################
+print("Computing credible intervals...")
 
 ## Covariance matrix
 pred_chol <- pred_output[, (n_mean_elements+1):ncol(pred_output)]
@@ -242,16 +243,13 @@ Q <- t(L1_inv) %*% L1_inv
 
 S <- 1000 ## number of posterior samples
 
-fric_samples_ls2 <- list()
-bed_samples_ls2 <- list()
-gl_samples_ls2 <- list()
+# fric_samples_ls2 <- list()
+# bed_samples_ls2 <- list()
+# gl_samples_ls2 <- list()
 
-fric_lq2 <- list()
-fric_uq2 <- list()
-bed_lq2 <- list()
-bed_uq2 <- list()
-gl_lq2 <- list()
-gl_uq2 <- list()
+# fric_lq2 <- fric_uq2 <- list()
+# bed_lq2 <- bed_uq2 <- list()
+# gl_lq2 <- gl_uq2 <- list()
 
 ## Sample basis function coefficients from posterior
 sampletime1 <- system.time({
@@ -423,7 +421,7 @@ if (save_plots) {
         par(mar = c(6, 8, 4, 2))
         gl <- test_data$grounding_line[s] / 800 * 2001
 
-        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", #ylim = c(0, 0.1),
+        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", ylim = c(0, 0.1),
             ylab = "Friction (unit)", xlab = "Domain (km)", lwd = 3,
             cex.axis = 3, cex.lab = 4,
             main = paste0("Sample ", s))
