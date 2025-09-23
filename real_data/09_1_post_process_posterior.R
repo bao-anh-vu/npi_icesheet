@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:10 #6:20
+sets <- 51:60 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -226,16 +226,19 @@ Lc_elems <- n_basis_funs + (n_basis_funs - 1)
 Lg_elems <- n_gl + (n_gl - 1)
 
 Lmats <- list()
-for (s in 1:nrow(pred_chol)) {
-    Lb <- construct_L_matrix(pred_chol[s, 1:Lb_elems], n_basis_funs)
-    Lc <- construct_L_matrix(pred_chol[s, (Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
-    Lg <- construct_L_matrix(pred_chol[s, (Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
-    Lmats[[s]] <- bdiag(Lb, Lc, Lg)
-}
+s0 <- system.time({
+    for (s in 1:nrow(pred_chol)) {
+        Lb <- construct_L_matrix(pred_chol[s, 1:Lb_elems], n_basis_funs)
+        Lc <- construct_L_matrix(pred_chol[s, (Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
+        Lg <- construct_L_matrix(pred_chol[s, (Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
+        Lmats[[s]] <- bdiag(Lb, Lc, Lg)
+    }
+})
 
-L1 <- Lmats[[1]]
-L1_inv <- solve(L1)
-Q <- t(L1_inv) %*% L1_inv
+
+# L1 <- Lmats[[1]]
+# L1_inv <- solve(L1)
+# Q <- t(L1_inv) %*% L1_inv
 # image(Q)
 
 # ## Need to sample from the posterior distribution of the coefs
@@ -243,20 +246,12 @@ Q <- t(L1_inv) %*% L1_inv
 
 S <- 1000 ## number of posterior samples
 
-# fric_samples_ls2 <- list()
-# bed_samples_ls2 <- list()
-# gl_samples_ls2 <- list()
-
-# fric_lq2 <- fric_uq2 <- list()
-# bed_lq2 <- bed_uq2 <- list()
-# gl_lq2 <- gl_uq2 <- list()
-
 ## Sample basis function coefficients from posterior
-sampletime1 <- system.time({
+s1 <- system.time({
 pred_samples_ls <- lapply(1:nrow(test_output), function(i) 
                             sample_from_posterior(n = S, mean = pred_mean[i, ], prec_chol = Lmats[[i]])) #,
                                 # mc.cores = 10L)
-                                
+})  
 
 ## Transform basis coefficients into actual friction coefficients
 sd_fric_coefs <- test_data$sd_fric_coefs
@@ -311,65 +306,12 @@ bed_lq <- lapply(bed_q, function(x) x[1, ])
 bed_uq <- lapply(bed_q, function(x) x[2, ])
 gl_lq <- lapply(gl_q, function(x) x[1, ])
 gl_uq <- lapply(gl_q, function(x) x[2, ])
-})
-
-# sampletime2 <- system.time({
-#     for (s in 1:100) { # parallelise this later
-
-#     cat("Sample: ", s, "\n")
-#     L <- Lmats[[s]]
-
-#     ### Sample from the posterior distribution
-#     z <- matrix(rnorm(S * n_mean_elements), 
-#                 nrow = n_mean_elements, ncol = S)
-#     v <- backsolve(L, z)
-
-#     meanmat <- matrix(rep(pred_mean[s, ], S), 
-#                 nrow = n_mean_elements, ncol = S)
-#     pred_samples <- meanmat + v
-
-#     ## Un-standardise output
-#     ## Then dissect the pred samples to get the friction, bed, gl
-#     fric_coef_samples <- pred_samples[1:n_fric_basis, ]
-#     bed_coef_samples <- pred_samples[(n_fric_basis+1):(n_fric_basis+n_bed_basis), ]
-#     gl_samples <- pred_samples[(n_fric_basis+n_bed_basis+1):n_mean_elements, ]
-
-#     fric_coef_samples_ustd <- fric_coef_samples * test_data$sd_fric_coefs + test_data$mean_fric_coefs
-#     bed_coef_samples_ustd <- bed_coef_samples * test_data$sd_bed_coefs + test_data$mean_bed_coefs
-#     gl_samples_ustd <- gl_samples * test_data$sd_gl + test_data$mean_gl
-
-#     ## Compute friction samples  
-#     if (log_transform) {
-#         fric_samples_ls2[[s]] <- exp(fric_basis_mat %*% fric_coef_samples_ustd)
-#     } else {
-#         fric_samples_ls2[[s]] <- fric_basis_mat %*% fric_coef_samples_ustd
-#     }
-
-#     bed_samples_ls2[[s]] <- bed_basis_mat %*% bed_coef_samples_ustd + bed_mean_mat
-#     gl_samples_ls2[[s]] <- gl_samples_ustd
-
-#     fric_lq2[[s]] <- apply(fric_samples_ls[[s]], 1, quantile, probs = 0.025)
-#     fric_uq2[[s]] <- apply(fric_samples_ls[[s]], 1, quantile, probs = 0.975)
-    
-#     bed_lq2[[s]] <- apply(bed_samples_ls[[s]], 1, quantile, probs = 0.025)
-#     bed_uq2[[s]] <- apply(bed_samples_ls[[s]], 1, quantile, probs = 0.975)
-
-#     gl_lq2[[s]] <- apply(gl_samples_ls[[s]], 1, quantile, probs = 0.025)
-#     gl_uq2[[s]] <- apply(gl_samples_ls[[s]], 1, quantile, probs = 0.975)
-# }
-
-# })
-
-# png(paste0(plot_dir, "/fric_coef_samples", checkpt, ".png"), width = 2000, height = 1200)
-# matplot(fric_coef_samples_ustd[, 1:10], col = "grey", type = "l")
-# lines(pred_fric_coefs[s, ], col = "red", lwd = 2)
-# dev.off()
 
 
 #################################
 ##      Save predictions       ##
 #################################
-
+print("Saving predictions...")
 if (save_pred) {
     qsave(pred_fric, file = paste0(output_dir, "/pred_fric_", data_date, ".qs"))
     qsave(pred_bed, file = paste0(output_dir, "/pred_bed_", data_date, ".qs"))
@@ -395,7 +337,7 @@ if (save_pred) {
 ######################################
 
 ## True parameter values for comparison
-true_fric <- test_data$true_fric
+true_fric <- t(test_data$true_fric)
 true_bed <- test_data$true_bed
 true_gl <- test_data$true_gl #* test_data$sd_gl + test_data$mean_gl
 
@@ -421,7 +363,11 @@ if (save_plots) {
         par(mar = c(6, 8, 4, 2))
         gl <- test_data$grounding_line[s] / 800 * 2001
 
-        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", ylim = c(0, 0.1),
+        # plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", ylim = c(0, 0.1),
+        #     ylab = "Friction (unit)", xlab = "Domain (km)", lwd = 3,
+        #     cex.axis = 3, cex.lab = 4,
+        #     main = paste0("Sample ", s))
+        plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", #ylim = c(0, 0.06),
             ylab = "Friction (unit)", xlab = "Domain (km)", lwd = 3,
             cex.axis = 3, cex.lab = 4,
             main = paste0("Sample ", s))
@@ -492,16 +438,3 @@ if (save_plots) {
     dev.off()
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -10,14 +10,19 @@ library(Matrix)
 library(matrixStats) # for the rowMaxs() function
 library(R.utils)
 library(mvtnorm)
+library(abind)
 
-source("./source/sim_params.R")
+# source("./source/sim_params.R")
+source("./source/sim_obs.R")
 source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/solve_ssa_nl_relax.R")
 source("./source/surface_elev.R")
 source("./source/solve_thickness.R")
 source("./source/solve_velocity_azm.R")
+source("./source/get_surface_obs.R")
+# source("./source/azm_cond_sim.R")
+source("./source/process_sim_results.R")
 
 data_dir <- "./data/"
 data_date <- "20241111" #"20241103"
@@ -39,9 +44,9 @@ params$m <- 1 / params$n
 params$B <- 1.4 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
-steady_state <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
-flowline_dist <- steady_state$domain
-J <- length(flowline_dist)
+ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
+domain <- ssa_steady$domain
+J <- length(domain)
 
 ## Bed observations
 bed_obs_df <- qread(file = paste0(data_dir, "/bed_obs_df.qs"))
@@ -54,7 +59,7 @@ surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs") # this is on grou
 
 ## Grounding line data
 gl_pos <- qread(file = paste0(data_dir, "/grounding_line/gl_pos.qs"))
-gl <- flowline_dist[gl_pos$ind] / 1e3
+gl <- domain[gl_pos$ind] / 1e3
 
 ## SMB data
 smb_data_racmo <- qread(file = paste0(data_dir, "/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
@@ -77,9 +82,9 @@ params$ab <- avg_melt_rate # melt rate (m/s)
 
 ## Plot average melt rate
 png(file = paste0("./plots/steady_state/avg_melt_rate_", data_date, ".png"), width = 800, height = 600)
-plot(flowline_dist/1000, params$ab, type = "l", 
+plot(domain/1000, params$ab, type = "l", 
     xlab = "Distance along flowline (km)", ylab = "Basal melt rate (m/a)")
-abline(v = steady_state$grounding_line[length(steady_state$grounding_line)], lty = 2, col = "red")
+abline(v = ssa_steady$grounding_line[length(ssa_steady$grounding_line)], lty = 2, col = "red")
 dev.off()
 
 ## Flowline data
@@ -87,8 +92,8 @@ dev.off()
 # flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 # J <- nrow(flowline) # number of grid points
 # # flowline <- flowline[1:J, ]
-# flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
-# flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
+# domain <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
+# domain <- c(0, cumsum(na.omit(domain)))
 
 ######################################
 ##     Simulate bed and friction    ##
@@ -96,16 +101,52 @@ dev.off()
 print("Simulating bed and friction coefficient...")
 
 nsims <- 10
-sim_param_output <- sim_params(
-    nsims = nsims, domain = steady_state$domain,
-    bed_obs = bed_obs_df[bed_obs_df$chosen == 1, ]
-)
+# sim_param_output <- sim_params(
+#     nsims = nsims, domain = ssa_steady$domain,
+#     bed_obs = bed_obs_df[bed_obs_df$chosen == 1, ]
+# )
 
-sim_param_list <- sim_param_output$sim_param_list
-bed_sims <- sim_param_list$bedrock
+print("Simulating friction coefficient...")
 
-fric_scale <- 1e6 * params$secpera^(1 / params$n)
-fric_sims <- sim_param_list$friction * fric_scale
+    fric.sill <- 8e-5
+    fric.nugget <- 0
+    fric.range <- 5e3
+
+    fric_sims <- simulate_friction2(
+        nsim = nsims, domain = domain,
+        sill = fric.sill, nugget = fric.nugget,
+        range = fric.range
+    ) 
+
+    # simulated_friction <- simulated_friction / fric_scale
+    # sim_fric_list <- lapply(1:N, function(c) simulated_friction[, c])
+
+    ## Simulate beds
+    print("Simulating beds...")
+    
+    bed.sill <- 1000
+    bed.range <- 50e3
+    bed.nugget <- 0
+    bed_sim_output <- simulate_bed(nsims, domain = domain, 
+                            obs_locations = bed_obs_chosen$ind, 
+                            obs = bed_obs_chosen$bed_elev, 
+                            sill = bed.sill, nugget = bed.nugget,
+                            range = bed.range) 
+
+    bed_sims <- bed_sim_output$sims
+
+    param_list <- lapply(1:nsims, function(r) {
+        list(
+            friction = fric_sims[, r], #* 1e6 * params$secpera^(1 / params$n),
+            bedrock = bed_sims[, r] #+ bed_mean
+        )
+ })
+
+# sim_param_list <- sim_param_output$sim_param_list
+# bed_sims <- sim_param_list$bedrock
+
+# fric_scale <- 1e6 * params$secpera^(1 / params$n)
+# fric_sims <- sim_param_list$friction #* fric_scale
     
 ## Run simulations for different friction coefficient fields
 ## starting from steady state
@@ -113,69 +154,92 @@ fric_sims <- sim_param_list$friction * fric_scale
 ### Also reduce ice rigidity
 # params$B <- 1.2 * 1e6 * params$secpera^params$m
 
-relax_years <- 10
+years <- 10
 
-sim_out <- list()
-for (s in 1:nsims) {
-    cat("Running sim", s, " for ", relax_years, "years post-steady state...")
+# sim_out <- list()
+# for (s in 1:nsims) {
+#     cat("Running sim", s, " for ", relax_years, "years post-steady state...")
 
-    sim_out[[s]] <- solve_ssa_nl(domain = flowline_dist, 
-                            bedrock = bed_sims[s, ], 
-                            friction_coef = fric_sims[s, ], 
-                            phys_params = params,
-                            # tol = 1e-03, 
-                            years = relax_years, #500,
-                            steps_per_yr = 100, 
-                            add_process_noise = F,
-                            # process_noise_info = process_noise_info,
-                            ini_thickness = steady_state$current_thickness,
-                            ini_velocity = steady_state$current_velocity#,
-                            # use_relaxation = T,
-                            # observed_thickness = H_ini_all
-                            # relax_rate = relax_rate
-                        )
-}
+#     sim_out[[s]] <- solve_ssa_nl(domain = domain, 
+#                             bedrock = bed_sims[, s], 
+#                             friction_coef = fric_sims[, s], 
+#                             phys_params = params,
+#                             # tol = 1e-03, 
+#                             years = relax_years, #500,
+#                             steps_per_yr = 100, 
+#                             add_process_noise = F,
+#                             # process_noise_info = process_noise_info,
+#                             ini_thickness = ssa_steady$current_thickness,
+#                             ini_velocity = ssa_steady$current_velocity#,
+#                             # use_relaxation = T,
+#                             # observed_thickness = H_ini_all
+#                             # relax_rate = relax_rate
+#                         )
+# }
+
+sim_surface_obs <- list()
+# for (s in 1:nsims) {
+    sim_out <- sim_obs(
+            param_list = param_list,
+            domain = domain,
+            phys_params = params,
+            years = years, # sim_beds = T,
+            # warmup = warmup,
+            ini_thickness = ssa_steady$current_thickness,
+            ini_velocity = ssa_steady$current_velocity,
+            smb = smb_avg,
+            basal_melt = avg_melt_rate
+            # log_transform = log_transform
+        )
+
+    generated_data <- process_sim_results(sims = sim_out$results)
+
+    sim_surface_obs <- generated_data$surface_obs_arr
+# }
 
 ######################################
 ##     Compute model discrepancy    ##
 ######################################
-vel_sims <- lapply(sim_out, function(x) x$all_velocities)
-vel_discr <- lapply(vel_sims, function(M) vel_mat - M)
-
-se_sims <- lapply(sim_out, function(x) x$all_top_surface)
+se_sims <- lapply(1:nsims, function(s) sim_surface_obs[s,,,1])
+# se_sims <- lapply(sim_out, function(x) x$all_top_surface)
 se_discr <- lapply(se_sims, function(M) surf_elev_mat - M)
 
-GL_pos <- sapply(sim_out, function(x) x$grounding_line[length(x$grounding_line)])
+vel_sims <- lapply(1:nsims, function(s) sim_surface_obs[s,,,2])
+# vel_sims <- apply(sim_out, function(x) x$all_velocities)
+vel_discr <- lapply(vel_sims, function(M) vel_mat - M)
+
+# GL_pos <- sapply(sim_out, function(x) x$grounding_line[length(x$grounding_line)])
+GL_pos <- generated_data$gl_arr[, years+1]
 
 pdf(file = paste0("./plots/discr/discrepancies_", data_date, ".pdf"), width = 10, height = 15)    
 
 par(mfrow = c(2,1))
-matplot(flowline_dist/1e3, t(bed_sims), type = "l", col = "grey60", lwd = 2,
+matplot(domain/1e3, bed_sims, type = "l", col = "grey60", lwd = 2,
     xlab = "Distance along flowline", 
     ylab = "Bed elevation (m)", 
     main = ("Bed elevation simulations"))
-# lines(flowline_dist/1e3, steady_state$bedrock, col = "red", lwd = 2)
+# lines(domain/1e3, ssa_steady$bedrock, col = "red", lwd = 2)
 points(bed_obs_chosen$loc/1e3, bed_obs_chosen$bed_elev, pch = 16, col = "salmon")
 
 # png(file = paste0("./plots/discr/fric_sims_", data_date, ".png"), width = 800, height = 600)
-matplot(flowline_dist/1e3, t(fric_sims) / fric_scale, col = "grey60", type = "l", lwd = 2,
+matplot(domain/1e3, fric_sims, col = "grey60", type = "l", lwd = 2,
     xlab = "Distance along flowline", 
     ylab = expression(paste("Friction coefficient (", m*a^{-1}*Pa^{-1/3}, ")")), 
     main = ("Friction coefficient simulations"))
-# lines(flowline_dist/1e3, steady_state$friction_coef / fric_scale, col = "red", lwd = 2)
+# lines(domain/1e3, ssa_steady$friction_coef / fric_scale, col = "red", lwd = 2)
 
 ## Plot velocities for different simulations
 # png(paste0("plots/discr/vel_sims_", data_date, ".png"), width = 1500, height = 2000)
 # par(mfrow = c(nsims/2, 2))
-layout(matrix(1:10, nrow = 5, ncol = 2, byrow = TRUE))
+layout(matrix(1:nsims, nrow = nsims/2, ncol = 2, byrow = TRUE))
 for (s in 1:nsims) {
-    matplot(flowline_dist/1000, vel_mat, 
+    matplot(domain/1000, vel_mat, 
         type = "l", lty = 1, col = "salmon", 
         # cex = 5, 
         ylim = c(0, 4000),
         xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)",
         main = paste0("Velocity for simulation ", s))
-    matlines(flowline_dist/1000, vel_sims[[s]], 
+    matlines(domain/1000, vel_sims[[s]], 
         type = "l", lty = 1, col = rgb(0,0,0,0.25), lwd = 2)
     abline(v = GL_pos[s], lty = 2, col = "red")
     legend("bottomright", legend = c("Simulated", "Observed"), col = c(rgb(0,0,0,0.25), "salmon"), lty = 1, bty = "n")
@@ -185,7 +249,7 @@ for (s in 1:nsims) {
 # png(paste0("plots/discr/vel_discrepancy_", data_date, ".png"), width = 1500, height = 2000)
 par(mfrow = c(nsims/2, 2))
 for (s in 1:nsims) {
-    matplot(flowline_dist/1000, vel_discr[[s]], type = "l", lty = 1, #col = rgb(0,0,0,0.25),
+    matplot(domain/1000, vel_discr[[s]], type = "l", lty = 1, #col = rgb(0,0,0,0.25),
         # cex = 5, 
         ylim = c(-2000, 6000),
         xlab = "Distance along flowline (km)", ylab = "Velocity discrepancy (m/yr)",
@@ -198,13 +262,13 @@ for (s in 1:nsims) {
 # png(paste0("plots/discr/se_sims_", data_date, ".png"), width = 1500, height = 2000)
 par(mfrow = c(nsims/2, 2))
 for (s in 1:nsims) {
-    matplot(flowline_dist/1000, surf_elev_mat, 
+    matplot(domain/1000, surf_elev_mat, 
         type = "l", lty = 1, col = "salmon",
         # cex = 5, 
         ylim = c(0, 1600),
         xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)",
         main = paste0("Surface elevation for simulation ", s))
-    matlines(flowline_dist/1000, se_sims[[s]], 
+    matlines(domain/1000, se_sims[[s]], 
         type = "l", lty = 1, col = rgb(0,0,0,0.25), lwd = 2)
     legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0,0,0,0.25), "salmon"), lty = 1, bty = "n")
     abline(v = GL_pos[s], lty = 2, col = "red")
@@ -214,7 +278,7 @@ for (s in 1:nsims) {
 # png(paste0("plots/discr/se_discrepancy_", data_date, ".png"), width = 1500, height = 2000)
 par(mfrow = c(nsims/2, 2))
 for (s in 1:nsims) {
-    matplot(flowline_dist/1000, se_discr[[s]], type = "l", lty = 1, #col = rgb(0,0,0,0.25),
+    matplot(domain/1000, se_discr[[s]], type = "l", lty = 1, #col = rgb(0,0,0,0.25),
         # cex = 5, 
         ylim = c(-500, 500),
         xlab = "Distance along flowline (km)", ylab = "Surface elevation discrepancy (m)",
@@ -236,17 +300,21 @@ vel_discr_mat <- matrix(rep(avg_vel_discr, years), nrow = J, ncol = years)
 se_discr_mat <- matrix(rep(avg_se_discr, years), nrow = J, ncol = years)
 
 adj_se_mat <- surf_elev_mat - se_discr_mat
-# adj_vel_mat <- vel_mat - vel_discr_mat
+adj_vel_mat <- vel_mat - vel_discr_mat
+
+## Save discrepancy
+qsave(avg_vel_discr, file = paste0(data_dir, "discrepancy/avg_vel_discr_", data_date, ".qs"))
+qsave(avg_se_discr, file = paste0(data_dir, "discrepancy/avg_se_discr_", data_date, ".qs"))
 
 ## Save adjusted observed data
 qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", data_date, ".qs"))
-# qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", data_date, ".qs"))
+qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", data_date, ".qs"))
 
 ## Plot the average discrepancy
 pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 15, height = 20)
 
 par(mfrow = c(2,1))
-plot(flowline_dist/1000, avg_vel_discr, type = "l", col = "blue", lwd = 2,
+plot(domain/1000, avg_vel_discr, type = "l", col = "blue", lwd = 2,
     xlab = "Distance along flowline (km)", ylab = "Average velocity discrepancy (m/yr)", 
     main = "Average velocity discrepancy")
 abline(h = 0, col = "grey", lty = 2)
@@ -259,22 +327,22 @@ abline(v = gl, lty = 2)
 
 par(mfrow = c(nsims/2, 2))
 for (s in 1:nsims) {
-    matplot(flowline_dist/1000, vel_sims[[s]], type = "l", col = "black", lwd = 2,
+    matplot(domain/1000, vel_sims[[s]], type = "l", col = "black", lwd = 2,
     ylim = c(0, 4000),
     xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)", 
     main = "(Adjusted) observed vs simulated velocity")
-    matlines(flowline_dist/1000, vel_mat - vel_discr_mat, 
+    matlines(domain/1000, vel_mat - vel_discr_mat, 
         type = "l", col = "salmon", lwd = 2)
     legend("topright", legend = c("Simulated", "Observed - avg discrepancy"), 
         col = c("grey", "salmon"), lwd = 2, bty = "n")
     abline(v = gl, lty = 2)
 }
-dev.off()
+# dev.off()
 
 ## Same plots for the surface elevation
-pdf(file = paste0("./plots/discr/adjusted_se_obs_", data_date, ".pdf"), width = 15, height = 20)
+# pdf(file = paste0("./plots/discr/adjusted_se_obs_", data_date, ".pdf"), width = 15, height = 20)
 par(mfrow = c(2,1))
-plot(flowline_dist/1000, avg_se_discr, type = "l", col = "blue", lwd = 2,
+plot(domain/1000, avg_se_discr, type = "l", col = "blue", lwd = 2,
     xlab = "Distance along flowline (km)", ylab = "Average surface elevation discrepancy (m)", 
     main = "Average surface elevation discrepancy")
 abline(h = 0, col = "grey", lty = 2)
@@ -282,11 +350,11 @@ abline(v = gl, lty = 2)
 
 par(mfrow = c(nsims/2, 2))
 for (s in 1:nsims) {
-    matplot(flowline_dist/1000, se_sims[[s]], type = "l", col = "black", lwd = 2,
+    matplot(domain/1000, se_sims[[s]], type = "l", col = "black", lwd = 2,
     ylim = c(0, 1600),
     xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)", 
     main = "(Adjusted) observed vs simulated surface elevation")
-    matlines(flowline_dist/1000, adj_se_mat, 
+    matlines(domain/1000, adj_se_mat, 
         type = "l", col = "salmon", lwd = 2)
     legend("topright", legend = c("Simulated", "Observed - avg discrepancy"), 
         col = c("grey", "salmon"), lwd = 2, bty = "n")

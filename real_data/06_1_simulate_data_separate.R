@@ -22,10 +22,10 @@ library(mvtnorm)
 library(abind)
 library(ggplot2)
 library(gridExtra)
-library(FRK)
+# library(FRK)
 library(qs)
 
-source("./source/sim_params.R")
+# source("./source/sim_params.R")
 # source("./source/run_sims.R")
 source("./source/sim_obs.R")
 source("./source/cond_sim_gp.R")
@@ -55,12 +55,12 @@ train_data_dir <- "./data/training_data"
 
 ## Presets
 data_date <- "20241111" #"20241103" 
-N <- 10#00 # number of simulations per set
+N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 51 #50 #:10
+sets <- 81:100 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
-warmup <- 0
-years <- 10 + warmup
+# warmup <- 0
+years <- 10 #+ warmup
 nbasis <- 150
 
 ## Physical params
@@ -87,9 +87,10 @@ surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
 # 0. Read bed observations
 bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
+bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
 
 ## Scaling units for friction coefficients
-fric_scale <- 1e6 * params$secpera^(1 / params$n)
+# fric_scale <- 1e6 * params$secpera^(1 / params$n)
 
 ## SMB data
 smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
@@ -112,33 +113,45 @@ if (regenerate_sims) {
     cat("Generating set", set, "\n")
     
     ## Simulate bed and friction
-    sim_param_output <- sim_params(
-      nsims = N, domain = ssa_steady$domain,
-      bed_obs = bed_obs_df[bed_obs_df$chosen == 1, ]
-    )
+    # sim_param_output <- sim_params(
+    #   nsims = N, domain = ssa_steady$domain,
+    #   bed_obs = bed_obs_df[bed_obs_df$chosen == 1, ]
+    # )
 
-    sim_param_list <- sim_param_output$sim_param_list
-    bed_sims <- sim_param_list$bedrock
-    fric_sims <- sim_param_list$friction
+    print("Simulating friction coefficient...")
+
+    fric.sill <- 8e-5
+    fric.nugget <- 0
+    fric.range <- 5e3
+
+    fric_sims <- simulate_friction2(
+        nsim = N, domain = domain,
+        sill = fric.sill, nugget = fric.nugget,
+        range = fric.range
+    ) 
+
+    # simulated_friction <- simulated_friction / fric_scale
+    # sim_fric_list <- lapply(1:N, function(c) simulated_friction[, c])
+
+    ## Simulate beds
+    print("Simulating beds...")
+    
+    bed.sill <- 1000
+    bed.range <- 50e3
+    bed.nugget <- 0
+    bed_sim_output <- simulate_bed(N, domain = domain, 
+                            obs_locations = bed_obs_chosen$ind, 
+                            obs = bed_obs_chosen$bed_elev, 
+                            sill = bed.sill, nugget = bed.nugget,
+                            range = bed.range) 
+
+    bed_sims <- bed_sim_output$sims
+    bed_mean <- bed_sim_output$mean
 
     bed_sim_list[[i]] <- bed_sims
     fric_sim_list[[i]] <- fric_sims
 
-    ## Plot conditional bed simulations
-    bed_sims_df <- data.frame(domain = domain, 
-                              bed1 = bed_sims[1, ], 
-                              bed2 = bed_sims[2, ],
-                              bed_obs = bed_obs_df$bed_elev, 
-                              obs_loc = bed_obs_df$loc) #,
-
-    png(file = paste0("./plots/cnn/input/bed_sims_", setf, "_", data_date, ".png"), width = 1000, height = 500)
-    bed_sim_plot <- bed_sims_df %>% ggplot() + 
-      geom_line(aes(x = domain, y = bed1), col = "grey") +
-      geom_line(aes(x = domain, y = bed2), col = "grey") +
-      geom_point(data = bed_obs_df, aes(x = loc, y = bed_elev)) +
-      theme_bw()
-    print(bed_sim_plot)
-    dev.off()
+    
 
     # if (save_sims) {
     #   qsave(bed_sims, file = paste0(train_data_dir, "/bed_sims_", data_date, ".qs"))
@@ -146,37 +159,66 @@ if (regenerate_sims) {
     # }
   }
 
-## Plot parameter simulations
-# fric_sims <- qread(file = paste0("./data/training_data/fric_sims_", data_date, ".qs"))
-png(file = paste0("./plots/cnn/input/param_sims_", data_date, ".png"), width = 600, height = 500)
-par(mfrow = c(2,1))
-matplot(t(bed_sims[1:3, ]), type = "l", ylab = "Bedrock Elev", xlab = "Distance along flowline")
-matplot(t(fric_sims[1:3, ]), type = "l", ylab = "Friction Coef", xlab = "Distance along flowline")
+# ## Plot conditional bed simulations
+bed_sims_df <- data.frame(domain = domain, 
+                          bed1 = bed_sims[, 1], 
+                          bed2 = bed_sims[, 2],
+                          bed_obs = bed_obs_df$bed_elev, 
+                          obs_loc = bed_obs_df$loc) #,
+
+fric_sims_df <- data.frame(domain = domain, 
+                           fric1 = fric_sims[, 1], 
+                           fric2 = fric_sims[, 2])
+
+png(file = paste0("./plots/cnn/input/bed_sims_", setf, "_", data_date, ".png"), width = 1000, height = 500)
+bed_sim_plot <- bed_sims_df %>% ggplot() + 
+  geom_line(aes(x = domain, y = bed1), col = "grey") +
+  geom_line(aes(x = domain, y = bed2), col = "grey") +
+  geom_point(data = bed_obs_df, aes(x = loc, y = bed_elev)) +
+  theme_bw()
+print(bed_sim_plot)
 dev.off()
 
+png(file = paste0("./plots/cnn/input/fric_sims_", setf, "_", data_date, ".png"), width = 1000, height = 500)  
+fric_sim_plot <- fric_sims_df %>% ggplot() + 
+  geom_line(aes(x = domain, y = fric1), col = "grey") +
+  geom_line(aes(x = domain, y = fric2), col = "grey") +
+  theme_bw()
+print(fric_sim_plot)
+dev.off()
+
+## Plot parameter simulations
+# fric_sims <- qread(file = paste0("./data/training_data/fric_sims_", data_date, ".qs"))
+# png(file = paste0("./plots/cnn/input/param_sims_", data_date, ".png"), width = 600, height = 500)
+# par(mfrow = c(2,1))
+# matplot(bed_sims[, 1:2], type = "l", ylab = "Bedrock Elev", xlab = "Distance along flowline")
+# points(bed_obs_chosen$loc, bed_obs_chosen$bed_elev, col = "red", pch = 16)
+# matplot(fric_sims[, 1:2], type = "l", ylab = "Friction Coef", xlab = "Distance along flowline")
+# dev.off()
+
 # fric_scale <- 1e6 * params$secpera^(1 / params$n)
- og_param_list <- lapply(1:N, function(r) {
+ param_list <- lapply(1:N, function(r) {
       list(
-        friction = fric_sims[r, ], #* 1e6 * params$secpera^(1 / params$n),
-        bedrock = bed_sims[r, ] #+ bed_mean
+        friction = fric_sims[, r], #* 1e6 * params$secpera^(1 / params$n),
+        bedrock = bed_sims[, r] #+ bed_mean
       )
  })
 
   ## Concatenate the bed simulations and take the mean
-  bed_sims_arr <- abind(bed_sim_list, along = 1)
-  bed_mean <- colMeans(bed_sims_arr)
+  # bed_sims_arr <- abind(bed_sim_list, along = 1)
+  # bed_mean <- colMeans(bed_sims_arr)
     
-   ## Then fit basis functions
+  ## Generate observations based on the simulated bed and friction
   for (i in 1:length(sets)) {
 
-    ## Generate observations based on the simulated bed and friction
+    
     test <- try(
       sim_results <- sim_obs(
-        param_list = og_param_list,
+        param_list = param_list,
         domain = domain,
         phys_params = params,
         years = years, # sim_beds = T,
-        warmup = warmup,
+        # warmup = warmup,
         ini_thickness = ssa_steady$current_thickness,
         ini_velocity = ssa_steady$current_velocity,
         smb = smb_avg,
@@ -346,8 +388,10 @@ for (s in 1:nsamples) {
     geom_line() +
     # geom_line(aes(x = domain, y = fitted_fric), col = "red") +
     theme_bw() +
+    xlim(c(0, domain[gl]/1e3)) +
     xlab("Domain (km)") +
-    ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")"))
+    ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")")) +
+    theme(text = element_text(size = 24))
 
   bed_sim <- bed_arr[sim, ] #+ bed_mean
 #   fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
@@ -357,8 +401,11 @@ for (s in 1:nsamples) {
     geom_line() +
     # geom_line(aes(x = domain, y = fitted_bed), col = "red") +
     theme_bw() +
+    ylim(c(-1500, -1000)) +
+    xlim(c(0, domain[gl]/1e3)) +
     xlab("Domain (km)") +
-    ylab("Bed (m)")
+    ylab("Bed (m)") +
+    theme(text = element_text(size = 24))
 
   # plots[[ind[1]]] <- thickness_plot
   plots[[ind[1]]] <- surface_elev_plot

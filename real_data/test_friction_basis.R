@@ -4,7 +4,7 @@ setwd("~/SSA_model/CNN/real_data/")
 rm(list = ls())
 library(FRK)
 library(qs)
-
+library(parallel)
 source("./source/fit_basis.R")
 
 
@@ -18,12 +18,12 @@ domain <- ssa_steady$domain
 J <- length(domain)
 
 ## Friction simulations
-set <- 51
+set <- 1
 setf <- formatC(set, width = 2, flag = "0")
 fric_sims <- qread(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
 
 ## Fit basis to log(friction)
-lengthscales <- c(2.5e3, 3.5e3, 4e3, 5e3)
+lengthscales <- c(2.5e3, 3e3, 4e3, 5e3)
 nbasis <- 150
 
 output_list <- list()
@@ -40,7 +40,7 @@ for (i in seq_along(lengthscales)) {
 
 
 
-sim <- 9
+sim <- 1
 fitted <- lapply(output_list, function(x) exp(x$fitted_values[sim, ]))
 basis_coefs <- lapply(output_list, function(x) x$basis_coefs[sim, ])
 

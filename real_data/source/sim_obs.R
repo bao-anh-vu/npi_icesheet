@@ -30,18 +30,13 @@ sim_obs <- function(param_list,
     msmt_noise_info <- list(corrmat_chol = L, length_scale = l)
 
     # sim_results <- lapply(param_list, 
-    # function(param, domain, phys_params,
-    #         ini_velocity, ini_thickness, years) {
-
+        # function(param, domain, phys_params,
+        #         ini_velocity, ini_thickness, years, 
+        #         msmt_noise_info) {
     sim_results <- mclapply(param_list, 
         function(param, domain, phys_params,
                 ini_velocity, ini_thickness, years, 
                 msmt_noise_info) {
-
-        # print("Simulating data...")
-        ## Artificial error for debugging purposes
-        # s <- sample(1:2)
-        # stopifnot(s == 1)
 
         sim_out <- solve_ssa_nl(
             domain = domain,
@@ -54,22 +49,6 @@ sim_obs <- function(param_list,
             steps_per_yr = 100,
             add_process_noise = F
         )
-        # solve_ssa_nl(
-        #     domain = domain,
-        #     bedrock = param$bedrock,
-        #     friction_coef = fric * fric_scale,
-        #     # ini_velocity = ssa_steady$current_velocity,
-        #     # ini_thickness = ssa_steady$current_thickness,
-        #     ini_velocity = ini_velocity,
-        #     ini_thickness = ini_thickness,
-        #     years = years, steps_per_yr = 100,
-        #     # save_model_output = TRUE,
-        #     # perturb_hardness = FALSE,
-        #     add_process_noise = F,
-        #     # process_noise_info = process_noise_info,
-        #     smb = phys_params$as - phys_params$ab,
-        #     basal_melt = basal_melt
-        # )
 
         ## Add noise to surface to obtain surface observations
         surface_obs <- get_obs(sim_out, msmt_noise_info)

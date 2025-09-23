@@ -27,7 +27,7 @@ create_model <- function(input_dim, output_dim) {
 
     model %>% compile(
         loss = "mse",
-        optimizer = optimizer_adam(learning_rate = 0.0005),
+        optimizer = optimizer_adam(learning_rate = 0.001),
         metrics = list("mean_squared_error")
     )
     model
@@ -100,9 +100,8 @@ create_model_posterior <- function(input_dim, output_dim, n_basis_funs, n_gl) {
         padding = "same", activation = "relu"
     ) %>%
     layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-    # layer_conv_2d(
-    #     filters = 256, kernel_size = c(2, 2),
-    #     padding = "same", activation = "relu") %>%
+    # layer_conv_2d(filters = 256, kernel_size = c(3, 3),
+    #                 padding = "same", activation = "relu") %>%
     # layer_max_pooling_2d(pool_size = c(2, 2)) %>%
     layer_flatten() %>%
     layer_dropout(rate = 0.5) %>%
