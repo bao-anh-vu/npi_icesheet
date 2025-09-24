@@ -8,6 +8,7 @@ library(matrixStats)
 library(R.utils)
 library(mvtnorm)
 library(ggplot2)
+library(mgcv)
 # library("qlcMatrix")
 # library("fastmatrix")
 # library("expm")
@@ -40,7 +41,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 1.4 * 1e6 * params$secpera^params$m
+params$B <- 0.8 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## Flowline data
@@ -58,22 +59,23 @@ bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"
 print("Simulating friction coefficient...")
 
 ## Simulate friction coefficient
-# fric.sill <- 8e-5
-# fric.nugget <- 0
-# fric.range <- 10e3
 
-# fric_sim <- simulate_friction2(
-#     nsim = 1, domain = flowline_dist,
-#     sill = fric.sill, nugget = fric.nugget,
-#     range = fric.range
-# ) 
-L <- flowline_dist[J] - flowline_dist[1]
-fric_sim <- create_fric_coef(flowline_dist, L) * 1e6 * (params$secpera)^params$m
-# fric_val <- seq(0.01, 0.02, length.out = J) #* 1e6 * (params$secpera)^params$m
-# fric_sim <- fric_val * 1e6 * (params$secpera)^params$m
+# L <- flowline_dist[J] - flowline_dist[1]
+# fric_sim <- create_fric_coef(flowline_dist, L) * 1e6 * (params$secpera)^params$m
+
+set.seed(2025)
+fric.sill <- 8e-5
+fric.nugget <- 0
+fric.range <- 5e3
+
+fric_sim <- simulate_friction2(
+    nsim = 1, domain = flowline_dist,
+    sill = fric.sill, nugget = fric.nugget,
+    range = fric.range
+) 
 
 png(file = paste0("./plots/steady_state/friction_coef_", data_date, ".png"), width = 800, height = 600)
-plot(flowline_dist/1000, fric_sim / (1e6 * (params$secpera)^params$m), type = "l", 
+plot(flowline_dist/1000, fric_sim, type = "l", 
     xlab = "Distance along flowline (km)", ylab = "Friction coefficient (Pa s^(1/3) m^(-1/3))")
 dev.off()
 
@@ -93,8 +95,9 @@ length_shelf <- J - length(se_grounded)
 # se_shelf <- seq(from = se_gl, to = 100, length.out = length_shelf) # extend the same surface elevation at the GL to the ice shelf
 # H_shelf <- - se_shelf * (params$rho_w / (params$rho_i - params$rho_w)) # thickness at grounding line based on flotation condition
 # H_shelf <- se_shelf / (1 - params$rho_i / params$rho_w) # thickness at grounding line based on flotation condition
-H_shelf <- - bed_sim[(gl_ind+1):J] * params$rho_w / params$rho_i - 100 # minus an offset to satisfy flotation condition 
-
+# H_shelf <- - bed_sim[(gl_ind+1):J] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
+H_gl <- - bed_sim[(gl_ind+1)] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
+H_shelf <- seq(from = H_gl, to = 200, length.out = length_shelf)
 
 # thickness_at_gl <- - bed_sim[gl_ind][1] * params$rho_w / params$rho_i
 # H_shelf <- seq(thickness_at_gl - 1, 500, length.out = length_shelf)
@@ -107,10 +110,10 @@ png(file = paste0("./plots/steady_state/initial_thickness_", data_date, ".png"),
 plot(flowline_dist/1000, z, type = "l")
 abline(v = flowline_dist[length(se_grounded)]/1000, lty = 2, col = "red")
 dev.off()
-
+browser()
 ## Velocity
-# vel_mat <- qread("./data/velocity/vel_smoothed.qs")
-vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+vel_mat <- qread("./data/velocity/vel_smoothed.qs")
+# vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
 years <- ncol(vel_mat)
 vel_curr <- rowMeans(vel_mat[, (years-5):years]) # average over the last 10 years
 
@@ -143,7 +146,7 @@ if (rerun_steady_state) {
     
     steady_state <- solve_ssa_nl(domain = flowline_dist, 
                             bedrock = bed_sim, 
-                            friction_coef = fric_sim, 
+                            friction_coef = fric_sim * 1e6 * params$secpera^(1 / params$n), 
                             phys_params = params,
                             tol = 1e-02, #m/yr 
                             # years = 100,
@@ -166,7 +169,7 @@ png(file = paste0("./plots/steady_state/steady_state_", data_date, ".png"), widt
 par(mfrow = c(2,1))
 matplot(flowline_dist/1000, steady_state$current_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
     xlab = "Distance along flowline (km)", ylab = "Elevation (m)", 
-    main = paste0("Steady state after ", n_years_steady, "years"))
+    main = paste0("Steady state after ", n_years_steady, " years"))
 matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
 legend("topright", legend = c(paste0("Simulated steady-state"), "Observed"), 

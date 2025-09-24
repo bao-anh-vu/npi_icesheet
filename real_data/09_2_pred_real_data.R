@@ -28,7 +28,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 #51:100 #51:100 #6:20
+sets <- 51:60 #51:100 #51:100 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

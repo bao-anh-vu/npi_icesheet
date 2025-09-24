@@ -17,6 +17,7 @@ library(fields)
 library(mvtnorm)
 # library(FRK)
 library(qs)
+library(mgcv)
 
 # library(sf)
 # source("./source/create_params.R")
@@ -35,7 +36,7 @@ data_date <- "20241103"
 
 ## Flags
 smooth_bed <- T
-
+set.seed(2025)
 ## Flowline data
 # flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
 flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
@@ -54,7 +55,7 @@ bed_sd <- unlist(qread(file = paste0(data_dir, "bedmap_sd.qs")))
 bed <- bed[1:J] 
 bed_sd <- bed_sd[1:J]
 
-bed_obs_df <- data.frame(ind = 1:J, loc = flowline_dist, bed_elev = bed, bed_sd = bed_sd)
+bed_df <- data.frame(ind = 1:J, loc = flowline_dist, bed_elev = bed, bed_sd = bed_sd)
 
 # ## Calculate bed elevation at GL based on flotation condition
 gl_pos <- qread(file = paste0(data_dir, "grounding_line/gl_pos.qs"))
@@ -73,25 +74,37 @@ gl_ind <- gl_pos$ind
 # bed_obs_df$bed_sd[gl_ind] <- 0 
 
 # Construct bed based on observations
-## Choose the first and last 25 observations, then randomly choose another 50 in between
-# bed_avail_ind <- which(!is.na(bed))
-# bed_sd_avail_ind <- which(!is.na(bed_sd))
-# common_avail_ind <- intersect(bed_avail_ind, bed_sd_avail_ind)
-common_avail_ind <- bed_obs_df %>% filter(!is.na(bed_elev) & !is.na(bed_sd)) %>% pull(ind)
+bed_obs_df <- bed_df %>% filter(!is.na(bed_elev) & !is.na(bed_sd)) #%>% pull(ind)
 
-set.seed(2025)
-chosen_bed_ind <- sample(common_avail_ind, 50, replace = F)
-# chosen_bed_ind_head <- common_avail_ind[1:25] #Choose the first 50 bed observations
-# chosen_bed_ind_tail <- common_avail_ind[(length(common_avail_ind) - 24):length(common_avail_ind)] #Choose the first 50 bed observations
-# chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_tail)
-# chosen_bed_ind_mid <- sample(setdiff(common_avail_ind, chosen_bed_ind), 50) #then randomly select another 50 bed observations after
-# chosen_bed_ind <- c(chosen_bed_ind_head, chosen_bed_ind_mid, chosen_bed_ind_tail)
+# Choose some bed observations; leave the rest for validation
+# Divide domain into intervals of 10km
+interval_length <- 5000 # m
+# # num_intervals <- floor((max(flowline_dist) - min(flowline_dist)) / interval_length)
+cut_points <- seq(from = min(flowline_dist), to = max(flowline_dist), by = interval_length)
+# intervals <- cut(flowline_dist, breaks = cut_points, include.lowest = TRUE, right = FALSE)
 
-# if index is in chosen_bed_ind, then chosen = 1, else 0
-bed_obs_df$chosen <- ifelse(bed_obs_df$ind %in% chosen_bed_ind, 1, 0)
-# bed_obs_df$chosen[gl_ind] <- 1 # also choose the bed "observation" at GL
+# Sort bed observations into intervals
+bed_obs_df$interval <- cut(bed_obs_df$loc, breaks = cut_points, include.lowest = TRUE, right = FALSE)
+intervals <- unique(bed_obs_df$interval)
 
-# qsave(bed_obs_df, file = paste0(data_dir, "/bed_obs_df.qs"))
+# Alternate between 0 and 1 for the length of the 'intervals' vector
+chosen_int <- rep(c(0, 1), length.out = length(intervals))
+
+# Select every other interval
+intervals_df <- data.frame(interval = intervals, chosen = chosen_int)
+# selected_bed_obs <- bed_obs_df %>% filter(interval %in% selected_intervals
+
+# Now label whether a bed observation is chosen based on its interval
+bed_obs_df <- bed_obs_df %>% left_join(intervals_df, by = "interval")
+
+## set.seed(2025)
+## chosen_bed_ind <- sample(common_avail_ind, 50, replace = F)
+
+## if index is in chosen_bed_ind, then chosen = 1, else 0
+## bed_obs_df$chosen <- ifelse(bed_obs_df$ind %in% chosen_bed_ind, 1, 0)
+### bed_obs_df$chosen[gl_ind] <- 1 # also choose the bed "observation" at GL
+
+qsave(bed_obs_df, file = paste0(data_dir, "/bed_obs_df.qs"))
 
 chosen_bed_df <- bed_obs_df %>% filter(chosen == 1) %>% na.omit()
 
@@ -103,7 +116,7 @@ chosen_bed_df <- bed_obs_df %>% filter(chosen == 1) %>% na.omit()
 bed_sim_output <- simulate_bed(1, domain = flowline_dist, 
                             obs_locations = chosen_bed_df$ind, 
                             obs = chosen_bed_df$bed_elev) 
-bed_sim <- bed_sim_output$sims
+bed_sim <- bed_sim_output$sims#[, 1]
 bed_mean <- bed_sim_output$mean
 
 ## Smooth tbe bed simulation with loess()
@@ -141,10 +154,11 @@ if (smooth_bed) {
 # bed_sim3 <- out$sims[, 3]
 # bed_sim4 <- out$sims[, 4]
 bed_sim_plot <- bed_obs_df %>% ggplot(aes(x = loc, y = bed_elev)) +
-        geom_line() + 
-        geom_point(aes(col = factor(chosen)), alpha = 0.5, size = 3) + #, shape = 21, size = 3) +
+        # geom_line() + 
+        geom_point(aes(col = factor(chosen)), size = 3) + #, shape = 21, size = 3) +
         geom_vline(xintercept = flowline_dist[gl_ind], lty = 2) +
         geom_line(data = data.frame(x = flowline_dist, y = bed_sim), aes(x = x, y = y), col = "grey60") +
+        xlim(c(0, 200e3)) + 
         theme_bw() +
         theme(text = element_text(size = 20)) 
 
@@ -169,4 +183,4 @@ bed_obs_chosen %>% ggplot(aes(x = loc, y = bed_elev)) +
 dev.off()
 
 ## Save
-# qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
+qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))

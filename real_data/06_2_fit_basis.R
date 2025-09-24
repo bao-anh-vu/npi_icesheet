@@ -35,7 +35,7 @@ J <- length(domain)
 nbasis <- 150
 
 ## Read simulated parameters
-sets <- 61:100
+sets <- 51:60
 
 bed_sim_list <- list()
 fric_sim_list <- list()

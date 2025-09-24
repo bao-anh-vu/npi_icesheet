@@ -387,7 +387,7 @@ if (save_plots) {
 
 
     ## Bed plot
-    png(paste0(plot_dir, "/pred_vs_true_bed", plot_tag, ".png"), width = 2000, height = 2000)
+    png(paste0(plot_dir, "/pred_vs_true_bed", plot_tag, ".png"), width = 2000, height = 1200)
     par(mfrow = c(length(samples) / 2, 2))
 
     # for (i in 1:length(samples)) {
@@ -403,9 +403,9 @@ if (save_plots) {
         matlines(domain[plot_domain]/1000, bed_samples_ls[[s]][plot_domain, 1:3], 
                 lty = 1, lwd = 2, col = adjustcolor("mediumpurple", alpha = 0.5))
         lines(domain[plot_domain] / 1000, pred_bed[plot_domain, s], lwd = 3, col = "red")
-        points(domain[bed_obs$loc] / 1000, bed_obs$bed_elev, pch = 20, cex = 0.5)
         lines(domain[plot_domain] / 1000, bed_lq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         lines(domain[plot_domain] / 1000, bed_uq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
+        points(bed_obs$loc / 1000, bed_obs$bed_elev, cex = 1.5)
         
         abline(v = test_data$true_gl[s, ncol(test_data$true_gl)], lty = 2, lwd = 3)
     }

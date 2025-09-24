@@ -47,7 +47,7 @@ if (length(gpus) > 0) {
 data_date <- "20241111" 
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 51:100
+sets <- 51:60
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 

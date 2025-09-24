@@ -49,15 +49,16 @@ regenerate_sims <- T
 save_sims <- T
 # log_transform <- T
 use_basal_melt_data <- F
+constrain_gl <- F 
 
 ## Directory for training data
 train_data_dir <- "./data/training_data"
 
 ## Presets
-data_date <- "20241111" #"20241103" 
-N <- 1000 # number of simulations per set
+data_date <- "20241111" 
+N <- 5#00 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 81:100 #50 #:10
+sets <- 51 #61:100 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 # warmup <- 0
 years <- 10 #+ warmup
@@ -74,7 +75,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 1.4 * 1e6 * params$secpera^params$m
+params$B <- 0.5 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 # 0. Load ice sheet at steady state
@@ -87,6 +88,18 @@ surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
 # 0. Read bed observations
 bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
+# bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
+
+if (constrain_gl) {
+  ## Impose an exta condition at GL: bed = surface elevation / (rho_w/rho_i + 1)
+
+  steady_se <- ssa_steady$current_top_surface
+  steady_gl <- ssa_steady$grounding_line[length(ssa_steady$grounding_line)]
+  gl_ind <- sum(domain/1e3 < steady_gl)
+  bed_gl <- steady_se[gl_ind] / (1 - params$rho_w / params$rho_i)
+  bed_gl_df <- data.frame(ind = gl_ind, loc = domain[gl_ind], bed_elev = bed_gl, bed_sd = 0, interval = NA, chosen = 1)
+  bed_obs_df <- rbind(bed_obs_df, bed_gl_df) %>% arrange(ind)
+}
 bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
 
 ## Scaling units for friction coefficients
@@ -162,9 +175,9 @@ if (regenerate_sims) {
 # ## Plot conditional bed simulations
 bed_sims_df <- data.frame(domain = domain, 
                           bed1 = bed_sims[, 1], 
-                          bed2 = bed_sims[, 2],
-                          bed_obs = bed_obs_df$bed_elev, 
-                          obs_loc = bed_obs_df$loc) #,
+                          bed2 = bed_sims[, 2]) #,
+                          # bed_obs = bed_obs_df$bed_elev, 
+                          # obs_loc = bed_obs_df$loc) #,
 
 fric_sims_df <- data.frame(domain = domain, 
                            fric1 = fric_sims[, 1], 
@@ -174,7 +187,7 @@ png(file = paste0("./plots/cnn/input/bed_sims_", setf, "_", data_date, ".png"), 
 bed_sim_plot <- bed_sims_df %>% ggplot() + 
   geom_line(aes(x = domain, y = bed1), col = "grey") +
   geom_line(aes(x = domain, y = bed2), col = "grey") +
-  geom_point(data = bed_obs_df, aes(x = loc, y = bed_elev)) +
+  geom_point(data = bed_obs_chosen, aes(x = loc, y = bed_elev)) +
   theme_bw()
 print(bed_sim_plot)
 dev.off()
@@ -336,7 +349,7 @@ nsamples <- 4
 sims <- sample(1:dim(surface_obs_arr)[1], size = nsamples)
 
 space <- domain / 1000
-time <- 1:(years + 1) # 1:dim(thickness_velocity_arr)[3]
+time <- 1:(years+1) # 1:dim(thickness_velocity_arr)[3]
 grid_test <- expand.grid(space, time)
 head(grid_test)
 names(grid_test) <- c("space", "time")
@@ -401,7 +414,7 @@ for (s in 1:nsamples) {
     geom_line() +
     # geom_line(aes(x = domain, y = fitted_bed), col = "red") +
     theme_bw() +
-    ylim(c(-1500, -1000)) +
+    # ylim(c(-1500, -1000)) +
     xlim(c(0, domain[gl]/1e3)) +
     xlab("Domain (km)") +
     ylab("Bed (m)") +
@@ -424,5 +437,6 @@ dev.off()
 # matplot(surface_obs_arr[2,,,1], type = "l", col = "grey")
 # matlines(surf_elev_mat, col = "red")
 # dev.off()
+
 
 

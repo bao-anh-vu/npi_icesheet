@@ -30,9 +30,9 @@ sim_obs <- function(param_list,
     msmt_noise_info <- list(corrmat_chol = L, length_scale = l)
 
     # sim_results <- lapply(param_list, 
-        # function(param, domain, phys_params,
-        #         ini_velocity, ini_thickness, years, 
-        #         msmt_noise_info) {
+    #     function(param, domain, phys_params,
+    #             ini_velocity, ini_thickness, years, 
+    #             msmt_noise_info) {
     sim_results <- mclapply(param_list, 
         function(param, domain, phys_params,
                 ini_velocity, ini_thickness, years, 
@@ -65,10 +65,10 @@ sim_obs <- function(param_list,
             true_velocities <- sim_out$all_velocities
             gl <- sim_out$grounding_line
         # } else {
-        #     true_surface_elevs <- sim_out$all_top_surface[, -(1:warmup)]
-        #     true_thicknesses <- sim_out$all_thicknesses[, -(1:warmup)]
-        #     true_velocities <- sim_out$all_velocities[, -(1:warmup)]
-        #     gl <- sim_out$grounding_line[-(1:warmup)]
+            # true_surface_elevs <- sim_out$all_top_surface[, -(1:warmup)]
+            # true_thicknesses <- sim_out$all_thicknesses[, -(1:warmup)]
+            # true_velocities <- sim_out$all_velocities[, -(1:warmup)]
+            # gl <- sim_out$grounding_line[-(1:warmup)]
         # }
 
         simulated_data <- list(
