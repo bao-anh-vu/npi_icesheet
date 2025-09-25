@@ -1,4 +1,4 @@
-### Main file ###
+### Simulate a steady-state ice sheet ###
 
 setwd("/home/babv971/SSA_model/CNN/simbed/")
 
