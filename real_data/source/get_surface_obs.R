@@ -1,11 +1,18 @@
-get_obs <- function(sim_data, msmt_noise_info) {
+get_obs <- function(sim_data, msmt_noise_info, warmup = 0) {
   
     ## Velocity observations ##
     domain <- sim_data$domain
     J <- length(domain)
     gl <- sim_data$grounding_line
 
-    all_ref_velocities <- sim_data$all_velocities # remove initial condition
+    if (warmup == 0) {
+      all_ref_velocities <- sim_data$all_velocities # remove initial condition
+      all_top_surface <- sim_data$all_top_surface # remove initial condition
+    } else {
+      all_ref_velocities <- sim_data$all_velocities[, -(1:warmup)] # remove initial condition
+      all_top_surface <- sim_data$all_top_surface[, -(1:warmup)] # remove initial condition
+    }
+
     obs_velocities <- all_ref_velocities # extract velocity vectors at annual resolution
     
     for (j in 1:ncol(all_ref_velocities)) {
@@ -35,7 +42,6 @@ get_obs <- function(sim_data, msmt_noise_info) {
     # browser()
 
     ## 3. Top surface elevation observations ##
-    all_top_surface <- sim_data$all_top_surface # remove initial condition
     # cov_surface <- diag(10^2, length(ref_top_surface)) # measurement noise for the top surface
     n_surface_obs <- nrow(all_top_surface) * ncol(all_top_surface)
     

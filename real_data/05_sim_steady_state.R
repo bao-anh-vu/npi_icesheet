@@ -41,7 +41,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.8 * 1e6 * params$secpera^params$m
+params$B <- 0.6 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## Flowline data
@@ -64,15 +64,15 @@ print("Simulating friction coefficient...")
 # fric_sim <- create_fric_coef(flowline_dist, L) * 1e6 * (params$secpera)^params$m
 
 set.seed(2025)
-fric.sill <- 8e-5
-fric.nugget <- 0
-fric.range <- 5e3
+# fric.sill <- 8e-5
+# fric.nugget <- 0
+# fric.range <- 5e3
 
 fric_sim <- simulate_friction2(
-    nsim = 1, domain = flowline_dist,
-    sill = fric.sill, nugget = fric.nugget,
-    range = fric.range
-) 
+    nsim = 1, domain = flowline_dist) #,
+#     sill = fric.sill, nugget = fric.nugget,
+#     range = fric.range
+# ) 
 
 png(file = paste0("./plots/steady_state/friction_coef_", data_date, ".png"), width = 800, height = 600)
 plot(flowline_dist/1000, fric_sim, type = "l", 
@@ -97,7 +97,7 @@ length_shelf <- J - length(se_grounded)
 # H_shelf <- se_shelf / (1 - params$rho_i / params$rho_w) # thickness at grounding line based on flotation condition
 # H_shelf <- - bed_sim[(gl_ind+1):J] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
 H_gl <- - bed_sim[(gl_ind+1)] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
-H_shelf <- seq(from = H_gl, to = 200, length.out = length_shelf)
+H_shelf <- seq(from = H_gl, to = 500, length.out = length_shelf)
 
 # thickness_at_gl <- - bed_sim[gl_ind][1] * params$rho_w / params$rho_i
 # H_shelf <- seq(thickness_at_gl - 1, 500, length.out = length_shelf)
@@ -110,7 +110,7 @@ png(file = paste0("./plots/steady_state/initial_thickness_", data_date, ".png"),
 plot(flowline_dist/1000, z, type = "l")
 abline(v = flowline_dist[length(se_grounded)]/1000, lty = 2, col = "red")
 dev.off()
-browser()
+
 ## Velocity
 vel_mat <- qread("./data/velocity/vel_smoothed.qs")
 # vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
@@ -121,7 +121,7 @@ vel_curr <- rowMeans(vel_mat[, (years-5):years]) # average over the last 10 year
 vel_df <- data.frame(flowline_dist = flowline_dist, vel = vel_curr)
 vel_data <- vel_df %>% filter(!is.na(vel))
 vel_missing <- vel_df %>% filter(is.na(vel))
-library(mgcv)
+
 gam_fit <- gam(vel ~ s(flowline_dist, k = 20), data = vel_data)
 
 # Predict at missing locations (works even if outside observed range)
@@ -148,7 +148,7 @@ if (rerun_steady_state) {
                             bedrock = bed_sim, 
                             friction_coef = fric_sim * 1e6 * params$secpera^(1 / params$n), 
                             phys_params = params,
-                            tol = 1e-02, #m/yr 
+                            tol = 5e-02, #m/yr 
                             # years = 100,
                             steps_per_yr = 100, 
                             add_process_noise = F,

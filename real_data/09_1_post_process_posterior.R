@@ -317,19 +317,9 @@ if (save_pred) {
     qsave(pred_bed, file = paste0(output_dir, "/pred_bed_", data_date, ".qs"))
     qsave(pred_gl, file = paste0(output_dir, "/pred_gl_", data_date, ".qs"))
     qsave(Lmats, file = paste0(output_dir, "/Lmats_", data_date, ".qs"))
-    # saveRDS(fric_samples_ls, file = paste0(output_dir, "/fric_post_samples_", data_date, ".rds"))
-    # saveRDS(bed_samples_ls, file = paste0(output_dir, "/bed_post_samples_", data_date, ".rds"))
-    # saveRDS(gl_samples_ls, file = paste0(output_dir, "/gl_post_samples_", data_date, ".rds"))
     qsave(fric_samples_ls, file = paste0(output_dir, "/fric_post_samples_", data_date, ".qs"))
     qsave(bed_samples_ls, file = paste0(output_dir, "/bed_post_samples_", data_date, ".qs"))
     qsave(gl_samples_ls, file = paste0(output_dir, "/gl_post_samples_", data_date, ".qs"))
-
-    # saveRDS(fric_lq, file = paste0(output_dir, "/fric_lq_", data_date, ".rds"))
-    # saveRDS(fric_uq, file = paste0(output_dir, "/fric_uq_", data_date, ".rds"))
-    # saveRDS(bed_lq, file = paste0(output_dir, "/bed_lq_", data_date, ".rds"))
-    # saveRDS(bed_uq, file = paste0(output_dir, "/bed_uq_", data_date, ".rds"))
-    # saveRDS(gl_lq, file = paste0(output_dir, "/gl_lq_", data_date, ".rds"))
-    # saveRDS(gl_uq, file = paste0(output_dir, "/gl_uq_", data_date, ".rds"))
 }
 
 ######################################

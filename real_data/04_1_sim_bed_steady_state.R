@@ -35,7 +35,7 @@ data_dir <- "./data/"
 data_date <- "20241103"
 
 ## Flags
-smooth_bed <- T
+smooth_bed <- F
 set.seed(2025)
 ## Flowline data
 # flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
@@ -78,7 +78,7 @@ bed_obs_df <- bed_df %>% filter(!is.na(bed_elev) & !is.na(bed_sd)) #%>% pull(ind
 
 # Choose some bed observations; leave the rest for validation
 # Divide domain into intervals of 10km
-interval_length <- 5000 # m
+interval_length <- 10e3 # m
 # # num_intervals <- floor((max(flowline_dist) - min(flowline_dist)) / interval_length)
 cut_points <- seq(from = min(flowline_dist), to = max(flowline_dist), by = interval_length)
 # intervals <- cut(flowline_dist, breaks = cut_points, include.lowest = TRUE, right = FALSE)
@@ -106,18 +106,52 @@ bed_obs_df <- bed_obs_df %>% left_join(intervals_df, by = "interval")
 
 qsave(bed_obs_df, file = paste0(data_dir, "/bed_obs_df.qs"))
 
-chosen_bed_df <- bed_obs_df %>% filter(chosen == 1) %>% na.omit()
+bed_obs_chosen <- bed_obs_df %>% filter(chosen == 1) %>% na.omit()
 
-# bed_sim <- simulate_bed(1, domain = flowline_dist, 
-#                         obs_locations = chosen_bed_df$ind, 
-#                         obs = chosen_bed_df$bed_elev, 
-#                         obs_sd = chosen_bed_df$bed_sd)
 
-bed_sim_output <- simulate_bed(1, domain = flowline_dist, 
-                            obs_locations = chosen_bed_df$ind, 
-                            obs = chosen_bed_df$bed_elev) 
-bed_sim <- bed_sim_output$sims#[, 1]
+# bed.sill <- 5e3
+# bed.range <- 50e3
+# bed.nugget <- 0 #200
+n_sims <- 10
+bed_sim_output <- simulate_bed(n_sims, domain = flowline_dist, 
+                        obs_locations = bed_obs_chosen$ind, 
+                        obs = bed_obs_chosen$bed_elev) #, 
+                        # sill = bed.sill, nugget = bed.nugget,
+                        # range = bed.range)
+# bed_sim_output <- simulate_bed(1, domain = flowline_dist, 
+#                             obs_locations = bed_obs_chosen$ind, 
+#                             obs = bed_obs_chosen$bed_elev) 
+
+## Turn bed_sim into a data frame for plotting
+bed_sim_df <- data.frame(x = flowline_dist, y = bed_sim_output$sims)
+colnames(bed_sim_df) <- c("x", paste0("sim", 1:n_sims))
 bed_mean <- bed_sim_output$mean
+
+## Plot the bed simulations
+bed_sim_plot <- bed_sim_df %>% ggplot(aes(x = loc, y = bed_elev)) +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim1), col = "grey40") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim2), col = "grey60") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim3), col = "grey80") +
+        # geom_line(data = bed_sim_df, aes(x = x, y = sim4), col = "grey80") +
+        # geom_line(data = bed_sim_df, aes(x = x, y = sim5), col = "grey80") +
+        # geom_line(data = bed_sim_df, aes(x = x, y = sim6), col = "grey80") +
+        # geom_line(data = bed_sim_df, aes(x = x, y = sim7), col = "grey80") +
+        # geom_line(data = bed_sim_df, aes(x = x, y = sim8), col = "grey80") +
+        # geom_line(data = bed_sim_df, aes(x = x, y = sim9), col = "grey80") +
+        # geom_line(data = bed_sim_df, aes(x = x, y = sim10), col = "grey80") +
+        geom_line(data = data.frame(x = flowline_dist, y = bed_mean), aes(x = x, y = y), col = "red", lwd = 1) +
+        geom_point(data = bed_obs_df, aes(col = factor(chosen)), size = 3) + #, shape = 21, size = 3) +
+        geom_vline(xintercept = flowline_dist[gl_ind], lty = 2) +
+        xlim(c(0, 200e3)) + 
+        theme_bw() +
+        theme(text = element_text(size = 20))
+
+png(paste0("./plots/bed/bed_simulations.png"), width = 1000, height = 500)
+print(bed_sim_plot)
+dev.off()
+
+## Choose one bed simulation for the steady state
+bed_sim <- bed_sim_output$sims[, 1] 
 
 ## Smooth tbe bed simulation with loess()
 if (smooth_bed) {
@@ -128,27 +162,27 @@ if (smooth_bed) {
 ## Alternative: use GP regression
 ## Add "artificial" observations at the first and last points to constrain the bed
 ## Otherwise the bed will blow up at the boundaries
-# bed_obs_append <- c(chosen_bed_df$bed_elev[1], chosen_bed_df$bed_elev, 
-#                         chosen_bed_df$bed_elev[length(chosen_bed_df$bed_elev)])
-# bed_obs_loc_append <- c(flowline_dist[1], chosen_bed_df$loc, 
+# bed_obs_append <- c(bed_obs_chosen$bed_elev[1], bed_obs_chosen$bed_elev, 
+#                         bed_obs_chosen$bed_elev[length(bed_obs_chosen$bed_elev)])
+# bed_obs_loc_append <- c(flowline_dist[1], bed_obs_chosen$loc, 
 #                         flowline_dist[length(flowline_dist)])
 # bed_pred_loc <- bed_obs_df$loc[bed_obs_df$chosen == 0]
 
 # out <- cond_sim_gp(10, x_test = bed_pred_loc, 
-#                         x_train = chosen_bed_df$loc,
-#                         obs = chosen_bed_df$bed_elev, 
-#                         obs_sd = rep(0, length(chosen_bed_df$chosen == 0))) # use zero sd
+#                         x_train = bed_obs_chosen$loc,
+#                         obs = bed_obs_chosen$bed_elev, 
+#                         obs_sd = rep(0, length(bed_obs_chosen$chosen == 0))) # use zero sd
 
 # out2 <- cond_sim_gp(10, x_test = bed_pred_loc, 
-#                         x_train = chosen_bed_df$loc,
-#                         obs = chosen_bed_df$bed_elev, 
-#                         obs_sd = chosen_bed_df$bed_sd)
+#                         x_train = bed_obs_chosen$loc,
+#                         obs = bed_obs_chosen$bed_elev, 
+#                         obs_sd = bed_obs_chosen$bed_sd)
 
 # matplot(out$sims$x, out$sims[, -(1:2)], type = "l", col = "grey")
-# points(chosen_bed_df$loc[chosen_bed_df$chosen == 1], chosen_bed_df$bed_elev[chosen_bed_df$chosen == 1])
+# points(bed_obs_chosen$loc[bed_obs_chosen$chosen == 1], bed_obs_chosen$bed_elev[bed_obs_chosen$chosen == 1])
 
 # matplot(out$sims$x, out2$sims[, -(1:2)], type = "l", col = "grey")
-# points(chosen_bed_df$loc, chosen_bed_df$bed_elev)
+# points(bed_obs_chosen$loc, bed_obs_chosen$bed_elev)
 
 # bed_sim2 <- out$sims[, 2]
 # bed_sim3 <- out$sims[, 3]

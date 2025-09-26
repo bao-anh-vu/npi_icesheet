@@ -18,13 +18,13 @@ domain <- ssa_steady$domain
 J <- length(domain)
 
 ## Friction simulations
-set <- 1
+set <- 51
 setf <- formatC(set, width = 2, flag = "0")
 fric_sims <- qread(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
 
 ## Fit basis to log(friction)
 lengthscales <- c(2.5e3, 3e3, 4e3, 5e3)
-nbasis <- 150
+nbasis <- 120
 
 output_list <- list()
 # for (i in 1:length(lengthscales)) {
@@ -40,7 +40,7 @@ for (i in seq_along(lengthscales)) {
 
 
 
-sim <- 1
+sim <- 2
 fitted <- lapply(output_list, function(x) exp(x$fitted_values[sim, ]))
 basis_coefs <- lapply(output_list, function(x) x$basis_coefs[sim, ])
 

@@ -44,7 +44,7 @@ if (length(gpus) > 0) {
 }
 
 ## Read data
-data_date <- "20241111" 
+data_date <- "20241111"
 
 arg <- commandArgs(trailingOnly = TRUE)
 sets <- 51:60

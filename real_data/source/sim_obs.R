@@ -21,7 +21,7 @@ sim_obs <- function(param_list,
     ## Measurement noise for the velocity observations ##
     ones <- rep(1, length(domain))
     D <- rdist(domain)
-    l <- 10e3
+    l <- 5e3
     R <- exp_cov(D, l)
 
     # R <- outer(ones, ones) * (1 + sqrt(3) * D / l) * exp(-sqrt(3) * D / l)
@@ -32,10 +32,10 @@ sim_obs <- function(param_list,
     # sim_results <- lapply(param_list, 
     #     function(param, domain, phys_params,
     #             ini_velocity, ini_thickness, years, 
-    #             msmt_noise_info) {
+    #             msmt_noise_info, warmup) {
     sim_results <- mclapply(param_list, 
         function(param, domain, phys_params,
-                ini_velocity, ini_thickness, years, 
+                ini_velocity, ini_thickness, years, warmup,
                 msmt_noise_info) {
 
         sim_out <- solve_ssa_nl(
@@ -51,7 +51,7 @@ sim_obs <- function(param_list,
         )
 
         ## Add noise to surface to obtain surface observations
-        surface_obs <- get_obs(sim_out, msmt_noise_info)
+        surface_obs <- get_obs(sim_out, msmt_noise_info, warmup = warmup)
 
 # ## Plot surface obs
 # png("./plots/temp/surface_obs.png")
@@ -59,17 +59,17 @@ sim_obs <- function(param_list,
 # dev.off()
 
         ## Save true thickness and velocity for comparison
-        # if (warmup == 0) {
+        if (warmup == 0) {
             true_surface_elevs <- sim_out$all_top_surface # this is the version without added noise
             true_thicknesses <- sim_out$all_thicknesses
             true_velocities <- sim_out$all_velocities
             gl <- sim_out$grounding_line
-        # } else {
-            # true_surface_elevs <- sim_out$all_top_surface[, -(1:warmup)]
-            # true_thicknesses <- sim_out$all_thicknesses[, -(1:warmup)]
-            # true_velocities <- sim_out$all_velocities[, -(1:warmup)]
-            # gl <- sim_out$grounding_line[-(1:warmup)]
-        # }
+        } else {
+            true_surface_elevs <- sim_out$all_top_surface[, -(1:warmup)]
+            true_thicknesses <- sim_out$all_thicknesses[, -(1:warmup)]
+            true_velocities <- sim_out$all_velocities[, -(1:warmup)]
+            gl <- sim_out$grounding_line[-(1:warmup)]
+        }
 
         simulated_data <- list(
             true_surface_elevs = true_surface_elevs,
@@ -89,6 +89,7 @@ sim_obs <- function(param_list,
     ini_velocity = ini_velocity,
     ini_thickness = ini_thickness,
     years = years,
+    warmup = warmup,
     msmt_noise_info = msmt_noise_info,
     mc.cores = 50L,
     ## mc.allow.fatal = TRUE,

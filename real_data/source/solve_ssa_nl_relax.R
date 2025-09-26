@@ -247,44 +247,44 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     }
     
     # Plot ice geometry every 100 years
-    if (i == 1 | i %% (steps_per_yr * 100) == 0) {
+    # if (i == 1 | i %% (steps_per_yr * 100) == 0) {
       
-      cat("Year: ", i/steps_per_yr, "\t")
+    #   cat("Year: ", i/steps_per_yr, "\t")
       
-      z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
-      z_b_curr <- z_curr - H_curr
+    #   z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
+    #   z_b_curr <- z_curr - H_curr
 
-      # cat("GL position: ", GL / J * L / 1000,  "\t")
+    #   # cat("GL position: ", GL / J * L / 1000,  "\t")
             
-      if (use_relaxation) {
-        plot_name <- "z_curr_relax"
-      } else {
-        plot_name <- "z_curr"
-      }
+    #   if (use_relaxation) {
+    #     plot_name <- "z_curr_relax"
+    #   } else {
+    #     plot_name <- "z_curr"
+    #   }
 
-      png(paste0("./plots/temp/", plot_name, ceiling(i / steps_per_yr), ".png"))
-      # png(paste0("./plots/steady_state/z_curr", i, ".png"))
+    #   png(paste0("./plots/temp/", plot_name, ceiling(i / steps_per_yr), ".png"))
+    #   # png(paste0("./plots/steady_state/z_curr", i, ".png"))
       
-      par(mfrow = c(2, 1))
+    #   par(mfrow = c(2, 1))
       
-      plot(x/1000, z_curr, type = "l", ylim = c(-2000, 2000), 
-            xlab = "Domain (km)", ylab = "Elevation (m)", main = paste("Year", ceiling(i / steps_per_yr)))
-      lines(x/1000, z_b_curr, col = "black")
-      lines(x/1000, zs_mat[, 1], col = "salmon") # initial ice geometry
-      abline(v = x[GL]/1000, col = "black", lty = 2)
-      abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2) # initial GL
-      abline(h = 0, col = "turquoise", lty = 2)
-      lines(x/1000, b, col = "grey")
+    #   plot(x/1000, z_curr, type = "l", ylim = c(-2000, 2000), 
+    #         xlab = "Domain (km)", ylab = "Elevation (m)", main = paste("Year", ceiling(i / steps_per_yr)))
+    #   lines(x/1000, z_b_curr, col = "black")
+    #   lines(x/1000, zs_mat[, 1], col = "salmon") # initial ice geometry
+    #   abline(v = x[GL]/1000, col = "black", lty = 2)
+    #   abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2) # initial GL
+    #   abline(h = 0, col = "turquoise", lty = 2)
+    #   lines(x/1000, b, col = "grey")
 
-      # png(paste0("./plots/steady_state/u_curr", ceiling(i / steps_per_yr), ".png"))
-      plot(x/1000, u_curr, type = "l", xlab = "Domain (km)", ylab = "Velocity (m/yr)")
-      lines(x/1000, u_mat[, 1], col = "salmon") # initial velocity
-      abline(v = x[GL]/1000, col = "black", lty = 2)
-      abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2) # initial GL
-      legend("bottomright", legend = c("Current", "Initial"), col = c("black", "salmon"), lty = 1)
-      dev.off()
+    #   # png(paste0("./plots/steady_state/u_curr", ceiling(i / steps_per_yr), ".png"))
+    #   plot(x/1000, u_curr, type = "l", xlab = "Domain (km)", ylab = "Velocity (m/yr)")
+    #   lines(x/1000, u_mat[, 1], col = "salmon") # initial velocity
+    #   abline(v = x[GL]/1000, col = "black", lty = 2)
+    #   abline(v = x[GL_position[1]]/1000, col = "salmon", lty = 2) # initial GL
+    #   legend("bottomright", legend = c("Current", "Initial"), col = c("black", "salmon"), lty = 1)
+    #   dev.off()
 
-    }
+    # }
 
     # Now use this velocity to solve the mass balance equation
     if (evolve_thickness) {
@@ -315,7 +315,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       # browser()
       # cat("Iter", i, ": ")
       # if (i %% 1000 == 0) {
-      #   cat("Change in H (m): ", H_diff, "\n")
+      #   cat("Change in H (m/yr): ", H_diff * steps_per_yr, "\n")
       # }
       
       H_curr <- H_new

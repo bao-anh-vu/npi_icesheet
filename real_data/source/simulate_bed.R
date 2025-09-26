@@ -5,7 +5,7 @@
 ################################################################################
 
 simulate_bed <- function(nsim, domain, obs_locations, obs, obs_sd = NULL, 
-                         sill = 4000, nugget = 200, range = 50e3) {
+                         sill = 5e3, nugget = 0, range = 50e3) {
   
   # Cov function specifications
   bed_sigma <- bed_cov(sill, nugget, range, si = domain, sj = domain)

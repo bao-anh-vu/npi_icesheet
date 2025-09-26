@@ -56,6 +56,7 @@ fit_friction_basis <- function(nbasis, domain, fric_arr, log_transform = F,
     return(list(true_vals = fric_arr,
                 basis_coefs = basis_coefs, 
                 basis_mat = basis_mat,
+                lengthscale = lengthscale,
                 fitted_values = fitted_values))
 
 }
@@ -130,6 +131,7 @@ fit_bed_basis <- function(nbasis, domain, bed_arr,
     return(list(true_vals = bed_arr,
                 basis_coefs = basis_coefs, 
                 basis_mat = basis_mat,
+                lengthscale = lengthscale,
                 fitted_values = fitted_values))
 
 }

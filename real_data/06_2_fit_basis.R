@@ -32,7 +32,7 @@ domain <- ssa_steady$domain
 J <- length(domain)
 
 ## Basis function parameters
-nbasis <- 150
+nbasis <- 120
 
 ## Read simulated parameters
 sets <- 51:60
@@ -49,10 +49,6 @@ for (i in 1:length(sets)) {
 bed_sims_arr <- abind(bed_sim_list, along = 1)
 bed_mean <- colMeans(bed_sims_arr)
 
-## Replicate the mean bed into a matrix so it's easy to subtract from each bed simulation
-N <- nrow(bed_sim_list[[1]])
-mean_mat <- matrix(rep(bed_mean, N), nrow = N, ncol = J, byrow = T) 
-
 ## Then fit basis functions
 for (i in 1:length(sets)) {
     set <- sets[i]
@@ -68,11 +64,13 @@ for (i in 1:length(sets)) {
         domain = domain,
         fric_arr = fric_sims,
         log_transform = T,
-        lengthscale = 4e3
+        lengthscale = 3e3
     )
 
     ## De-mean the bedrock
-    # bed_mean <- colMeans(bed_sims)
+    ## Replicate the mean bed into a matrix so it's easy to subtract from each bed simulation
+    N <- nrow(bed_sims)
+    mean_mat <- matrix(rep(bed_mean, N), nrow = N, ncol = J, byrow = T) 
     bed_arr_demean <- bed_sims - mean_mat
 
     ## Fit basis to de-meaned bedrock

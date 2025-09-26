@@ -38,7 +38,7 @@ source("./source/get_surface_obs.R")
 source("./source/azm_cond_sim.R")
 
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #6:20
+sets <- 51:60 #6:20
 use_missing_pattern <- T
 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])

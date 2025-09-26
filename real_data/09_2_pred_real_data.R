@@ -29,7 +29,6 @@ use_missing_pattern <- T
 ## Read data
 data_date <- "20241111" #"20241103"
 sets <- 51:60 #51:100 #51:100 #6:20
-# setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 if (use_missing_pattern) {
@@ -253,11 +252,13 @@ if (test_on_train) {
 # bed_basis_mat <- test_data$bed_basis_mat
 # n_fric_basis <- ncol(fric_basis_mat)
 # n_bed_basis <- ncol(bed_basis_mat)
-friction_basis <- qread(file = paste0("data/training_data/friction_basis_01_", data_date, ".qs"))
+setf <- formatC(sets[1], width=2, flag="0")
+friction_basis <- qread(file = paste0("data/training_data/friction_basis_", setf, "_", data_date, ".qs"))
 fric_basis_mat <- friction_basis$basis_mat
 n_fric_basis <- ncol(fric_basis_mat)
 
-bed_basis <- qread(file = paste0("data/training_data/bed_basis_01_", data_date, ".qs"))
+
+bed_basis <- qread(file = paste0("data/training_data/bed_basis_", setf, "_", data_date, ".qs"))
 bed_basis_mat <- bed_basis$basis_mat
 n_bed_basis <- ncol(bed_basis_mat)
 
@@ -309,7 +310,7 @@ test_bed_demean <- bed_basis_mat %*% t(test_bed_coefs)
 ### Reconstruct bed elevation by adding bed trend to the predicted oscillations
 # bed_obs <- readRDS(file = paste0("./data/training_data/bed_obs_", data_date, ".rds"))
 
-bed_basis <- qread(file = paste0("./data/training_data/bed_basis_01_", data_date, ".qs"))
+# bed_basis <- qread(file = paste0("./data/training_data/bed_basis_01_", data_date, ".qs"))
 
 bed_mean <- bed_basis$mean
 # bed_mean_mat <- matrix(rep(bed_mean), nrow = length(bed_mean), ncol = ncol(pred_bed_demean))
@@ -372,10 +373,11 @@ gl_uq <- gl_q[2,]
 
 ## Plot the results
 png(paste0(plot_dir, "/pred_fric_real.png"), width = 1000, height = 500)
-plot(domain/1e3, fric_lq, type = "l", col = "grey", lwd = 2,
+plot(domain/1e3, pred_fric, type = "l", col = "red", lwd = 2,
+    ylim = c(0, 0.1),
      xlab = "Flowline (km)", ylab = "Friction coefficient")
 lines(domain/1e3, fric_uq, col = "grey", lwd = 2)
-lines(domain/1e3, pred_fric, col = "red", lwd = 2)
+lines(domain/1e3, fric_lq, col = "grey", lwd = 2)
 abline(v = gl_obs/1e3, lty = 2)
 dev.off()
 
@@ -423,7 +425,7 @@ p <- ggplot(data = bed_df, aes(x = domain)) +
     geom_point(data = bed_obs_val, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 1) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
-    ylim(-1500, -1000) +
+    ylim(-1500, -500) +
     labs(x = "Flowline (km)", y = "Elevation (m)") +
     theme_bw()
 

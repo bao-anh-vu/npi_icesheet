@@ -24,6 +24,7 @@ library(ggplot2)
 library(gridExtra)
 # library(FRK)
 library(qs)
+library(mgcv)
 
 # source("./source/sim_params.R")
 # source("./source/run_sims.R")
@@ -56,13 +57,13 @@ train_data_dir <- "./data/training_data"
 
 ## Presets
 data_date <- "20241111" 
-N <- 5#00 # number of simulations per set
+N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 51 #61:100 #50 #:10
+sets <- 51:100 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
-# warmup <- 0
-years <- 10 #+ warmup
-nbasis <- 150
+warmup <- 1
+years <- 10 + warmup
+nbasis <- 120
 
 ## Physical params
 params <- list(
@@ -75,7 +76,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.5 * 1e6 * params$secpera^params$m
+params$B <- 0.45 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 # 0. Load ice sheet at steady state
@@ -101,7 +102,7 @@ if (constrain_gl) {
   bed_obs_df <- rbind(bed_obs_df, bed_gl_df) %>% arrange(ind)
 }
 bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
-
+bed_obs_val <- bed_obs_df[bed_obs_df$chosen == 0, ]
 ## Scaling units for friction coefficients
 # fric_scale <- 1e6 * params$secpera^(1 / params$n)
 
@@ -110,8 +111,18 @@ smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## 
 smb_avg <- colMeans(smb_data_racmo, na.rm = T)
 params$as <- smb_avg # surface accumulation rate (m/s)
 
-avg_melt_rate <- rep(0, length(domain)) # assume no melt for now
-params$ab <- avg_melt_rate # basal melt rate (m/s)
+if (use_basal_melt_data) {
+  melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
+  # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
+  avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
+  melt_nonmissing <- which(!is.na(avg_melt_rate))
+  avg_melt_rate[1:(melt_nonmissing[1]-1)] <- -1 #seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
+  avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) #mean(avg_melt_rate[melt_nonmissing])
+  avg_melt_rate <- - avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
+} else {
+  avg_melt_rate <- rep(0, J)
+}
+params$ab <- avg_melt_rate # melt rate (m/s)
 
 t1 <- proc.time()
 if (regenerate_sims) {
@@ -133,15 +144,15 @@ if (regenerate_sims) {
 
     print("Simulating friction coefficient...")
 
-    fric.sill <- 8e-5
-    fric.nugget <- 0
-    fric.range <- 5e3
+    # fric.sill <- 8e-5
+    # fric.nugget <- 0
+    # fric.range <- 6e3
 
     fric_sims <- simulate_friction2(
-        nsim = N, domain = domain,
-        sill = fric.sill, nugget = fric.nugget,
-        range = fric.range
-    ) 
+        nsim = N, domain = domain) #,
+    #     sill = fric.sill, nugget = fric.nugget,
+    #     range = fric.range
+    # ) 
 
     # simulated_friction <- simulated_friction / fric_scale
     # sim_fric_list <- lapply(1:N, function(c) simulated_friction[, c])
@@ -149,14 +160,14 @@ if (regenerate_sims) {
     ## Simulate beds
     print("Simulating beds...")
     
-    bed.sill <- 1000
-    bed.range <- 50e3
-    bed.nugget <- 0
+  # bed.sill <- 10e3
+  # bed.range <- 50e3
+  # bed.nugget <- 0 #200
     bed_sim_output <- simulate_bed(N, domain = domain, 
                             obs_locations = bed_obs_chosen$ind, 
-                            obs = bed_obs_chosen$bed_elev, 
-                            sill = bed.sill, nugget = bed.nugget,
-                            range = bed.range) 
+                            obs = bed_obs_chosen$bed_elev) #, 
+                            # sill = bed.sill, nugget = bed.nugget,
+                            # range = bed.range) 
 
     bed_sims <- bed_sim_output$sims
     bed_mean <- bed_sim_output$mean
@@ -188,6 +199,9 @@ bed_sim_plot <- bed_sims_df %>% ggplot() +
   geom_line(aes(x = domain, y = bed1), col = "grey") +
   geom_line(aes(x = domain, y = bed2), col = "grey") +
   geom_point(data = bed_obs_chosen, aes(x = loc, y = bed_elev)) +
+  geom_point(data = bed_obs_val, aes(x = loc, y = bed_elev), col = "red") +
+  xlim(c(0, 200e3)) +
+  ylim(c(-1500, -500)) +
   theme_bw()
 print(bed_sim_plot)
 dev.off()
@@ -231,7 +245,7 @@ dev.off()
         domain = domain,
         phys_params = params,
         years = years, # sim_beds = T,
-        # warmup = warmup,
+        warmup = warmup,
         ini_thickness = ssa_steady$current_thickness,
         ini_velocity = ssa_steady$current_velocity,
         smb = smb_avg,
@@ -324,9 +338,8 @@ surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs")
 # vel_mat <- qread(file = "./data/velocity/all_velocity_arr.qs")
 vel_mat <- qread(file = "./data/velocity/vel_smoothed.qs")
 
-sim <- 2
-png("./plots/temp/sim_vs_real.png", width = 500, height = 600)
-
+sim <- 1
+png("./plots/cnn/input/sim_vs_real.png", width = 500, height = 600)
 par(mfrow = c(2, 1))
 
 matplot(surface_obs_arr[sim,,,1], type = "l", col = "grey", 
@@ -339,7 +352,6 @@ matplot(vel_mat, ylim = c(0, 6000), type = "l", col = "salmon",
 # matlines(vel_mat2, col = "black", lty = 2)
 matlines(surface_obs_arr[sim,,,2], col = "grey", lty = 2)
 lines(ssa_steady$current_velocity, col = "blue")
-
 dev.off()
 
 ## Hovmoller plots of some simulations
@@ -349,7 +361,7 @@ nsamples <- 4
 sims <- sample(1:dim(surface_obs_arr)[1], size = nsamples)
 
 space <- domain / 1000
-time <- 1:(years+1) # 1:dim(thickness_velocity_arr)[3]
+time <- 1:years # 1:dim(thickness_velocity_arr)[3]
 grid_test <- expand.grid(space, time)
 head(grid_test)
 names(grid_test) <- c("space", "time")
@@ -414,7 +426,7 @@ for (s in 1:nsamples) {
     geom_line() +
     # geom_line(aes(x = domain, y = fitted_bed), col = "red") +
     theme_bw() +
-    # ylim(c(-1500, -1000)) +
+    ylim(c(-1500, -500)) +
     xlim(c(0, domain[gl]/1e3)) +
     xlab("Domain (km)") +
     ylab("Bed (m)") +

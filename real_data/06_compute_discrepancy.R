@@ -11,6 +11,7 @@ library(matrixStats) # for the rowMaxs() function
 library(R.utils)
 library(mvtnorm)
 library(abind)
+library(parallel)
 
 # source("./source/sim_params.R")
 source("./source/sim_obs.R")
@@ -28,7 +29,7 @@ data_dir <- "./data/"
 data_date <- "20241111" #"20241103"
 
 ## Flags
-use_basal_melt_data <- T
+use_basal_melt_data <- F
 
 ## Physical params
 params <- list(
@@ -41,7 +42,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.5 * 1e6 * params$secpera^params$m
+params$B <- 0.4 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
@@ -72,8 +73,8 @@ if (use_basal_melt_data) {
   # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
   avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
   melt_nonmissing <- which(!is.na(avg_melt_rate))
-  avg_melt_rate[1:(melt_nonmissing[1]-1)] <- -1 #seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
-  avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) #mean(avg_melt_rate[melt_nonmissing])
+  avg_melt_rate[1:(melt_nonmissing[1]-1)] <- -1 # impose a melt rate of 1 m/a upstream of the first non-missing value
+  avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) # for the remaining part of the shelf just use the last non-missing value
   avg_melt_rate <- - avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
 } else {
   avg_melt_rate <- rep(0, J)
@@ -108,15 +109,15 @@ nsims <- 10
 
 print("Simulating friction coefficient...")
 
-    fric.sill <- 8e-5
-    fric.nugget <- 0
-    fric.range <- 5e3
+    # fric.sill <- 8e-5
+    # fric.nugget <- 0
+    # fric.range <- 5e3
 
     fric_sims <- simulate_friction2(
-        nsim = nsims, domain = domain,
-        sill = fric.sill, nugget = fric.nugget,
-        range = fric.range
-    ) 
+        nsim = nsims, domain = domain) #,
+    #     sill = fric.sill, nugget = fric.nugget,
+    #     range = fric.range
+    # ) 
 
     # simulated_friction <- simulated_friction / fric_scale
     # sim_fric_list <- lapply(1:N, function(c) simulated_friction[, c])
@@ -124,14 +125,14 @@ print("Simulating friction coefficient...")
     ## Simulate beds
     print("Simulating beds...")
     
-    bed.sill <- 1000
-    bed.range <- 50e3
-    bed.nugget <- 0
+    # bed.sill <- 10e3
+    # bed.range <- 50e3
+    # bed.nugget <- 0 #200
     bed_sim_output <- simulate_bed(nsims, domain = domain, 
                             obs_locations = bed_obs_chosen$ind, 
-                            obs = bed_obs_chosen$bed_elev, 
-                            sill = bed.sill, nugget = bed.nugget,
-                            range = bed.range) 
+                            obs = bed_obs_chosen$bed_elev) #, 
+                            # sill = bed.sill, nugget = bed.nugget,
+                            # range = bed.range) 
 
     bed_sims <- bed_sim_output$sims
 
@@ -153,8 +154,8 @@ print("Simulating friction coefficient...")
 
 ### Also reduce ice rigidity
 # params$B <- 1.2 * 1e6 * params$secpera^params$m
-
-years <- 10
+warmup <- 1
+years <- 10 + warmup
 
 # sim_out <- list()
 # for (s in 1:nsims) {
@@ -184,7 +185,7 @@ sim_surface_obs <- list()
             domain = domain,
             phys_params = params,
             years = years, # sim_beds = T,
-            # warmup = warmup,
+            warmup = warmup,
             ini_thickness = ssa_steady$current_thickness,
             ini_velocity = ssa_steady$current_velocity,
             smb = smb_avg,
@@ -209,7 +210,7 @@ vel_sims <- lapply(1:nsims, function(s) sim_surface_obs[s,,,2])
 vel_discr <- lapply(vel_sims, function(M) vel_mat - M)
 
 # GL_pos <- sapply(sim_out, function(x) x$grounding_line[length(x$grounding_line)])
-GL_pos <- generated_data$gl_arr[, years+1]
+GL_pos <- generated_data$gl_arr[, years]
 
 pdf(file = paste0("./plots/discr/discrepancies_", data_date, ".pdf"), width = 10, height = 15)    
 
