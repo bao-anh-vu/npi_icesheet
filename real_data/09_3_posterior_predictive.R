@@ -202,29 +202,33 @@ post_pred_obs_mean <- apply(post_pred_obs, c(2, 3, 4), mean)
 prior_pred_obs_mean <- apply(prior_pred_obs, c(2, 3, 4), mean)
 
 ## Plot simulated surface observations
-# s <- 2
+s <- 2
 png(filename = paste0(plot_dir, "post_pred_obs_", data_date, ".png"), width = 2000, height = 1500, res = 200)
 par(mfrow = c(2, 2))
-matplot(surf_elev_data,
+matplot(surf_elev_data, ylim = c(0, 1500),
   type = "l", lty = 1, col = "salmon",
   main = "Prior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
 )
-matlines(prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+# matlines(prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+matlines(prior_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
 legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
 matplot(velocity_data,
   type = "l", lty = 1, col = "salmon",
   main = "Prior predictive velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
 )
-matlines(prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
+# matlines(prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
+matlines(prior_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
+
 legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
 ## Plot posterior predictive distribution with discrepancy adjustment
-matplot(surf_elev_data,
+matplot(surf_elev_data, ylim = c(0, 1500),
   type = "l", lty = 1, col = "salmon",
   main = "Posterior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
 )
-matlines(post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+# matlines(post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+matlines(post_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
 legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
 matplot(velocity_data,
@@ -232,6 +236,7 @@ matplot(velocity_data,
   main = "Posterior predictive surface velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
 )
 matlines(post_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
+matlines(post_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
 legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 dev.off()
 
