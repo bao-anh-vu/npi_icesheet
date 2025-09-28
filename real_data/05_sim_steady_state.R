@@ -41,7 +41,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.6 * 1e6 * params$secpera^params$m
+params$B <- 0.8 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## Flowline data
@@ -97,7 +97,7 @@ length_shelf <- J - length(se_grounded)
 # H_shelf <- se_shelf / (1 - params$rho_i / params$rho_w) # thickness at grounding line based on flotation condition
 # H_shelf <- - bed_sim[(gl_ind+1):J] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
 H_gl <- - bed_sim[(gl_ind+1)] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
-H_shelf <- seq(from = H_gl, to = 500, length.out = length_shelf)
+H_shelf <- rep(500, length_shelf) #seq(from = H_gl, to = 500, length.out = length_shelf)
 
 # thickness_at_gl <- - bed_sim[gl_ind][1] * params$rho_w / params$rho_i
 # H_shelf <- seq(thickness_at_gl - 1, 500, length.out = length_shelf)
@@ -148,7 +148,7 @@ if (rerun_steady_state) {
                             bedrock = bed_sim, 
                             friction_coef = fric_sim * 1e6 * params$secpera^(1 / params$n), 
                             phys_params = params,
-                            tol = 5e-02, #m/yr 
+                            tol = 1e-02, #m/yr 
                             # years = 100,
                             steps_per_yr = 100, 
                             add_process_noise = F,

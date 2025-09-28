@@ -82,7 +82,7 @@ create_model_quantile <- function(input_dim, output_dim, quantile) {
     model
 }
 
-create_model_posterior <- function(input_dim, output_dim, n_basis_funs, n_gl) {
+create_model_posterior <- function(input_dim, output_dim, n_bed_basis, n_fric_basis, n_gl) {
   model <- keras_model_sequential() %>%
     layer_conv_2d(
         filters = 32, kernel_size = c(5, 5),
@@ -104,14 +104,14 @@ create_model_posterior <- function(input_dim, output_dim, n_basis_funs, n_gl) {
     #                 padding = "same", activation = "relu") %>%
     # layer_max_pooling_2d(pool_size = c(2, 2)) %>%
     layer_flatten() %>%
-    layer_dropout(rate = 0.25) %>%
+    layer_dropout(rate = 0.1) %>%
     # layer_dense(units = 256, activation = "relu") %>%
     layer_dense(units = output_dim)
 
     model %>% compile(
-        loss = posterior_loss_wrap_tf(n_basis_funs, n_gl), #losses[1],
-        optimizer = optimizer_adam(learning_rate = 0.0002),
-        metrics = posterior_loss_wrap_tf(n_basis_funs, n_gl) #c("mae") 
+        loss = posterior_loss_wrap_tf(n_bed_basis, n_fric_basis, n_gl), #losses[1],
+        optimizer = optimizer_adam(learning_rate = 0.0001),
+        metrics = posterior_loss_wrap_tf(n_bed_basis, n_fric_basis, n_gl) #c("mae") 
     )
     model
 }

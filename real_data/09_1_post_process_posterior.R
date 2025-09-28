@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:60 #6:20
+sets <- 51:100 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -67,7 +67,8 @@ domain <- ssa_steady$domain
 
 ## Bed observations
 bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
-bed_obs <- bed_obs_df %>% filter(chosen == 1) 
+bed_obs_train <- bed_obs_df %>% filter(chosen == 1) 
+bed_obs_val <- bed_obs_df %>% filter(chosen == 0) 
 
 bed_basis <- qread(file = paste0("./data/training_data/bed_basis_", setf, "_", data_date, ".qs"))
 bed_mean <- bed_basis$mean 
@@ -75,15 +76,17 @@ bed_mean <- bed_basis$mean
 ## Load the model
 
 input_dim <- dim(test_data$input)[2:4]
-n_basis_funs <- dim(test_data$fric_coefs)[2]
+n_fric_basis <- dim(test_data$fric_coefs)[2]
+n_bed_basis <- dim(test_data$bed_coefs)[2]
 n_gl <- dim(test_data$grounding_line)[2]
-n_mean_elements <- n_basis_funs * 2 + n_gl
-n_chol_elements <- (n_basis_funs * 2 + n_gl) + (n_basis_funs - 1) * 2 + (n_gl - 1) # diagonal + lower-diag elements
+n_mean_elements <- n_fric_basis + n_bed_basis + n_gl
+n_chol_elements <- n_mean_elements + (n_mean_elements - 3) # diagonal + lower-diag elements
 output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE TOTAL NUMBER OF BASIS FUNCTIONS + COVARIANCE PARAMETERS
 
 model <- create_model_posterior(input_dim = input_dim, 
                                 output_dim = output_dim,
-                                n_basis_funs = n_basis_funs,
+                                n_bed_basis = n_bed_basis,
+                                n_fric_basis = n_fric_basis,
                                 n_gl = n_gl)
 
 ### Display the model's architecture
@@ -221,15 +224,15 @@ print("Computing credible intervals...")
 pred_chol <- pred_output[, (n_mean_elements+1):ncol(pred_output)]
 
 ## Construct Cholesky factor of the precision
-Lb_elems <- n_basis_funs + (n_basis_funs - 1)
-Lc_elems <- n_basis_funs + (n_basis_funs - 1)
+Lb_elems <- n_bed_basis + (n_bed_basis - 1)
+Lc_elems <- n_fric_basis + (n_fric_basis - 1)
 Lg_elems <- n_gl + (n_gl - 1)
 
 Lmats <- list()
 s0 <- system.time({
     for (s in 1:nrow(pred_chol)) {
-        Lb <- construct_L_matrix(pred_chol[s, 1:Lb_elems], n_basis_funs)
-        Lc <- construct_L_matrix(pred_chol[s, (Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
+        Lb <- construct_L_matrix(pred_chol[s, 1:Lb_elems], n_bed_basis)
+        Lc <- construct_L_matrix(pred_chol[s, (Lb_elems+1):(Lb_elems+Lc_elems)], n_fric_basis)
         Lg <- construct_L_matrix(pred_chol[s, (Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
         Lmats[[s]] <- bdiag(Lb, Lc, Lg)
     }
@@ -295,9 +298,9 @@ gl_samples_ls <- lapply(pred_samples_ls, function(x) x[(n_fric_basis+n_bed_basis
 
 ## Compute quantiles
 s5 <- system.time({
-    fric_q <- lapply(fric_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)))
-    bed_q <- lapply(bed_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)))
-    gl_q <- lapply(gl_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)))
+    fric_q <- mclapply(fric_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)), mc.cores = 10L)
+    bed_q <- mclapply(bed_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)), mc.cores = 10L)
+    gl_q <- mclapply(gl_samples_ls, function(x) apply(x, 1, quantile, probs = c(0.025, 0.975)), mc.cores = 10L)
 })
 
 fric_lq <- lapply(fric_q, function(x) x[1, ])
@@ -329,7 +332,7 @@ if (save_pred) {
 ## True parameter values for comparison
 true_fric <- t(test_data$true_fric)
 true_bed <- test_data$true_bed
-true_gl <- test_data$true_gl #* test_data$sd_gl + test_data$mean_gl
+true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
 
 ## Scaling units for friction coefficients
 # secpera <- 31556926
@@ -344,7 +347,7 @@ if (save_plots) {
     ## Friction plots
     png(paste0(plot_dir, "/pred_vs_true_fric", plot_tag, ".png"), width = 2000, height = 1200)
 
-    plot_domain <- 1:1200 #length(domain) # ceiling(gl)
+    plot_domain <- 1:1500 #length(domain) # ceiling(gl)
 
     par(mfrow = c(length(samples) / 2, 2))
     # for (i in 1:length(samples)) {
@@ -370,7 +373,7 @@ if (save_plots) {
         lines(domain[plot_domain]/1000, fric_uq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         
         
-        abline(v = test_data$true_gl[s, ncol(test_data$true_gl)], lty = 2, lwd = 3)
+        abline(v = true_gl[s, ncol(true_gl)], lty = 2, lwd = 3)
     }
 
     dev.off()
@@ -395,14 +398,14 @@ if (save_plots) {
         lines(domain[plot_domain] / 1000, pred_bed[plot_domain, s], lwd = 3, col = "red")
         lines(domain[plot_domain] / 1000, bed_lq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         lines(domain[plot_domain] / 1000, bed_uq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
-        points(bed_obs$loc / 1000, bed_obs$bed_elev, cex = 1.5)
-        
-        abline(v = test_data$true_gl[s, ncol(test_data$true_gl)], lty = 2, lwd = 3)
+        points(bed_obs_train$loc / 1000, bed_obs_train$bed_elev, col = "black", pch = 16, cex = 2)
+        points(bed_obs_val$loc / 1000, bed_obs_val$bed_elev, col = "cyan", pch = 16, cex = 2)
+        abline(v = true_gl[s, ncol(true_gl)], lty = 2, lwd = 3)
     }
     dev.off()
 
     ## Grounding line plot
-    years <- dim(test_data$grounding_line)[2]
+    years <- dim(true_gl)[2]
     png(paste0(plot_dir, "/pred_vs_true_gl", plot_tag, ".png"), width = 2000, height = 2000)
     par(mfrow = c(length(samples) / 2, 2))
     

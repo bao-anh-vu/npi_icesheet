@@ -78,7 +78,7 @@ bed_obs_df <- bed_df %>% filter(!is.na(bed_elev) & !is.na(bed_sd)) #%>% pull(ind
 
 # Choose some bed observations; leave the rest for validation
 # Divide domain into intervals of 10km
-interval_length <- 10e3 # m
+interval_length <- 5e3 # m
 # # num_intervals <- floor((max(flowline_dist) - min(flowline_dist)) / interval_length)
 cut_points <- seq(from = min(flowline_dist), to = max(flowline_dist), by = interval_length)
 # intervals <- cut(flowline_dist, breaks = cut_points, include.lowest = TRUE, right = FALSE)
@@ -132,13 +132,13 @@ bed_sim_plot <- bed_sim_df %>% ggplot(aes(x = loc, y = bed_elev)) +
         geom_line(data = bed_sim_df, aes(x = x, y = sim1), col = "grey40") +
         geom_line(data = bed_sim_df, aes(x = x, y = sim2), col = "grey60") +
         geom_line(data = bed_sim_df, aes(x = x, y = sim3), col = "grey80") +
-        # geom_line(data = bed_sim_df, aes(x = x, y = sim4), col = "grey80") +
-        # geom_line(data = bed_sim_df, aes(x = x, y = sim5), col = "grey80") +
-        # geom_line(data = bed_sim_df, aes(x = x, y = sim6), col = "grey80") +
-        # geom_line(data = bed_sim_df, aes(x = x, y = sim7), col = "grey80") +
-        # geom_line(data = bed_sim_df, aes(x = x, y = sim8), col = "grey80") +
-        # geom_line(data = bed_sim_df, aes(x = x, y = sim9), col = "grey80") +
-        # geom_line(data = bed_sim_df, aes(x = x, y = sim10), col = "grey80") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim4), col = "grey80") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim5), col = "grey80") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim6), col = "grey80") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim7), col = "grey80") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim8), col = "grey80") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim9), col = "grey80") +
+        geom_line(data = bed_sim_df, aes(x = x, y = sim10), col = "grey80") +
         geom_line(data = data.frame(x = flowline_dist, y = bed_mean), aes(x = x, y = y), col = "red", lwd = 1) +
         geom_point(data = bed_obs_df, aes(col = factor(chosen)), size = 3) + #, shape = 21, size = 3) +
         geom_vline(xintercept = flowline_dist[gl_ind], lty = 2) +

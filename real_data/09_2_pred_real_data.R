@@ -25,10 +25,11 @@ save_plots <- T
 log_transform <- T
 test_on_train <- F
 use_missing_pattern <- T
+correct_model_discrepancy <- F
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:60 #51:100 #51:100 #6:20
+sets <- 51:100 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 if (use_missing_pattern) {
@@ -52,11 +53,14 @@ test_input <- test_data$input
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
 ## Also load real data
-# surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
-# velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
-surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", data_date, ".qs"))
-# velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
-velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
+if (correct_model_discrepancy) {
+    surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", data_date, ".qs"))
+    velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
+} else {
+    surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+    velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
+    # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
+}
 
 ## Replace NA values in real_data with 0
 surf_elev_data[is.na(surf_elev_data)] <- 0
@@ -173,15 +177,17 @@ dev.off()
 
 ## Load the model
 input_dim <- dim(test_data$input)[2:4]
-n_basis_funs <- dim(test_data$fric_coefs)[2]
+n_fric_basis <- dim(test_data$fric_coefs)[2]
+n_bed_basis <- dim(test_data$bed_coefs)[2]
 n_gl <- dim(test_data$grounding_line)[2]
-n_mean_elements <- n_basis_funs * 2 + n_gl
-n_chol_elements <- (n_basis_funs * 2 + n_gl) + (n_basis_funs - 1) * 2 + (n_gl - 1) # diagonal + lower-diag elements
+n_mean_elements <- n_fric_basis + n_bed_basis + n_gl
+n_chol_elements <- n_mean_elements + (n_mean_elements - 3) # diagonal + lower-diag elements
 output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE TOTAL NUMBER OF BASIS FUNCTIONS + COVARIANCE PARAMETERS
 
 model <- create_model_posterior(input_dim = input_dim, 
                                 output_dim = output_dim,
-                                n_basis_funs = n_basis_funs,
+                                n_bed_basis = n_bed_basis,
+                                n_fric_basis = n_fric_basis,
                                 n_gl = n_gl)
 
 ### Display the model's architecture
@@ -321,14 +327,14 @@ pred_bed <- pred_bed_demean + bed_mean
 pred_chol <- pred_output[, (n_mean_elements+1):ncol(pred_output)]
 
 ## Construct Cholesky factor of the precision
-Lb_elems <- n_basis_funs + (n_basis_funs - 1)
-Lc_elems <- n_basis_funs + (n_basis_funs - 1)
+Lb_elems <- n_bed_basis + (n_bed_basis - 1)
+Lc_elems <- n_fric_basis + (n_fric_basis - 1)
 Lg_elems <- n_gl + (n_gl - 1)
 
 Lmats <- list()
 # for (s in 1:nrow(pred_chol)) {
-    Lb <- construct_L_matrix(pred_chol[1:Lb_elems], n_basis_funs)
-    Lc <- construct_L_matrix(pred_chol[(Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
+    Lb <- construct_L_matrix(pred_chol[1:Lb_elems], n_bed_basis)
+    Lc <- construct_L_matrix(pred_chol[(Lb_elems+1):(Lb_elems+Lc_elems)], n_fric_basis)
     Lg <- construct_L_matrix(pred_chol[(Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
     Lmat <- bdiag(Lb, Lc, Lg)
     # Lmats[[s]] <- bdiag(Lb, Lc, Lg)

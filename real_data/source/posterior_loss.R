@@ -1,11 +1,11 @@
 # Custom loss function for mean and covariance
-posterior_loss_wrap <- function(n_basis_funs, n_gl) {
+posterior_loss_wrap <- function(n_bed_basis, n_fric_basis, n_gl) {
   posterior_loss <- function(y_true, y_pred) {
     ## Implement a loss of the form Gau(y_true; mean, cov)
     ## where mean and cov are constructed from y_pred
 
     
-    d <- n_basis_funs * 2 + n_gl ## Make this an argument in a wrapper function in the future
+    d <- n_bed_basis + n_fric_basis + n_gl ## Make this an argument in a wrapper function in the future
     
     mean <- y_pred[1:d]
     
@@ -13,13 +13,12 @@ posterior_loss_wrap <- function(n_basis_funs, n_gl) {
     chol_vals <- y_pred[(d+1):length(y_pred)]
 
     ## Construct covariance matrix
-    Lb_elems <- n_basis_funs + (n_basis_funs - 1)
-    Lc_elems <- n_basis_funs + (n_basis_funs - 1)
+    Lb_elems <- n_bed_basis + (n_bed_basis - 1)
+    Lc_elems <- n_fric_basis + (n_fric_basis - 1)
     Lg_elems <- n_gl + (n_gl - 1)
 
-
-    Lb <- construct_L_matrix(chol_vals[1:Lb_elems], n_basis_funs)
-    Lc <- construct_L_matrix(chol_vals[(Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
+    Lb <- construct_L_matrix(chol_vals[1:Lb_elems], n_bed_basis)
+    Lc <- construct_L_matrix(chol_vals[(Lb_elems+1):(Lb_elems+Lc_elems)], n_fric_basis)
     Lg <- construct_L_matrix(chol_vals[(Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
 
     L <- bdiag(Lb, Lc, Lg)
@@ -44,12 +43,12 @@ construct_L_matrix <- function(vals, n) {
 ## Now do the same thing but in tensorflow
 
 ## Original version (not taking into account the batch size)
-posterior_loss_wrap_tf_og <- function(n_basis_funs, n_gl) {
+posterior_loss_wrap_tf_og <- function(n_bed_basis, n_fric_basis, n_gl) {
   posterior_loss_tf_og <- function(y_true, y_pred) {
     ## Implement a loss of the form Gau(y_true; mean, cov)
     ## where mean and cov are constructed from y_pred
     # K <- backend() # call tensorflow
-    d <- n_basis_funs * 2 + n_gl ## Make this an argument in a wrapper function in the future
+    d <- n_bed_basis + n_fric_basis + n_gl ## Make this an argument in a wrapper function in the future
 
     # mean <- tf$constant(y_pred[, 1:d])
     # chol_vals <- tf$constant(y_pred[, (d+1):length(y_pred)])
@@ -57,12 +56,12 @@ posterior_loss_wrap_tf_og <- function(n_basis_funs, n_gl) {
     chol_vals <- y_pred[(d+1):length(y_pred)]
     
     ## Construct covariance matrix
-    Lb_elems <- n_basis_funs + (n_basis_funs - 1)
-    Lc_elems <- n_basis_funs + (n_basis_funs - 1)
+    Lb_elems <- n_bed_basis + (n_bed_basis - 1)
+    Lc_elems <- n_fric_basis + (n_fric_basis - 1)
     Lg_elems <- n_gl + (n_gl - 1)
 
-    Lb_tf <- construct_L_matrix_tf_og(chol_vals[1:Lb_elems], n_basis_funs)
-    Lc_tf <- construct_L_matrix_tf_og(chol_vals[(Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
+    Lb_tf <- construct_L_matrix_tf_og(chol_vals[1:Lb_elems], n_bed_basis)
+    Lc_tf <- construct_L_matrix_tf_og(chol_vals[(Lb_elems+1):(Lb_elems+Lc_elems)], n_fric_basis)
     Lg_tf <- construct_L_matrix_tf_og(chol_vals[(Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
 
     L_tf <- tf$linalg$LinearOperatorBlockDiag(list(Lb_tf, Lc_tf, Lg_tf))$to_dense()
@@ -91,13 +90,13 @@ construct_L_matrix_tf_og <- function(vals, n) {
 
 ## Version that takes into account the batch size
 
-posterior_loss_wrap_tf <- function(n_basis_funs, n_gl) {
+posterior_loss_wrap_tf <- function(n_bed_basis, n_fric_basis, n_gl) {
   posterior_loss_tf <- function(y_true, y_pred) {
     ## Implement a loss of the form Gau(y_true; mean, cov)
     ## where mean and cov are constructed from y_pred
     # K <- backend() # call tensorflow
     # b <- y_true$shape[1] #dim(y_true)[1]
-    d <- as.integer(n_basis_funs * 2 + n_gl) ## Make this an argument in a wrapper function in the future
+    d <- as.integer(n_bed_basis + n_fric_basis + n_gl) ## Make this an argument in a wrapper function in the future
    
     # mean <- tf$constant(y_pred[, 1:d])
     # chol_vals <- tf$constant(y_pred[, (d+1):length(y_pred)])
@@ -105,12 +104,12 @@ posterior_loss_wrap_tf <- function(n_basis_funs, n_gl) {
     chol_vals <- y_pred[, (d+1):dim(y_pred)[2]]
     
     ## Construct covariance matrix
-    Lb_elems <- n_basis_funs + (n_basis_funs - 1)
-    Lc_elems <- n_basis_funs + (n_basis_funs - 1)
+    Lb_elems <- n_bed_basis + (n_bed_basis - 1)
+    Lc_elems <- n_fric_basis + (n_fric_basis - 1)
     Lg_elems <- n_gl + (n_gl - 1)
 
-    Lb_tf <- construct_L_matrix_tf(chol_vals[, 1:Lb_elems], n_basis_funs)
-    Lc_tf <- construct_L_matrix_tf(chol_vals[, (Lb_elems+1):(Lb_elems+Lc_elems)], n_basis_funs)
+    Lb_tf <- construct_L_matrix_tf(chol_vals[, 1:Lb_elems], n_bed_basis)
+    Lc_tf <- construct_L_matrix_tf(chol_vals[, (Lb_elems+1):(Lb_elems+Lc_elems)], n_fric_basis)
     Lg_tf <- construct_L_matrix_tf(chol_vals[, (Lb_elems+Lc_elems+1):(Lb_elems+Lc_elems+Lg_elems)], n_gl)
     
     L_tf <- tf$linalg$LinearOperatorBlockDiag(list(Lb_tf, Lc_tf, Lg_tf))$to_dense()

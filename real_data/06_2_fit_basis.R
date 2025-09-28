@@ -32,10 +32,11 @@ domain <- ssa_steady$domain
 J <- length(domain)
 
 ## Basis function parameters
-nbasis <- 120
+n_fric_basis <- 120
+n_bed_basis <- 150
 
 ## Read simulated parameters
-sets <- 51:60
+sets <- 61:100
 
 bed_sim_list <- list()
 fric_sim_list <- list()
@@ -60,11 +61,11 @@ for (i in 1:length(sets)) {
 
     ## Fit basis to log(friction)
     friction_basis <- fit_friction_basis(
-        nbasis = nbasis,
+        nbasis = n_fric_basis,
         domain = domain,
         fric_arr = fric_sims,
         log_transform = T,
-        lengthscale = 3e3
+        lengthscale = 4e3
     )
 
     ## De-mean the bedrock
@@ -75,7 +76,7 @@ for (i in 1:length(sets)) {
 
     ## Fit basis to de-meaned bedrock
     bed_basis <- fit_bed_basis(
-        nbasis = nbasis, domain = domain,
+        nbasis = n_bed_basis, domain = domain,
         bed_arr = bed_arr_demean,
         lengthscale = 2.5e3
     )

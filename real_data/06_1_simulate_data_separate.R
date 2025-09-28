@@ -49,7 +49,7 @@ regenerate_sims <- T
 # refit_basis <- T
 save_sims <- T
 # log_transform <- T
-use_basal_melt_data <- F
+use_basal_melt_data <- T
 constrain_gl <- F 
 
 ## Directory for training data
@@ -63,7 +63,7 @@ sets <- 51:100 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 warmup <- 1
 years <- 10 + warmup
-nbasis <- 120
+# nbasis <- 120
 
 ## Physical params
 params <- list(
@@ -76,7 +76,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.45 * 1e6 * params$secpera^params$m
+params$B <- 0.55 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 # 0. Load ice sheet at steady state
@@ -238,7 +238,6 @@ dev.off()
   ## Generate observations based on the simulated bed and friction
   for (i in 1:length(sets)) {
 
-    
     test <- try(
       sim_results <- sim_obs(
         param_list = param_list,

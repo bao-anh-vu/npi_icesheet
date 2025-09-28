@@ -15,14 +15,16 @@ simulate_bed <- function(nsim, domain, obs_locations, obs, obs_sd = NULL,
   
   df <- data.frame(obs_locations = domain[obs_locations], bed_elev = obs)
   
-  # bed_fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.4,
-  #                  control = loess.control(surface = "direct")) 
-  bed_fit <- gam(bed_elev ~ s(obs_locations, bs = "cs", k = 20), data = df)
-  bed_mean <- as.vector(predict(bed_fit, newdata = data.frame(obs_locations = domain)))
-  # bed.fit <- lm(bed_elev ~ poly(obs_locations, 10), data = df) #, span = 0.12,
+  bed_fit <- gam(bed_elev ~ s(obs_locations, bs = "cr", k = 20), data = df)
+  # bed_fit <- lm(bed_elev ~ poly(obs_locations, 10), data = df) #, span = 0.12,
 
+  bed_mean <- as.vector(predict(bed_fit, newdata = data.frame(obs_locations = domain)))
+  
   ## Use loess to interpolate between observations
   ## Outside of that range just use the first and last values in the fit
+  # bed_fit <- loess(bed_elev ~ obs_locations, data = df, span = 0.7, degree = 3, 
+  #                  control = loess.control(surface = "direct")) 
+  
   # lower_tail <- which(domain < domain[obs_locations[1]])
   # upper_tail <- which(domain > domain[obs_locations[length(obs_locations)]])
   # bed_mean <- predict(bed_fit, newdata = data.frame(obs_locations = domain))
@@ -34,7 +36,7 @@ simulate_bed <- function(nsim, domain, obs_locations, obs, obs_sd = NULL,
   plot(domain, bed_mean, type = "l")
   points(domain[obs_locations], obs, col = "red")
   dev.off()
-
+  
   # Unconditional simulation
   bed_sims <- matrix(0, nrow = length(domain), ncol = nsim) #matrix to store simulations
   

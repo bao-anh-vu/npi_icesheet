@@ -51,15 +51,17 @@ source("./source/posterior_loss.R")
 ## Read data
 data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 51:60 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 51:100 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
 if (use_missing_pattern) {
   train_data_dir <- paste0("./data/training_data", "/", setsf, "/missing")
+  plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
 } else {
   train_data_dir <- paste0("./data/training_data", "/", setsf, "/nonmissing")
+  plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
 }
 
 # train_data <- readRDS(file = paste0(train_data_dir, "/train_data_", data_date, ".rds"))
@@ -84,15 +86,21 @@ train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$gr
 val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
-png(paste0("./plots/cnn/input_", data_date, ".png"))
-matplot(train_input[100,,,1], type = "l", col = "grey")
-matlines(val_input[100,,,1], col = scales::alpha("red", 0.1))
+png(paste0(plot_dir, "/input_", data_date, ".png"), width = 800, height = 400)
+par(mfrow = c(1, 2))
+sp <- sample(1:dim(val_input)[1], 1)
+# matplot(train_input[100,,,1], type = "l", col = "grey")
+# matlines(val_input[100,,,1], col = scales::alpha("red", 0.1))
+image(train_input[sp,, ,1], col = terrain.colors(100), main = "Train input example")
+image(val_input[sp,, ,1], col = terrain.colors(100), main = "Val input example")
 legend("topright", legend = c("train", "val"), col = c("grey", "red"), lty = 1)
 dev.off()
 
-png(paste0("./plots/cnn/output_", data_date, ".png"))
-matplot(t(train_output[1:10, ]), type = "l", col = "grey")
-matlines(t(val_output[1:10, ]), col = scales::alpha("red", 0.1))
+sp <- sample(1:dim(val_output)[1], 1)
+png(paste0(plot_dir, "/output_", data_date, ".png"))
+plot(train_output[sp, ], type = "l", col = "grey", 
+    main = "Output example", ylab = "Output value", xlab = "Coefficient index")
+lines(val_output[sp, ], col = scales::alpha("red", 0.5))
 legend("topright", legend = c("train", "val"), col = c("grey", "red"), lty = 1)
 dev.off()
 
@@ -104,11 +112,20 @@ dev.off()
 print("Creating model...")
 # Create a basic model instance
 input_dim <- dim(train_data$input)[2:4]
-n_basis_funs <- dim(train_data$fric_coefs)[2]
+n_fric_basis <- dim(train_data$fric_coefs)[2]
+n_bed_basis <- dim(train_data$bed_coefs)[2]
 n_gl <- dim(train_data$grounding_line)[2]
-n_mean_elements <- n_basis_funs * 2 + n_gl
-n_chol_elements <- (n_basis_funs * 2 + n_gl) + (n_basis_funs - 1) * 2 + (n_gl - 1) # diagonal + lower-diag elements
+n_mean_elements <- n_fric_basis + n_bed_basis + n_gl
+n_chol_elements <- n_mean_elements + (n_mean_elements - 3) # diagonal + lower-diag elements
 output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE TOTAL NUMBER OF BASIS FUNCTIONS + COVARIANCE PARAMETERS
+
+# input_dim <- dim(train_data$input)[2:4]
+# n_bed_basis <- dim(train_data$bed_coefs)[2]
+# n_fric_basis <- dim(train_data$fric_coefs)[2]
+# n_gl <- dim(train_data$grounding_line)[2]
+# n_mean_elements <- n_fric_basis + n_bed_basis + n_gl
+# n_chol_elements <- n_mean_elements + (n_mean_elements - 3) # diagonal + lower-diag elements
+# output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE TOTAL NUMBER OF BASIS FUNCTIONS + COVARIANCE PARAMETERS
 
 
 # if (output_var == "friction") {
@@ -120,12 +137,22 @@ output_dim <- n_mean_elements + n_chol_elements  # THIS NEEDS TO CHANGE TO THE T
 # } else { ## all variables
   model <- create_model_posterior(input_dim = input_dim, 
                                   output_dim = output_dim,
-                                  n_basis_funs = n_basis_funs,
+                                  n_bed_basis = n_bed_basis,
+                                  n_fric_basis = n_fric_basis,
                                   n_gl = n_gl)
 # }
 
 # Display the model's architecture
 summary(model)
+
+# Compute training loss (and metrics) before training
+train_metrics <- model %>% evaluate(train_input, train_output, verbose = 0)
+
+# Compute validation loss (and metrics) before training
+val_metrics <- model %>% evaluate(val_input, val_output, verbose = 0)
+
+cat("Initial training loss:", train_metrics["loss"], "\n")
+cat("Initial validation loss:", val_metrics["loss"], "\n")
 
 # Create a callback that saves the model's weights
 if (use_missing_pattern) {
@@ -187,20 +214,23 @@ if (rerun_cnn) {
 # print(loss_plot)
 # dev.off()
 
-if (use_missing_pattern) {
-    plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
-} else {
-    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
 
-}
 
 if (!dir.exists(plot_dir)) {
     dir.create(plot_dir)
 }
 
-png(paste0(plot_dir, "loss.png"), width = 1000, height = 500)
-plot(history$metrics$loss[2:100], type = "l")
-lines(history$metrics$val_loss[2:100], col = "red")
-legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
-dev.off()
+# png(paste0(plot_dir, "loss.png"), width = 1000, height = 500)
+# plot(history$metrics$loss, type = "l")
+# lines(history$metrics$val_loss, col = "red")
+# legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
+# dev.off()
 
+## Plot the loss
+loss_plot <- history %>%
+  plot() +
+  coord_cartesian(xlim = c(1, epochs))
+
+png(paste0(plot_dir, "loss_", data_date, ".png"))
+print(loss_plot)
+dev.off()

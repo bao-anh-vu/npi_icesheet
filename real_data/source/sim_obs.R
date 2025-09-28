@@ -53,11 +53,11 @@ sim_obs <- function(param_list,
         ## Add noise to surface to obtain surface observations
         surface_obs <- get_obs(sim_out, msmt_noise_info, warmup = warmup)
 
-# ## Plot surface obs
+## Plot surface obs
 # png("./plots/temp/surface_obs.png")
 # matplot(surface_obs[,,2], type = 'l', lty = 1, col = rgb(0,0,0,0.3),)
 # dev.off()
-
+# browser()
         ## Save true thickness and velocity for comparison
         if (warmup == 0) {
             true_surface_elevs <- sim_out$all_top_surface # this is the version without added noise
@@ -90,10 +90,10 @@ sim_obs <- function(param_list,
     ini_thickness = ini_thickness,
     years = years,
     warmup = warmup,
-    msmt_noise_info = msmt_noise_info,
-    mc.cores = 50L,
+    msmt_noise_info = msmt_noise_info#,
+    # mc.cores = 50L,
     ## mc.allow.fatal = TRUE,
-    mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
+    # mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
     )
 
     # inherits(r[[3]], "try-error")

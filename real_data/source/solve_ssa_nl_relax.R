@@ -314,7 +314,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
       # browser()
       # cat("Iter", i, ": ")
-      # if (i %% 1000 == 0) {
+      # if (i %% (steps_per_yr * 10) == 0) {
       #   cat("Change in H (m/yr): ", H_diff * steps_per_yr, "\n")
       # }
       

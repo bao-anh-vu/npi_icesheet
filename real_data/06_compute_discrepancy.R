@@ -29,7 +29,7 @@ data_dir <- "./data/"
 data_date <- "20241111" #"20241103"
 
 ## Flags
-use_basal_melt_data <- F
+use_basal_melt_data <- T
 
 ## Physical params
 params <- list(
@@ -42,7 +42,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.4 * 1e6 * params$secpera^params$m
+params$B <- 0.55 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
