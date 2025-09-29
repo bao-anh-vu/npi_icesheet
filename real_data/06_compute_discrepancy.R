@@ -12,6 +12,7 @@ library(R.utils)
 library(mvtnorm)
 library(abind)
 library(parallel)
+library(mgcv)
 
 # source("./source/sim_params.R")
 source("./source/sim_obs.R")
@@ -42,7 +43,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.55 * 1e6 * params$secpera^params$m
+params$B <- 0.5 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
@@ -229,10 +230,29 @@ matplot(domain/1e3, fric_sims, col = "grey60", type = "l", lwd = 2,
     main = ("Friction coefficient simulations"))
 # lines(domain/1e3, ssa_steady$friction_coef / fric_scale, col = "red", lwd = 2)
 
+## Plot friction for different simulations
+layout(matrix(1:nsims, nrow = nsims/2, ncol = 2, byrow = TRUE))
+for (s in 1:nsims) {
+    plot(domain/1000, fric_sims[, s], 
+        type = "l", lty = 1, col = "salmon", 
+        # cex = 5, 
+        xlab = "Distance along flowline (km)", 
+        ylab = expression(paste("Friction coefficient (", m*a^{-1}*Pa^{-1/3}, ")")),
+        main = paste0("Friction for simulation ", s))
+}
+
+# Plot bed for different simulations
+for (s in 1:nsims) {
+    plot(domain/1000, bed_sims[, s], 
+        type = "l", lty = 1, col = "salmon", 
+        xlab = "Distance along flowline (km)", ylab = "Bed elevation (m)",
+        main = paste0("Bed for simulation ", s))
+}
+
 ## Plot velocities for different simulations
 # png(paste0("plots/discr/vel_sims_", data_date, ".png"), width = 1500, height = 2000)
 # par(mfrow = c(nsims/2, 2))
-layout(matrix(1:nsims, nrow = nsims/2, ncol = 2, byrow = TRUE))
+# layout(matrix(1:nsims, nrow = nsims/2, ncol = 2, byrow = TRUE))
 for (s in 1:nsims) {
     matplot(domain/1000, vel_mat, 
         type = "l", lty = 1, col = "salmon", 

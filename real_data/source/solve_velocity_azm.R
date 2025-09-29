@@ -64,11 +64,6 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
     GL <- gl_migrate(H, b)
 
     # cat("GL position: ",  GL / J * L / 1000,  "\n")
-    ## Ice hardness
-    # if (increase_hardness) {
-    #   Bg <- 0.7 * 1e6 * secpera ^ m
-    #   # Bg <- 0.4 * 1e6 * secpera ^ m
-    # }
     B <- rep(Bg, length(x))
     
     if (B_variable) {
@@ -80,10 +75,7 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
     
   }
   
-  stopifnot(exprs = {
-                      !is.null(GL)
-                      GL > 1
-                    })
+  stopifnot(exprs = {if(!is.null(GL)) GL > 1})
   
   if (GL > 1) {
     B_stag <- 0.5 * (B[2:(J+1)] + B[1:J])

@@ -122,7 +122,7 @@ matplot(velocity_arr, col = "grey", type = "l")
 matlines(vel_smoothed2, col = "salmon")
 abline(v = gl_ind, col = "black", lty = 2)
 dev.off()
-
+browser()
 
 ## Concatenate all velocity data
 # velocities_df <- bind_rows(vel_smoothed2)

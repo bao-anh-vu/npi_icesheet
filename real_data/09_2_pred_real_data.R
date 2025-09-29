@@ -20,11 +20,11 @@ library(abind)
 library(dplyr)
 
 ## Flags
-save_pred <- T
+# save_pred <- T
 save_plots <- T
 log_transform <- T
 test_on_train <- F
-use_missing_pattern <- T
+# use_missing_pattern <- T
 correct_model_discrepancy <- F
 
 ## Read data
@@ -32,14 +32,25 @@ data_date <- "20241111" #"20241103"
 sets <- 51:100 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-if (use_missing_pattern) {
-    data_dir <- paste0("./data/training_data/", setsf, "/missing/")
-    output_dir <- paste0("./output/cnn/", setsf, "/missing/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
+# if (use_missing_pattern) {
+#     data_dir <- paste0("./data/training_data/", setsf, "/")
+#     output_dir <- paste0("./output/cnn/", setsf, "/")
+#     plot_dir <- paste0("./plots/cnn/", setsf, "/")
+# } else {
+#     data_dir <- paste0("./data/training_data/", setsf, "/non")
+#     output_dir <- paste0("./output/cnn/", setsf, "/non")
+#     plot_dir <- paste0("./plots/cnn/", setsf, "/non")
+# }
+data_dir <- paste0("./data/training_data/", setsf, "/")
+output_dir <- paste0("./output/cnn/", setsf, "/")
+
+## Save predictions
+if (correct_model_discrepancy) {
+    pred_output_dir <- paste0(output_dir, "pred/discr/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
 } else {
-    data_dir <- paste0("./data/training_data/", setsf, "/nonmissing/")
-    output_dir <- paste0("./output/cnn/", setsf, "/nonmissing/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
+    pred_output_dir <- paste0(output_dir, "pred/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
 }
 
 ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_", data_date, ".qs"))
@@ -66,7 +77,7 @@ if (correct_model_discrepancy) {
 surf_elev_data[is.na(surf_elev_data)] <- 0
 velocity_data[is.na(velocity_data)] <- 0
 
-## Apply missing/masked pattern to real data
+## Apply masked pattern to real data
 print("Reading missing patterns...")
 surf_elev_missing_pattern <- qread("./data/surface_elev/missing_pattern.qs")
 vel_missing_pattern <- qread("./data/velocity/missing_pattern.qs")
@@ -282,11 +293,11 @@ test_fric_coefs <- test_output[, 1:n_fric_basis] * test_data$sd_fric_coefs + tes
 test_bed_coefs <- test_output[, (n_fric_basis+1):(n_fric_basis+n_bed_basis)] * test_data$sd_bed_coefs + test_data$mean_bed_coefs
 test_gl <- test_output[, (n_fric_basis+n_bed_basis+1):ncol(test_output)] * test_data$sd_gl + test_data$mean_gl
 
-png(paste0(plot_dir, "/pred_coefs_real.png"), width = 2000, height = 1200)
+png(paste0(plot_dir, "pred_coefs_real.png"), width = 2000, height = 1200)
 par(mfrow = c(2,1))
 plot(pred_fric_coefs, type = "l")
 
-# png(paste0(plot_dir, "/pred_bed_coefs_real.png"), width = 2000, height = 1200)
+# png(paste0(plot_dir, "pred_bed_coefs_real.png"), width = 2000, height = 1200)
 plot(pred_bed_coefs, type = "l")
 dev.off()
 
@@ -378,7 +389,7 @@ gl_lq <- gl_q[1,]
 gl_uq <- gl_q[2,]
 
 ## Plot the results
-png(paste0(plot_dir, "/pred_fric_real.png"), width = 1000, height = 500)
+png(paste0(plot_dir, "pred_fric_real.png"), width = 1000, height = 500)
 plot(domain/1e3, pred_fric, type = "l", col = "red", lwd = 2,
     ylim = c(0, 0.1),
      xlab = "Flowline (km)", ylab = "Friction coefficient")
@@ -398,18 +409,18 @@ p <- ggplot(data = fric_df, aes(x = domain)) +
     geom_line(aes(y = pred), color = "red", lwd = 1) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
-    ylim(0, 0.05) +
+    # ylim(0, 0.05) +
     labs(x = "Flowline (km)", y = "Friction coefficient") +
     theme_bw()
 
-ggsave(filename = paste0(plot_dir, "/pred_fric_real_ggplot.png"), plot = p, width = 10, height = 5)
+ggsave(filename = paste0(plot_dir, "pred_fric_real_ggplot.png"), plot = p, width = 10, height = 5)
 
 ## Validate against the rest of the bed obs
 bed_obs_df <- qread(file = "./data/bed_obs_df.qs")
 bed_obs_train <- bed_obs_df %>% filter(chosen == 1)
 bed_obs_val <- bed_obs_df %>% filter(chosen == 0)
 
-png(paste0(plot_dir, "/pred_bed_real.png"), width = 1000, height = 500)
+png(paste0(plot_dir, "pred_bed_real.png"), width = 1000, height = 500)
 plot(domain/1e3, bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Flowline (km)", ylab = "Elevation (m)")
 lines(domain/1e3, bed_uq, col = "grey", lwd = 2)
 lines(domain/1e3, pred_bed, col = "red", lwd = 2)
@@ -435,15 +446,15 @@ p <- ggplot(data = bed_df, aes(x = domain)) +
     labs(x = "Flowline (km)", y = "Elevation (m)") +
     theme_bw()
 
-ggsave(filename = paste0(plot_dir, "/pred_bed_real_ggplot.png"), plot = p, width = 10, height = 5)
+ggsave(filename = paste0(plot_dir, "pred_bed_real_ggplot.png"), plot = p, width = 10, height = 5)
 
-## Save predictions
-if (save_pred) {
-    qsave(pred_fric, file = paste0(output_dir, "/pred_fric_real_", data_date, ".qs"))
-    qsave(pred_bed, file = paste0(output_dir, "/pred_bed_real_", data_date, ".qs"))
-    qsave(fric_samples, file = paste0(output_dir, "/fric_samples_real_", data_date, ".qs"))
-    qsave(bed_samples, file = paste0(output_dir, "/bed_samples_real_", data_date, ".qs"))
-    qsave(fric_q, file = paste0(output_dir, "/fric_quantiles_real_", data_date, ".qs"))
-    qsave(bed_q, file = paste0(output_dir, "/bed_quantiles_real_", data_date, ".qs"))
-    qsave(gl_q, file = paste0(output_dir, "/gl_quantiles_real_", data_date, ".qs"))
-}
+
+# if (save_pred) {
+    qsave(pred_fric, file = paste0(pred_output_dir, "pred_fric_real_", data_date, ".qs"))
+    qsave(pred_bed, file = paste0(pred_output_dir, "pred_bed_real_", data_date, ".qs"))
+    qsave(fric_samples, file = paste0(pred_output_dir, "/fric_samples_real_", data_date, ".qs"))
+    qsave(bed_samples, file = paste0(pred_output_dir, "/bed_samples_real_", data_date, ".qs"))
+    qsave(fric_q, file = paste0(pred_output_dir, "/fric_quantiles_real_", data_date, ".qs"))
+    qsave(bed_q, file = paste0(pred_output_dir, "/bed_quantiles_real_", data_date, ".qs"))
+    qsave(gl_q, file = paste0(pred_output_dir, "/gl_quantiles_real_", data_date, ".qs"))
+# }

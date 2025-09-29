@@ -1,6 +1,7 @@
 ## Observation operator ##
-obs_operator <- function(state, domain, missing_pattern = NULL,
-                          transformation = "log10", rho = 910, rho_w = 1028) {
+obs_operator <- function(state, domain, #missing_pattern = NULL,
+                        phys_params,
+                        transformation = "log") {
   h <- state[1:J] # ice thickness
   b <- state[(J+1):(2*J)] # bed
   alpha <- state[(2*J + 1):(3*J)] # log10(friction)
@@ -11,7 +12,7 @@ obs_operator <- function(state, domain, missing_pattern = NULL,
   ## Calculate surface obs
   z <- rep(0, J)
   z[1:GL] <- h[1:GL] + b[1:GL]
-  z[(GL+1):J] <- (1 - rho/rho_w) * h[(GL+1):J]
+  z[(GL+1):J] <- (1 - phys_params$rho_i/phys_params$rho_w) * h[(GL+1):J]
 
   ## Calculate surface velocity
   C <- NULL
@@ -23,20 +24,20 @@ obs_operator <- function(state, domain, missing_pattern = NULL,
     C <- 10^(alpha)
   }
   
-  secpera <- 31556926
-  fric_scale <- 1e6 * secpera^(1 / 3)
+  fric_scale <- 1e6 * phys_params$secpera^(1 / phys_params$n)
   C <- C * fric_scale
 
-  
-  u <- as.vector(solve_velocity(prev_velocity = velocity, h, domain = domain, 
+  u <- as.vector(solve_velocity(prev_velocity = velocity, 
+                                thickness = h, 
+                                domain = domain, 
                                 bed = b, friction = C,
-                                increase_hardness = F))
+                                phys_params = phys_params))
 
   obs <- c(z, u)
 
-  if (!is.null(missing_pattern)) {
-    obs[missing_pattern] <- 0 
-  }
+  # if (!is.null(missing_pattern)) {
+  #   obs[missing_pattern] <- 0 
+  # }
 
   return(obs)
 }

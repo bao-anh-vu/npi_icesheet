@@ -30,15 +30,25 @@ sets <- 51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 ## Directories
-if (use_missing_pattern) {
-    data_dir <- paste0("./data/training_data/", setsf, "/missing/")
-    output_dir <- paste0("./output/cnn/", setsf, "/missing/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
-} else {
-    data_dir <- paste0("./data/training_data/", setsf, "/nonmissing/")
-    output_dir <- paste0("./output/cnn/", setsf, "/nonmissing/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
-}
+# if (use_missing_pattern) {
+#     data_dir <- paste0("./data/training_data/", setsf, "/")
+#     output_dir <- paste0("./output/cnn/", setsf, "/")
+#     plot_dir <- paste0("./plots/cnn/", setsf, "/")
+# } else {
+#     data_dir <- paste0("./data/training_data/", setsf, "/non")
+#     output_dir <- paste0("./output/cnn/", setsf, "/non")
+#     plot_dir <- paste0("./plots/cnn/", setsf, "/non")
+# }
+# if (correct_model_discrepancy) {
+#     data_dir <- paste0("./data/training_data/", setsf, "/discr")
+#     output_dir <- paste0("./output/cnn/", setsf, "/discr")
+#     plot_dir <- paste0("./plots/cnn/", setsf, "/discr")
+# } else {
+    data_dir <- paste0("./data/training_data/", setsf, "/")
+    output_dir <- paste0("./output/cnn/", setsf, "/")
+    pred_output_dir <- paste0(output_dir, "/pred/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/")
+# }
 
 if (test_on_train) {
     test_data <- qread(file = paste0(data_dir, "/train_data_", data_date, ".qs"))
@@ -58,9 +68,9 @@ setf <- formatC(sets[1], width = 2, flag = "0")
 friction_basis <- qread(file = paste0("./data/training_data/friction_basis_", setf, "_", data_date, ".qs"))
 dim(friction_basis$basis_mat)      
 
-png(paste0(output_dir, "/true_fric_1.png"), width = 2000, height = 1200)
-plot(friction_basis$fitted_values[1, ], type = "l")
-dev.off()
+# png(paste0(output_dir, "/true_fric_1.png"), width = 2000, height = 1200)
+# plot(friction_basis$fitted_values[1, ], type = "l")
+# dev.off()
 
 ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_", data_date, ".qs"))
 domain <- ssa_steady$domain
@@ -115,8 +125,8 @@ summary(model)
 ###################################
 
 ## Reload model from checkpoint
-history <- qread(file = paste0(output_dir, "/history_", data_date, ".qs"))
-checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
+history <- qread(file = paste0(output_dir, "history_", data_date, ".qs"))
+checkpoint_path <- paste0(output_dir, "checkpoints/cp-{epoch:04d}.ckpt")
 checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 checkpt <- which.min(history$metrics$val_loss) 
@@ -316,13 +326,13 @@ gl_uq <- lapply(gl_q, function(x) x[2, ])
 #################################
 print("Saving predictions...")
 if (save_pred) {
-    qsave(pred_fric, file = paste0(output_dir, "/pred_fric_", data_date, ".qs"))
-    qsave(pred_bed, file = paste0(output_dir, "/pred_bed_", data_date, ".qs"))
-    qsave(pred_gl, file = paste0(output_dir, "/pred_gl_", data_date, ".qs"))
-    qsave(Lmats, file = paste0(output_dir, "/Lmats_", data_date, ".qs"))
-    qsave(fric_samples_ls, file = paste0(output_dir, "/fric_post_samples_", data_date, ".qs"))
-    qsave(bed_samples_ls, file = paste0(output_dir, "/bed_post_samples_", data_date, ".qs"))
-    qsave(gl_samples_ls, file = paste0(output_dir, "/gl_post_samples_", data_date, ".qs"))
+    qsave(pred_fric, file = paste0(pred_output_dir, "/pred_fric_", data_date, ".qs"))
+    qsave(pred_bed, file = paste0(pred_output_dir, "/pred_bed_", data_date, ".qs"))
+    qsave(pred_gl, file = paste0(pred_output_dir, "/pred_gl_", data_date, ".qs"))
+    qsave(Lmats, file = paste0(pred_output_dir, "/Lmats_", data_date, ".qs"))
+    qsave(fric_samples_ls, file = paste0(pred_output_dir, "/fric_post_samples_", data_date, ".qs"))
+    qsave(bed_samples_ls, file = paste0(pred_output_dir, "/bed_post_samples_", data_date, ".qs"))
+    qsave(gl_samples_ls, file = paste0(pred_output_dir, "/gl_post_samples_", data_date, ".qs"))
 }
 
 ######################################
@@ -340,12 +350,12 @@ true_gl <- test_data$grounding_line * test_data$sd_gl + test_data$mean_gl
 # true_fric <- true_fric/fric_scale
 
 ## Choose random samples from test set for comparison
-samples <- sample(1:nrow(test_output), 6)
+samples <- 1:6 #sample(1:nrow(test_output), 6)
 
 if (save_plots) {
     print("Saving plots...")
     ## Friction plots
-    png(paste0(plot_dir, "/pred_vs_true_fric", plot_tag, ".png"), width = 2000, height = 1200)
+    png(paste0(plot_dir, "/pred_vs_true_fric", plot_tag, ".png"), width = 2000, height = 1500, res = 100)
 
     plot_domain <- 1:1500 #length(domain) # ceiling(gl)
 
@@ -362,7 +372,7 @@ if (save_plots) {
         #     main = paste0("Sample ", s))
         plot(domain[plot_domain]/1000, test_fric[plot_domain, s], type = "l", #ylim = c(0, 0.06),
             ylab = "Friction (unit)", xlab = "Domain (km)", lwd = 3,
-            cex.axis = 3, cex.lab = 4,
+            cex.axis = 3, cex.lab = 3, cex.main = 3,
             main = paste0("Sample ", s))
         matlines(domain[plot_domain]/1000, fric_samples_ls[[s]][plot_domain, 1:3], 
                     # ylim = c(0, 0.06),
@@ -372,7 +382,6 @@ if (save_plots) {
         lines(domain[plot_domain]/1000, fric_lq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         lines(domain[plot_domain]/1000, fric_uq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         
-        
         abline(v = true_gl[s, ncol(true_gl)], lty = 2, lwd = 3)
     }
 
@@ -380,7 +389,7 @@ if (save_plots) {
 
 
     ## Bed plot
-    png(paste0(plot_dir, "/pred_vs_true_bed", plot_tag, ".png"), width = 2000, height = 1200)
+    png(paste0(plot_dir, "/pred_vs_true_bed", plot_tag, ".png"), width = 2000, height = 1500, res = 100)
     par(mfrow = c(length(samples) / 2, 2))
 
     # for (i in 1:length(samples)) {
@@ -390,7 +399,9 @@ if (save_plots) {
         # gl <- test_data$grounding_line[i] / 800 * 2001
         plot(domain[plot_domain] / 1000, test_bed[plot_domain, s],
             type = "l", lwd = 3, col = "black",
-            ylab = "Bed (m)", xlab = "Domain (km)", cex.axis = 3, cex.lab = 4
+            ylab = "Bed (m)", xlab = "Domain (km)", 
+            cex.axis = 3, cex.lab = 3, cex.main = 3,
+            main = paste0("Sample ", s)
         )
         # lines(domain[plot_domain] / 1000, test_bed[plot_domain, i], lwd = 2, col = "blue")
         matlines(domain[plot_domain]/1000, bed_samples_ls[[s]][plot_domain, 1:3], 
@@ -406,7 +417,7 @@ if (save_plots) {
 
     ## Grounding line plot
     years <- dim(true_gl)[2]
-    png(paste0(plot_dir, "/pred_vs_true_gl", plot_tag, ".png"), width = 2000, height = 2000)
+    png(paste0(plot_dir, "/pred_vs_true_gl", plot_tag, ".png"), width = 2000, height = 1500, res = 100)
     par(mfrow = c(length(samples) / 2, 2))
     
     # for (i in 1:length(samples)) {

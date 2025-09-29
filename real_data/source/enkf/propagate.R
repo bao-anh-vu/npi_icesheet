@@ -1,5 +1,6 @@
 ## Function to propagate
-propagate <- function(state, domain, steps_per_yr, transformation = "log") {
+propagate <- function(state, domain, steps_per_yr, phys_params, 
+                      transformation = "log") {
   
   thickness <- state[1:J]
   bed <- state[(J+1):(2*J)] 
@@ -15,8 +16,8 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
     friction <- 10^alpha
   }
   
-  secpera <- 31556926
-  fric_scale <- 1e6 * secpera^(1 / 3)
+  # secpera <- 31556926
+  fric_scale <- 1e6 * phys_params$secpera^(1 / phys_params$n)
   friction <- friction * fric_scale
 
   # prev_velocity <- c()
@@ -26,6 +27,7 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
     
     thickness <- solve_thickness(velocity = prev_velocity,
                                  thickness = thickness, domain = domain,
+                                 as = phys_params$as, ab = phys_params$ab,
                                  bed = bed, steps_per_yr = steps_per_yr)
     # png("./plots/temp/thickness.png")
     # plot(thickness, type = "l", main = "Thickness")
@@ -37,7 +39,7 @@ propagate <- function(state, domain, steps_per_yr, transformation = "log") {
                                          domain = domain,
                                          bed = bed,
                                          friction = friction,
-                                         increase_hardness = FALSE))
+                                         phys_params = phys_params))
     
     # png(paste0("./plots/temp/velocity_", i, ".png"))
     # par(mfrow = c(2, 1))

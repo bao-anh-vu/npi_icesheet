@@ -39,20 +39,32 @@ source("./source/azm_cond_sim.R")
 
 data_date <- "20241111" # "20241103"
 sets <- 51:100 # 6:20
-use_missing_pattern <- T
+# use_missing_pattern <- T
 use_basal_melt_data <- T
 correct_model_discrepancy <- T
 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-if (use_missing_pattern) {
-  data_dir <- paste0("./data/training_data/", setsf, "/missing/")
-  output_dir <- paste0("./output/cnn/", setsf, "/missing/")
-  plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
+# if (use_missing_pattern) {
+#   data_dir <- paste0("./data/training_data/", setsf, "/missing/")
+#   output_dir <- paste0("./output/cnn/", setsf, "/missing/")
+#   plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
+# } else {
+#   data_dir <- paste0("./data/training_data/", setsf, "/nonmissing/")
+#   output_dir <- paste0("./output/cnn/", setsf, "/nonmissing/")
+#   plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
+# }
+
+data_dir <- paste0("./data/training_data/", setsf, "/")
+output_dir <- paste0("./output/cnn/", setsf, "/")
+
+## Save predictions
+if (correct_model_discrepancy) {
+    pred_output_dir <- paste0(output_dir, "pred/discr/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
 } else {
-  data_dir <- paste0("./data/training_data/", setsf, "/nonmissing/")
-  output_dir <- paste0("./output/cnn/", setsf, "/nonmissing/")
-  plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
+    pred_output_dir <- paste0(output_dir, "pred/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
 }
 
 ## Load real data
@@ -61,11 +73,11 @@ velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 
 
 ## Posterior samples
-post_fric_samples <- qread(file = paste0(output_dir, "fric_samples_real_", data_date, ".qs"))
-post_bed_samples <- qread(file = paste0(output_dir, "bed_samples_real_", data_date, ".qs"))
+post_fric_samples <- qread(file = paste0(pred_output_dir, "fric_samples_real_", data_date, ".qs"))
+post_bed_samples <- qread(file = paste0(pred_output_dir, "bed_samples_real_", data_date, ".qs"))
 
-fric_post_mean <- qread(file = paste0(output_dir, "pred_fric_real_", data_date, ".qs"))
-bed_post_mean <- qread(file = paste0(output_dir, "pred_bed_real_", data_date, ".qs"))
+fric_post_mean <- qread(file = paste0(pred_output_dir, "pred_fric_real_", data_date, ".qs"))
+bed_post_mean <- qread(file = paste0(pred_output_dir, "pred_bed_real_", data_date, ".qs"))
 
 
 ## Compare with simulations from the prior
@@ -164,11 +176,12 @@ if (use_basal_melt_data) {
 }
 params$ab <- avg_melt_rate # melt rate (m/s)
 
+warmup <- 1 # to let the model spin up
 post_pred <- sim_obs(
   param_list = post_param_list,
   domain = domain,
   phys_params = params,
-  years = 10, # sim_beds = T,
+  years = 10 + warmup, # sim_beds = T,
   warmup = 1,
   ini_thickness = ssa_steady$current_thickness,
   ini_velocity = ssa_steady$current_velocity,
@@ -181,7 +194,7 @@ prior_pred <- sim_obs(
   param_list = prior_param_list,
   domain = domain,
   phys_params = params,
-  years = 10, # sim_beds = T,
+  years = 10 + warmup, # sim_beds = T,
   warmup = 1,
   ini_thickness = ssa_steady$current_thickness,
   ini_velocity = ssa_steady$current_velocity,
@@ -202,23 +215,23 @@ post_pred_obs_mean <- apply(post_pred_obs, c(2, 3, 4), mean)
 prior_pred_obs_mean <- apply(prior_pred_obs, c(2, 3, 4), mean)
 
 ## Plot simulated surface observations
-s <- 2
+# s <- 1
 png(filename = paste0(plot_dir, "post_pred_obs_", data_date, ".png"), width = 2000, height = 1500, res = 200)
 par(mfrow = c(2, 2))
 matplot(surf_elev_data, ylim = c(0, 1500),
   type = "l", lty = 1, col = "salmon",
   main = "Prior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
 )
-# matlines(prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
-matlines(prior_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
+matlines(prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+# matlines(prior_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
 legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
 matplot(velocity_data,
   type = "l", lty = 1, col = "salmon",
   main = "Prior predictive velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
 )
-# matlines(prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
-matlines(prior_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
+matlines(prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
+# matlines(prior_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
 
 legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
@@ -227,8 +240,8 @@ matplot(surf_elev_data, ylim = c(0, 1500),
   type = "l", lty = 1, col = "salmon",
   main = "Posterior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
 )
-# matlines(post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
-matlines(post_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
+matlines(post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+# matlines(post_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
 legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
 matplot(velocity_data,
@@ -236,31 +249,32 @@ matplot(velocity_data,
   main = "Posterior predictive surface velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
 )
 matlines(post_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
-matlines(post_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
+# matlines(post_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
 legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 dev.off()
 
-## Model discrepancy
-avg_vel_discr <- qread(file = paste0("./data/discrepancy/avg_vel_discr_", data_date, ".qs"))
-avg_se_discr <- qread(file = paste0("./data/discrepancy/avg_se_discr_", data_date, ".qs"))
 
 if (correct_model_discrepancy) {
+  ## Model discrepancy
+  avg_vel_discr <- qread(file = paste0("./data/discrepancy/avg_vel_discr_", data_date, ".qs"))
+  avg_se_discr <- qread(file = paste0("./data/discrepancy/avg_se_discr_", data_date, ".qs"))
+
   ## Add discrepancy to simulated observations
-  post_pred_obs_adj <- post_pred_obs
-  prior_pred_obs_adj <- prior_pred_obs
+  # post_pred_obs_adj <- post_pred_obs
+  # prior_pred_obs_adj <- prior_pred_obs
   for (s in 1:n_post_samples) {
     # s <- 1
     for (t in 1:dim(post_pred_obs)[3]) {
-      post_pred_obs_adj[s, , t, 1] <- post_pred_obs_adj[s, , t, 1] + avg_se_discr
-      post_pred_obs_adj[s, , t, 2] <- post_pred_obs_adj[s, , t, 2] + avg_vel_discr
-      prior_pred_obs_adj[s, , t, 1] <- prior_pred_obs_adj[s, , t, 1] + avg_se_discr
-      prior_pred_obs_adj[s, , t, 2] <- prior_pred_obs_adj[s, , t, 2] + avg_vel_discr
+      post_pred_obs[s, , t, 1] <- post_pred_obs[s, , t, 1] + avg_se_discr
+      post_pred_obs[s, , t, 2] <- post_pred_obs[s, , t, 2] + avg_vel_discr
+      prior_pred_obs[s, , t, 1] <- prior_pred_obs[s, , t, 1] + avg_se_discr
+      prior_pred_obs[s, , t, 2] <- prior_pred_obs[s, , t, 2] + avg_vel_discr
     }
   }
 
   ## Average over posterior samples
-  adj_post_pred_obs_mean <- apply(post_pred_obs_adj, c(2, 3, 4), mean)
-  adj_prior_pred_obs_mean <- apply(prior_pred_obs_adj, c(2, 3, 4), mean)
+  post_pred_obs_mean <- apply(post_pred_obs, c(2, 3, 4), mean)
+  prior_pred_obs_mean <- apply(prior_pred_obs, c(2, 3, 4), mean)
 
   ## Compare prior and posterior predictive distributions with discrepancy adjustment
   png(filename = paste0(plot_dir, "adj_post_pred_surface_obs_", data_date, ".png"), width = 2000, height = 1500, res = 200)
@@ -271,14 +285,14 @@ if (correct_model_discrepancy) {
     type = "l", lty = 1, col = "salmon",
     main = "Prior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
   )
-  matlines(adj_prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+  matlines(prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
   legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
   matplot(velocity_data,
     type = "l", lty = 1, col = "salmon",
     main = "Prior predictive velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
   )
-  matlines(adj_prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
+  matlines(prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
   legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
   ## Plot posterior predictive distribution with discrepancy adjustment
@@ -286,14 +300,34 @@ if (correct_model_discrepancy) {
     type = "l", lty = 1, col = "salmon",
     main = "Posterior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
   )
-  matlines(adj_post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
+  matlines(post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
   legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
 
   matplot(velocity_data,
     type = "l", lty = 1, col = "salmon",
     main = "Posterior predictive surface velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
   )
-  matlines(adj_post_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
+  matlines(post_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
   legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
   dev.off()
 }
+
+## Compute RMSE
+rmse <- function(obs, sim) {
+  sqrt(mean((obs - sim)^2, na.rm = T))
+}
+
+post_se_rmse <- rmse(surf_elev_data, post_pred_obs_mean[, , 1])
+post_vel_rmse <- rmse(velocity_data, post_pred_obs_mean[, , 2])
+prior_se_rmse <- rmse(surf_elev_data, prior_pred_obs_mean[, , 1])
+prior_vel_rmse <- rmse(velocity_data, prior_pred_obs_mean[, , 2])
+
+## Collect RMSE into a data frame
+rmse_df <- data.frame(
+  Pred = c("Prior", "Posterior"),
+  surface_elev_RMSE = c(prior_se_rmse, post_se_rmse),
+  velocity_RMSE = c(prior_vel_rmse, post_vel_rmse)
+)
+
+## Save as a .csv file
+write.csv(rmse_df, file = paste0(plot_dir, "rmse_summary_", data_date, ".csv"), row.names = F)
