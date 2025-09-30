@@ -38,10 +38,10 @@ source("./source/get_surface_obs.R")
 source("./source/azm_cond_sim.R")
 
 data_date <- "20241111" # "20241103"
-sets <- 51:100 # 6:20
+sets <- 1:10 # 6:20
 # use_missing_pattern <- T
 use_basal_melt_data <- T
-correct_model_discrepancy <- T
+correct_model_discrepancy <- F
 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -139,7 +139,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.55 * 1e6 * params$secpera^params$m
+params$B <- 0.5 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 # 0. Load ice sheet at steady state

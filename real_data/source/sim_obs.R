@@ -90,10 +90,10 @@ sim_obs <- function(param_list,
     ini_thickness = ini_thickness,
     years = years,
     warmup = warmup,
-    msmt_noise_info = msmt_noise_info#,
-    # mc.cores = 50L,
+    msmt_noise_info = msmt_noise_info,
+    mc.cores = 50L,
     ## mc.allow.fatal = TRUE,
-    # mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
+    mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
     )
 
     # inherits(r[[3]], "try-error")

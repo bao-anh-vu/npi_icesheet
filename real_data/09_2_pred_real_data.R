@@ -29,7 +29,7 @@ correct_model_discrepancy <- F
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 #51:100 #51:100 #6:20
+sets <- 1:10 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # if (use_missing_pattern) {
@@ -41,7 +41,7 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 #     output_dir <- paste0("./output/cnn/", setsf, "/non")
 #     plot_dir <- paste0("./plots/cnn/", setsf, "/non")
 # }
-data_dir <- paste0("./data/training_data/", setsf, "/")
+data_dir <- paste0("./data/training_data/", setsf, "/missing/")
 output_dir <- paste0("./output/cnn/", setsf, "/")
 
 ## Save predictions

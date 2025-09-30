@@ -112,8 +112,8 @@ for (i in 1:length(smooth_years)) {
 vel_smoothed2 <- cbind(vel_smoothed[, 1:3], velocity_arr[, 4:ncol(velocity_arr)])
 
 ## Manually "mask" some unreliable velocity values in 2010 and 2011
-vel_smoothed2[1:500, 1] <- NA # discard first 500 grid points in 2010 as the values seem unreliable
-vel_smoothed2[, 2] <- NA # discard 2011 data as well
+# vel_smoothed2[1:500, 1] <- NA # discard first 500 grid points in 2010 as the values seem unreliable
+vel_smoothed2[, 1:2] <- NA # discard 2011 data as well
 
 qsave(vel_smoothed2, "./data/velocity/vel_smoothed.qs")
 
@@ -122,7 +122,6 @@ matplot(velocity_arr, col = "grey", type = "l")
 matlines(vel_smoothed2, col = "salmon")
 abline(v = gl_ind, col = "black", lty = 2)
 dev.off()
-browser()
 
 ## Concatenate all velocity data
 # velocities_df <- bind_rows(vel_smoothed2)

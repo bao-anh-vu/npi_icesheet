@@ -51,18 +51,19 @@ source("./source/posterior_loss.R")
 ## Read data
 data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 51:100 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 1:10 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
-if (use_missing_pattern) {
+# if (use_missing_pattern) {
   train_data_dir <- paste0("./data/training_data", "/", setsf, "/missing")
-  plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
-} else {
-  train_data_dir <- paste0("./data/training_data", "/", setsf, "/nonmissing")
-  plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
-}
+  output_dir <- paste0("./output/cnn/", setsf, "/")
+  plot_dir <- paste0("./plots/cnn/", setsf, "/")
+# } else {
+#   train_data_dir <- paste0("./data/training_data", "/", setsf, "/nonmissing")
+#   plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
+# }
 
 # train_data <- readRDS(file = paste0(train_data_dir, "/train_data_", data_date, ".rds"))
 #   val_data <- readRDS(file = paste0(train_data_dir, "/val_data_", data_date, ".rds"))
@@ -155,11 +156,10 @@ cat("Initial training loss:", train_metrics["loss"], "\n")
 cat("Initial validation loss:", val_metrics["loss"], "\n")
 
 # Create a callback that saves the model's weights
-if (use_missing_pattern) {
-  output_dir <- paste0("./output/cnn/", setsf, "/missing")
-} else {
-  output_dir <- paste0("./output/cnn/", setsf, "/nonmissing")
-}
+# if (use_missing_pattern) {
+# } else {
+#   output_dir <- paste0("./output/cnn/", setsf, "/nonmissing")
+# }
 
 if (!dir.exists(output_dir)) {
   dir.create(paste0(output_dir))

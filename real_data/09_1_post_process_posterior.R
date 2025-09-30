@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 #6:20
+sets <- 1:10 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -44,16 +44,16 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 #     output_dir <- paste0("./output/cnn/", setsf, "/discr")
 #     plot_dir <- paste0("./plots/cnn/", setsf, "/discr")
 # } else {
-    data_dir <- paste0("./data/training_data/", setsf, "/")
+    data_dir <- paste0("./data/training_data/", setsf, "/missing/")
     output_dir <- paste0("./output/cnn/", setsf, "/")
     pred_output_dir <- paste0(output_dir, "/pred/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/")
+    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
 # }
 
 if (test_on_train) {
-    test_data <- qread(file = paste0(data_dir, "/train_data_", data_date, ".qs"))
+    test_data <- qread(file = paste0(data_dir, "train_data_", data_date, ".qs"))
 } else {
-    test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
+    test_data <- qread(file = paste0(data_dir, "test_data_", data_date, ".qs"))
 }   
 
 test_input <- test_data$input

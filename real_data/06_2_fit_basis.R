@@ -36,7 +36,7 @@ n_fric_basis <- 120
 n_bed_basis <- 150
 
 ## Read simulated parameters
-sets <- 61:100
+sets <- 1:10
 
 bed_sim_list <- list()
 fric_sim_list <- list()

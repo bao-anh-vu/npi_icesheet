@@ -59,7 +59,7 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111" 
 N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 51:100 #50 #:10
+sets <- 61:100 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 warmup <- 1
 years <- 10 + warmup
@@ -76,7 +76,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.55 * 1e6 * params$secpera^params$m
+params$B <- 0.5 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 # 0. Load ice sheet at steady state
