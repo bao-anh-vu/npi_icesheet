@@ -29,7 +29,7 @@ correct_model_discrepancy <- F
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:10 #51:100 #51:100 #6:20
+sets <- 51:100 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # if (use_missing_pattern) {
@@ -53,10 +53,14 @@ if (correct_model_discrepancy) {
     plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
 }
 
+## Domain data
 ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_", data_date, ".qs"))
 domain <- ssa_steady$domain
 gl_pos <- qread(file = paste0("data/grounding_line/gl_pos.qs"))
 gl_obs <- domain[gl_pos$ind]
+
+## BedMachine data for comparison
+bedmachine <- qread("./data/bedmachine/flowline_bedmachine.qs")
 
 ## Load test data
 test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
@@ -389,14 +393,14 @@ gl_lq <- gl_q[1,]
 gl_uq <- gl_q[2,]
 
 ## Plot the results
-png(paste0(plot_dir, "pred_fric_real.png"), width = 1000, height = 500)
-plot(domain/1e3, pred_fric, type = "l", col = "red", lwd = 2,
-    ylim = c(0, 0.1),
-     xlab = "Flowline (km)", ylab = "Friction coefficient")
-lines(domain/1e3, fric_uq, col = "grey", lwd = 2)
-lines(domain/1e3, fric_lq, col = "grey", lwd = 2)
-abline(v = gl_obs/1e3, lty = 2)
-dev.off()
+# png(paste0(plot_dir, "pred_fric_real.png"), width = 1000, height = 500)
+# plot(domain/1e3, pred_fric, type = "l", col = "red", lwd = 2,
+#     ylim = c(0, 0.1),
+#      xlab = "Flowline (km)", ylab = "Friction coefficient")
+# lines(domain/1e3, fric_uq, col = "grey", lwd = 2)
+# lines(domain/1e3, fric_lq, col = "grey", lwd = 2)
+# abline(v = gl_obs/1e3, lty = 2)
+# dev.off()
 
 ## Same plot but using ggplot
 fric_df <- data.frame(domain = domain/1e3, 
@@ -420,24 +424,26 @@ bed_obs_df <- qread(file = "./data/bed_obs_df.qs")
 bed_obs_train <- bed_obs_df %>% filter(chosen == 1)
 bed_obs_val <- bed_obs_df %>% filter(chosen == 0)
 
-png(paste0(plot_dir, "pred_bed_real.png"), width = 1000, height = 500)
-plot(domain/1e3, bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Flowline (km)", ylab = "Elevation (m)")
-lines(domain/1e3, bed_uq, col = "grey", lwd = 2)
-lines(domain/1e3, pred_bed, col = "red", lwd = 2)
-points(bed_obs_train$loc/1e3, bed_obs_train$bed_elev, col = "black", pch = 20)
-points(bed_obs_val$loc/1e3, bed_obs_val$bed_elev, col = "cyan")
-abline(v = gl_obs/1e3, lty = 2)
-dev.off()
+# png(paste0(plot_dir, "pred_bed_real.png"), width = 1000, height = 500)
+# plot(domain/1e3, bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Flowline (km)", ylab = "Elevation (m)")
+# lines(domain/1e3, bed_uq, col = "grey", lwd = 2)
+# lines(domain/1e3, pred_bed, col = "red", lwd = 2)
+# points(bed_obs_train$loc/1e3, bed_obs_train$bed_elev, col = "black", pch = 20)
+# points(bed_obs_val$loc/1e3, bed_obs_val$bed_elev, col = "cyan")
+# abline(v = gl_obs/1e3, lty = 2)
+# dev.off()
 
 ## Same plot but using ggplot
 bed_df <- data.frame(domain = domain/1e3, 
                      lq = bed_lq, 
                      uq = bed_uq, 
-                     pred = pred_bed)
+                     pred = pred_bed,
+                     bedmachine = bedmachine$bed_avg)
 gl_df <- data.frame(gl = gl_obs/1e3)
 p <- ggplot(data = bed_df, aes(x = domain)) +
     geom_ribbon(aes(ymin = lq, ymax = uq), fill = "grey", alpha = 0.5) +
     geom_line(aes(y = pred), color = "red", lwd = 1) +
+    geom_line(aes(y = bedmachine), color = "blue", lwd = 1, lty = 2) +
     geom_point(data = bed_obs_train, aes(x = loc/1e3, y = bed_elev), color = "black", size = 1) +
     geom_point(data = bed_obs_val, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 1) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +

@@ -20,12 +20,12 @@ library(dplyr)
 save_pred <- T
 save_plots <- T
 log_transform <- T
-test_on_train <- F
+test_on_train <- F 
 use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:10 #6:20
+sets <- 51:100 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

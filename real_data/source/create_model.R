@@ -110,7 +110,7 @@ create_model_posterior <- function(input_dim, output_dim, n_bed_basis, n_fric_ba
 
     model %>% compile(
         loss = posterior_loss_wrap_tf(n_bed_basis, n_fric_basis, n_gl), #losses[1],
-        optimizer = optimizer_adam(learning_rate = 0.0002),
+        optimizer = optimizer_adam(learning_rate = 0.0001),
         metrics = posterior_loss_wrap_tf(n_bed_basis, n_fric_basis, n_gl) #c("mae") 
     )
     model
