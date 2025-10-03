@@ -51,13 +51,13 @@ source("./source/posterior_loss.R")
 ## Read data
 data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 51:100 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 1:10 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
 # if (use_missing_pattern) {
-  train_data_dir <- paste0("./data/training_data", "/", setsf, "/missing")
+  train_data_dir <- paste0("./data/training_data", "/", setsf, "/")
   output_dir <- paste0("./output/cnn/", setsf, "/")
   plot_dir <- paste0("./plots/cnn/", setsf, "/")
 # } else {
@@ -69,9 +69,9 @@ print("Reading data...")
 #   val_data <- readRDS(file = paste0(train_data_dir, "/val_data_", data_date, ".rds"))
 #   test_data <- readRDS(file = paste0(train_data_dir, "/test_data_", data_date, ".rds"))
 system.time({
-  train_data <- qread(file = paste0(train_data_dir, "/train_data_", data_date, ".qs"))
-  val_data <- qread(file = paste0(train_data_dir, "/val_data_", data_date, ".qs"))
-  test_data <- qread(file = paste0(train_data_dir, "/test_data_", data_date, ".qs"))
+  train_data <- qread(file = paste0(train_data_dir, "train_data_", data_date, ".qs"))
+  val_data <- qread(file = paste0(train_data_dir, "val_data_", data_date, ".qs"))
+  test_data <- qread(file = paste0(train_data_dir, "test_data_", data_date, ".qs"))
 })
 # system.time({
   # qsave(train_data, file = paste0(train_data_dir, "/train_data_", data_date, ".qs"))

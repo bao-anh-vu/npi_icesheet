@@ -47,7 +47,7 @@ if (length(gpus) > 0) {
 data_date <- "20241111"
 
 arg <- commandArgs(trailingOnly = TRUE)
-sets <- 51:100
+sets <- 1:50
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -294,11 +294,11 @@ if (!dir.exists(output_dir)) {
     dir.create(output_dir)
 }
 
-if (use_missing_pattern) {
-    output_dir <- paste0(output_dir, "/missing")
-} else {
-    output_dir <- paste0(output_dir, "/nonmissing")
-}
+# if (use_missing_pattern) {
+#     output_dir <- paste0(output_dir, "/")
+# } else {
+    # output_dir <- paste0(output_dir, "/nonmissing")
+# }
 
 if (!dir.exists(output_dir)) {
     dir.create(output_dir)

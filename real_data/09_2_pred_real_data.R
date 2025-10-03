@@ -25,11 +25,11 @@ save_plots <- T
 log_transform <- T
 test_on_train <- F
 # use_missing_pattern <- T
-correct_model_discrepancy <- F
+correct_model_discrepancy <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 #51:100 #51:100 #6:20
+sets <- 1:50 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # if (use_missing_pattern) {
@@ -41,7 +41,7 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 #     output_dir <- paste0("./output/cnn/", setsf, "/non")
 #     plot_dir <- paste0("./plots/cnn/", setsf, "/non")
 # }
-data_dir <- paste0("./data/training_data/", setsf, "/missing/")
+data_dir <- paste0("./data/training_data/", setsf, "/")
 output_dir <- paste0("./output/cnn/", setsf, "/")
 
 ## Save predictions
@@ -63,7 +63,7 @@ gl_obs <- domain[gl_pos$ind]
 bedmachine <- qread("./data/bedmachine/flowline_bedmachine.qs")
 
 ## Load test data
-test_data <- qread(file = paste0(data_dir, "/test_data_", data_date, ".qs"))
+test_data <- qread(file = paste0(data_dir, "test_data_", data_date, ".qs"))
 test_input <- test_data$input
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
@@ -420,9 +420,9 @@ p <- ggplot(data = fric_df, aes(x = domain)) +
 ggsave(filename = paste0(plot_dir, "pred_fric_real_ggplot.png"), plot = p, width = 10, height = 5)
 
 ## Validate against the rest of the bed obs
-bed_obs_df <- qread(file = "./data/bed_obs_df.qs")
-bed_obs_train <- bed_obs_df %>% filter(chosen == 1)
-bed_obs_val <- bed_obs_df %>% filter(chosen == 0)
+bed_obs_df <- qread(file = "./data/bedmap/bed_obs_df_all.qs")
+# bed_obs_train <- bed_obs_df %>% filter(chosen == 1)
+# bed_obs_val <- bed_obs_df %>% filter(chosen == 0)
 
 # png(paste0(plot_dir, "pred_bed_real.png"), width = 1000, height = 500)
 # plot(domain/1e3, bed_lq, type = "l", col = "grey", lwd = 2, xlab = "Flowline (km)", ylab = "Elevation (m)")
@@ -444,8 +444,9 @@ p <- ggplot(data = bed_df, aes(x = domain)) +
     geom_ribbon(aes(ymin = lq, ymax = uq), fill = "grey", alpha = 0.5) +
     geom_line(aes(y = pred), color = "red", lwd = 1) +
     geom_line(aes(y = bedmachine), color = "blue", lwd = 1, lty = 2) +
-    geom_point(data = bed_obs_train, aes(x = loc/1e3, y = bed_elev), color = "black", size = 1) +
-    geom_point(data = bed_obs_val, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 1) +
+    # geom_point(data = bed_obs_train, aes(x = loc/1e3, y = bed_elev), color = "black", size = 1) +
+    # geom_point(data = bed_obs_val, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 1) +
+    geom_point(data = bed_obs_df, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 2) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
     ylim(-1500, -500) +

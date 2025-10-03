@@ -54,7 +54,13 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 
 ## Simulate bed
 # bed_sim <- create_bed(x = flowline_dist)
-bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
+# bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
+set.seed(2024)
+bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
+L <- t(chol(bed_prior$cov))
+bed_sim <- bed_prior$mean + L %*% rnorm(nrow(L))
+
+qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
 
 print("Simulating friction coefficient...")
 
@@ -62,8 +68,6 @@ print("Simulating friction coefficient...")
 
 # L <- flowline_dist[J] - flowline_dist[1]
 # fric_sim <- create_fric_coef(flowline_dist, L) * 1e6 * (params$secpera)^params$m
-
-set.seed(2025)
 # fric.sill <- 8e-5
 # fric.nugget <- 0
 # fric.range <- 5e3

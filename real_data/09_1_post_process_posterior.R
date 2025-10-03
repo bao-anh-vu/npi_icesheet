@@ -25,7 +25,7 @@ use_missing_pattern <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 #6:20
+sets <- 1:50 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -44,9 +44,9 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 #     output_dir <- paste0("./output/cnn/", setsf, "/discr")
 #     plot_dir <- paste0("./plots/cnn/", setsf, "/discr")
 # } else {
-    data_dir <- paste0("./data/training_data/", setsf, "/missing/")
+    data_dir <- paste0("./data/training_data/", setsf, "/")
     output_dir <- paste0("./output/cnn/", setsf, "/")
-    pred_output_dir <- paste0(output_dir, "/pred/")
+    pred_output_dir <- paste0(output_dir, "pred/")
     plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
 # }
 
@@ -326,13 +326,13 @@ gl_uq <- lapply(gl_q, function(x) x[2, ])
 #################################
 print("Saving predictions...")
 if (save_pred) {
-    qsave(pred_fric, file = paste0(pred_output_dir, "/pred_fric_", data_date, ".qs"))
-    qsave(pred_bed, file = paste0(pred_output_dir, "/pred_bed_", data_date, ".qs"))
-    qsave(pred_gl, file = paste0(pred_output_dir, "/pred_gl_", data_date, ".qs"))
-    qsave(Lmats, file = paste0(pred_output_dir, "/Lmats_", data_date, ".qs"))
-    qsave(fric_samples_ls, file = paste0(pred_output_dir, "/fric_post_samples_", data_date, ".qs"))
-    qsave(bed_samples_ls, file = paste0(pred_output_dir, "/bed_post_samples_", data_date, ".qs"))
-    qsave(gl_samples_ls, file = paste0(pred_output_dir, "/gl_post_samples_", data_date, ".qs"))
+    qsave(pred_fric, file = paste0(pred_output_dir, "pred_fric_", data_date, ".qs"))
+    qsave(pred_bed, file = paste0(pred_output_dir, "pred_bed_", data_date, ".qs"))
+    qsave(pred_gl, file = paste0(pred_output_dir, "pred_gl_", data_date, ".qs"))
+    qsave(Lmats, file = paste0(pred_output_dir, "Lmats_", data_date, ".qs"))
+    qsave(fric_samples_ls, file = paste0(pred_output_dir, "fric_post_samples_", data_date, ".qs"))
+    qsave(bed_samples_ls, file = paste0(pred_output_dir, "bed_post_samples_", data_date, ".qs"))
+    qsave(gl_samples_ls, file = paste0(pred_output_dir, "gl_post_samples_", data_date, ".qs"))
 }
 
 ######################################

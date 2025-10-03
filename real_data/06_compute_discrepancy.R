@@ -43,7 +43,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.5 * 1e6 * params$secpera^params$m
+params$B <- 0.6 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
@@ -51,8 +51,10 @@ domain <- ssa_steady$domain
 J <- length(domain)
 
 ## Bed observations
-bed_obs_df <- qread(file = paste0(data_dir, "/bed_obs_df.qs"))
-bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
+bed_obs_df <- qread(file = paste0(data_dir, "bedmap/bed_obs_df_all.qs"))
+bed_obs_chosen <- bed_obs_df
+# bed_obs_df <- qread(file = paste0(data_dir, "/bed_obs_df.qs"))
+# bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
 
 ## Read surface data
 # vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
@@ -129,13 +131,17 @@ print("Simulating friction coefficient...")
     # bed.sill <- 10e3
     # bed.range <- 50e3
     # bed.nugget <- 0 #200
-    bed_sim_output <- simulate_bed(nsims, domain = domain, 
-                            obs_locations = bed_obs_chosen$ind, 
-                            obs = bed_obs_chosen$bed_elev) #, 
-                            # sill = bed.sill, nugget = bed.nugget,
-                            # range = bed.range) 
+    # bed_sim_output <- simulate_bed(nsims, domain = domain, 
+    #                         obs_locations = bed_obs_chosen$ind, 
+    #                         obs = bed_obs_chosen$bed_elev) #, 
 
-    bed_sims <- bed_sim_output$sims
+    # bed_sims <- bed_sim_output$sims
+
+bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
+L <- t(chol(bed_prior$cov))
+u_mat <- matrix(rnorm(nrow(L) * nsims), nrow = nrow(L), ncol = nsims) 
+mean_mat <- matrix(rep(bed_prior$mean, nsims), nrow = nrow(bed_prior$mean), ncol = nsims)
+bed_sims <- mean_mat + L %*% u_mat #rnorm(nrow(L) * N)
 
     param_list <- lapply(1:nsims, function(r) {
         list(

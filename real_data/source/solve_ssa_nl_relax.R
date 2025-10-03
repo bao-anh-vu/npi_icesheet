@@ -246,7 +246,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       }
     }
     
-    # Plot ice geometry every 100 years
+    # # Plot ice geometry every 100 years
     # if (i == 1 | i %% (steps_per_yr * 100) == 0) {
       
     #   cat("Year: ", i/steps_per_yr, "\t")
