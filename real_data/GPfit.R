@@ -233,8 +233,7 @@ sim1 <- pred$mean + L %*% rnorm(nrow(L))
 sim2 <- pred$mean + L %*% rnorm(nrow(L))
 
 if (use_bed_data) {
-  ## Plot against bedmachine to compare
-  bedmachine <- qread(paste0("./data/bedmachine/flowline_bedmachine.qs"))
+  
   plot_name <- "GP_fit_to_bed.png"
 } else {
   plot_name <- "GP_fit_to_toy.png"

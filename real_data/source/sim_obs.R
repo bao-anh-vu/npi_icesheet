@@ -31,8 +31,8 @@ sim_obs <- function(param_list,
 
     # sim_results <- lapply(param_list, 
     #     function(param, domain, phys_params,
-    #             ini_velocity, ini_thickness, years, 
-    #             msmt_noise_info, warmup) {
+    #             ini_velocity, ini_thickness, years, warmup,
+    #             msmt_noise_info) {
     sim_results <- mclapply(param_list, 
         function(param, domain, phys_params,
                 ini_velocity, ini_thickness, years, warmup,
@@ -45,7 +45,7 @@ sim_obs <- function(param_list,
             phys_params = phys_params,
             ini_velocity = ini_velocity,
             ini_thickness = ini_thickness,
-            years = years, 
+            years = years + warmup,
             steps_per_yr = 100,
             add_process_noise = F
         )
@@ -58,6 +58,7 @@ sim_obs <- function(param_list,
 # matplot(surface_obs[,,2], type = 'l', lty = 1, col = rgb(0,0,0,0.3),)
 # dev.off()
 # browser()
+
         ## Save true thickness and velocity for comparison
         if (warmup == 0) {
             true_surface_elevs <- sim_out$all_top_surface # this is the version without added noise

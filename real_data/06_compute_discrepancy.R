@@ -31,6 +31,7 @@ data_date <- "20241111" #"20241103"
 
 ## Flags
 use_basal_melt_data <- T
+leave_one_out <- T
 
 ## Physical params
 params <- list(
@@ -112,18 +113,8 @@ nsims <- 10
 
 print("Simulating friction coefficient...")
 
-    # fric.sill <- 8e-5
-    # fric.nugget <- 0
-    # fric.range <- 5e3
-
     fric_sims <- simulate_friction2(
-        nsim = nsims, domain = domain) #,
-    #     sill = fric.sill, nugget = fric.nugget,
-    #     range = fric.range
-    # ) 
-
-    # simulated_friction <- simulated_friction / fric_scale
-    # sim_fric_list <- lapply(1:N, function(c) simulated_friction[, c])
+        nsim = nsims, domain = domain) 
 
     ## Simulate beds
     print("Simulating beds...")
@@ -158,32 +149,8 @@ bed_sims <- mean_mat + L %*% u_mat #rnorm(nrow(L) * N)
     
 ## Run simulations for different friction coefficient fields
 ## starting from steady state
-
-### Also reduce ice rigidity
-# params$B <- 1.2 * 1e6 * params$secpera^params$m
-warmup <- 1
-years <- 10 + warmup
-
-# sim_out <- list()
-# for (s in 1:nsims) {
-#     cat("Running sim", s, " for ", relax_years, "years post-steady state...")
-
-#     sim_out[[s]] <- solve_ssa_nl(domain = domain, 
-#                             bedrock = bed_sims[, s], 
-#                             friction_coef = fric_sims[, s], 
-#                             phys_params = params,
-#                             # tol = 1e-03, 
-#                             years = relax_years, #500,
-#                             steps_per_yr = 100, 
-#                             add_process_noise = F,
-#                             # process_noise_info = process_noise_info,
-#                             ini_thickness = ssa_steady$current_thickness,
-#                             ini_velocity = ssa_steady$current_velocity#,
-#                             # use_relaxation = T,
-#                             # observed_thickness = H_ini_all
-#                             # relax_rate = relax_rate
-#                         )
-# }
+years <- dim(surf_elev_mat)[2] # number of years data is collected
+warmup <- 0 # number of years to discard after steady state (for the model to adjust to new friction & bed)
 
 sim_surface_obs <- list()
 # for (s in 1:nsims) {
@@ -191,7 +158,7 @@ sim_surface_obs <- list()
             param_list = param_list,
             domain = domain,
             phys_params = params,
-            years = years, # sim_beds = T,
+            years = years, 
             warmup = warmup,
             ini_thickness = ssa_steady$current_thickness,
             ini_velocity = ssa_steady$current_velocity,
@@ -208,13 +175,19 @@ sim_surface_obs <- list()
 ######################################
 ##     Compute model discrepancy    ##
 ######################################
-se_sims <- lapply(1:nsims, function(s) sim_surface_obs[s,,,1])
-# se_sims <- lapply(sim_out, function(x) x$all_top_surface)
-se_discr <- lapply(se_sims, function(M) surf_elev_mat - M)
 
-vel_sims <- lapply(1:nsims, function(s) sim_surface_obs[s,,,2])
+if (leave_one_out) {
+    years <- years - 1
+    # vel_mat <- vel_mat[, 1:years]
+    # surf_elev_mat <- surf_elev_mat[, 1:years]
+}
+se_sims <- lapply(1:nsims, function(s) sim_surface_obs[s,,1:years,1])
+# se_sims <- lapply(sim_out, function(x) x$all_top_surface)
+se_discr <- lapply(se_sims, function(M) surf_elev_mat[, 1:years] - M)
+
+vel_sims <- lapply(1:nsims, function(s) sim_surface_obs[s,,1:years,2])
 # vel_sims <- apply(sim_out, function(x) x$all_velocities)
-vel_discr <- lapply(vel_sims, function(M) vel_mat - M)
+vel_discr <- lapply(vel_sims, function(M) vel_mat[, 1:years] - M)
 
 # GL_pos <- sapply(sim_out, function(x) x$grounding_line[length(x$grounding_line)])
 GL_pos <- generated_data$gl_arr[, years]

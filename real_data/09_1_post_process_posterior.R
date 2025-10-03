@@ -21,7 +21,8 @@ save_pred <- T
 save_plots <- T
 log_transform <- T
 test_on_train <- F 
-use_missing_pattern <- T
+# use_missing_pattern <- T
+leave_one_out <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
@@ -57,6 +58,13 @@ if (test_on_train) {
 }   
 
 test_input <- test_data$input
+n_years <- dim(test_input)[3]
+if (leave_one_out) {
+    n_years <- n_years - 1
+    test_input <- test_input[,,1:n_years,]
+    print(paste0("Using first ", n_years, " years of data for leave-one-out cross-validation"))
+}
+
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
 if (test_on_train) { ## Restrict input and output to the first 100 samples
@@ -85,7 +93,7 @@ bed_mean <- bed_basis$mean
 
 ## Load the model
 
-input_dim <- dim(test_data$input)[2:4]
+input_dim <- dim(test_input)[2:4]
 n_fric_basis <- dim(test_data$fric_coefs)[2]
 n_bed_basis <- dim(test_data$bed_coefs)[2]
 n_gl <- dim(test_data$grounding_line)[2]

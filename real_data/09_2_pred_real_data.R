@@ -18,6 +18,7 @@ library(ggplot2)
 library(qs)
 library(abind)
 library(dplyr)
+library(gridExtra)
 
 ## Flags
 # save_pred <- T
@@ -26,6 +27,7 @@ log_transform <- T
 test_on_train <- F
 # use_missing_pattern <- T
 correct_model_discrepancy <- T
+leave_one_out <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
@@ -65,6 +67,13 @@ bedmachine <- qread("./data/bedmachine/flowline_bedmachine.qs")
 ## Load test data
 test_data <- qread(file = paste0(data_dir, "test_data_", data_date, ".qs"))
 test_input <- test_data$input
+
+n_years <- dim(test_input)[3]
+if (leave_one_out) {
+    n_years <- n_years - 1
+    test_input <- test_input[,,1:n_years,]
+}
+
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
 ## Also load real data
@@ -77,6 +86,9 @@ if (correct_model_discrepancy) {
     # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
 }
 
+surf_elev_data <- surf_elev_data[, 1:n_years]
+velocity_data <- velocity_data[, 1:n_years]
+
 ## Replace NA values in real_data with 0
 surf_elev_data[is.na(surf_elev_data)] <- 0
 velocity_data[is.na(velocity_data)] <- 0
@@ -85,8 +97,12 @@ velocity_data[is.na(velocity_data)] <- 0
 print("Reading missing patterns...")
 surf_elev_missing_pattern <- qread("./data/surface_elev/missing_pattern.qs")
 vel_missing_pattern <- qread("./data/velocity/missing_pattern.qs")
-missing_patterns <- abind(list(surf_elev_missing_pattern, vel_missing_pattern), along = 3)
+# missing_patterns <- abind(list(surf_elev_missing_pattern, vel_missing_pattern), along = 3)
 
+# if (leave_one_out) {
+    surf_elev_missing_pattern <- surf_elev_missing_pattern[, 1:n_years]
+    vel_missing_pattern <- vel_missing_pattern[, 1:n_years]
+# }
 surf_elev_data2 <- surf_elev_data * surf_elev_missing_pattern
 velocity_data2 <- velocity_data * vel_missing_pattern
 
@@ -106,25 +122,31 @@ velocity_data_std <- (velocity_data2 - mean_velocity) / sd_velocity
 real_data <- abind(surf_elev_data_std, velocity_data_std, along = 3)
 real_data <- array(real_data, dim = c(1L, dim(real_data)))
 
+if (leave_one_out) {
+    real_data <- real_data[,,1:n_years,]
+    real_data <- array(real_data, dim = c(1L, dim(real_data))) # to make it match the dimension of test data
+    print(paste0("Using first ", n_years, " years of data for leave-one-out cross-validation"))
+}
+
 ## Compare real data and test data
-pdf("./plots/cnn/input/real_vs_test_data.pdf", width = 10, height = 10)
-par(mfrow = c(2,2))
+# pdf("./plots/cnn/input/real_vs_test_data.pdf", width = 10, height = 10)
+# par(mfrow = c(2,2))
 
-image(real_data[1,,,1], main = "Real surface elevation data")
-# axis(1, at = seq(0, 1, length.out = 5), labels = round(seq(min(domain)/1e3, max(domain)/1e3, length.out = 5),1), cex.axis = 1.5)
-# axis(2, at = seq(0, 1, length.out = 5), labels = round(seq(100, 1, length.out = 5),1), cex.axis = 1.5)
-mtext("Distance (km)", side = 1, line = 3, cex = 1.5)
-mtext("Time (yr)", side = 2, line = 3, cex = 1.5)
+# image(real_data[1,,,1], main = "Real surface elevation data")
+# # axis(1, at = seq(0, 1, length.out = 5), labels = round(seq(min(domain)/1e3, max(domain)/1e3, length.out = 5),1), cex.axis = 1.5)
+# # axis(2, at = seq(0, 1, length.out = 5), labels = round(seq(100, 1, length.out = 5),1), cex.axis = 1.5)
+# mtext("Distance (km)", side = 1, line = 3, cex = 1.5)
+# mtext("Time (yr)", side = 2, line = 3, cex = 1.5)
 
-image(test_data$input[1,,,1], main = "Test surface elevation data") #, col = terrain.colors(100))
-# axis(1, at = seq(0, 1, length.out = 5), labels = round(seq(min(domain)/1e3, max(domain)/1e3, length.out = 5),1), cex.axis = 1.5)
-# axis(2, at = seq(0, 1, length.out = 5), labels = round(seq(100, 1, length.out = 5),1), cex.axis = 1.5)  
-mtext("Distance (km)", side = 1, line = 3, cex = 1.5)
-mtext("Time (yr)", side = 2, line = 3, cex = 1.5)
+# image(test_input[1,,,1], main = "Test surface elevation data") #, col = terrain.colors(100))
+# # axis(1, at = seq(0, 1, length.out = 5), labels = round(seq(min(domain)/1e3, max(domain)/1e3, length.out = 5),1), cex.axis = 1.5)
+# # axis(2, at = seq(0, 1, length.out = 5), labels = round(seq(100, 1, length.out = 5),1), cex.axis = 1.5)  
+# mtext("Distance (km)", side = 1, line = 3, cex = 1.5)
+# mtext("Time (yr)", side = 2, line = 3, cex = 1.5)
 
-image(real_data[1,,,2], main = "Real velocity data")
-image(test_data$input[1,,,2], main = "Test velocity data") #, col = terrain.colors(100))
-dev.off()
+# image(real_data[1,,,2], main = "Real velocity data")
+# image(test_input[1,,,2], main = "Test velocity data") #, col = terrain.colors(100))
+# dev.off()
 
 ## Same plot but using ggplot
 space <- domain / 1000
@@ -134,18 +156,20 @@ head(grid)
 names(grid) <- c("space", "time")
 
 grid$real_se <- as.vector(real_data[1,,,1])
-grid$test_se <- as.vector(test_data$input[1,,,1])
+grid$test_se <- as.vector(test_input[1,,,1])
 grid$real_vel <- as.vector(real_data[1,,,2])
-grid$test_vel <- as.vector(test_data$input[1,,,2])
+grid$test_vel <- as.vector(test_input[1,,,2])
 
 real_se_plot <- ggplot(grid) +
     geom_tile(aes(space, time, fill = real_se)) +
     scale_y_reverse() +
     scale_fill_distiller(palette = "Blues", direction = 1) +
+
     theme_bw() +
     theme(text = element_text(size = 30)) +
     # labs(fill="Thickness (m)")
-    labs(fill = "Surface elev. (m)")
+    labs(fill = "Surface elev. (m)") +
+    ggtitle("Real data")
 
 real_vel_plot <- ggplot(grid) +
     geom_tile(aes(space, time, fill = real_vel)) +
@@ -153,7 +177,8 @@ real_vel_plot <- ggplot(grid) +
     theme_bw() +
     theme(text = element_text(size = 30)) +
     scale_fill_distiller(palette = "Reds", direction = 1, limits = c(-5, 5)) +
-    labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")"))
+    labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")")) +
+    ggtitle("Real data")
 
 test_se_plot <- ggplot(grid) +
     geom_tile(aes(space, time, fill = test_se)) +
@@ -162,7 +187,8 @@ test_se_plot <- ggplot(grid) +
     theme_bw() +
     theme(text = element_text(size = 30)) +
     # labs(fill="Thickness (m)")
-    labs(fill = "Surface elev. (m)")
+    labs(fill = "Surface elev. (m)") +
+    ggtitle("Test data")
 
 test_vel_plot <- ggplot(grid) +
     geom_tile(aes(space, time, fill = test_vel)) +
@@ -170,28 +196,31 @@ test_vel_plot <- ggplot(grid) +
     theme_bw() +
     theme(text = element_text(size = 30)) +
     scale_fill_distiller(palette = "Reds", direction = 1, limits = c(-5, 5)) +
-    labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")"))
+    labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")")) +
+    ggtitle("Test data")
 
 real_vs_test_plots <- list(test_se_plot, real_se_plot, test_vel_plot, real_vel_plot)
-library(gridExtra)
-png("./plots/cnn/input/real_vs_test_data_ggplot.png", width = 1400, height = 800)
+
+png("./plots/cnn/input/real_vs_test_hovmoller.png", width = 1400, height = 800)
 par(mfrow = c(2,2))
 grid.arrange(grobs = real_vs_test_plots)
 dev.off()
 
 sim <- sample(1:dim(test_input)[1], 1)
-png("./plots/cnn/test_vs_real.png", width = 1200, height = 800)
+png("./plots/cnn/input/real_vs_test_obs.png", width = 800, height = 600)
 
 par(mfrow = c(2,1))
 matplot(test_input[sim,,,1], col = "grey", type = "l", main = paste0("Simulation ", sim))
 matlines(real_data[1,,,1], col = "salmon")
+legend("topright", legend = c("test data", "real data"), col = c("grey", "salmon"), lty = 1)
 
 matplot(test_input[sim,,,2], col = "grey", type = "l", main = paste0("Simulation ", sim))
 matlines(real_data[1,,,2], col = "salmon")
+legend("topright", legend = c("test data", "real data"), col = c("grey", "salmon"), lty = 1)
 dev.off()
 
 ## Load the model
-input_dim <- dim(test_data$input)[2:4]
+input_dim <- dim(test_input)[2:4]
 n_fric_basis <- dim(test_data$fric_coefs)[2]
 n_bed_basis <- dim(test_data$bed_coefs)[2]
 n_gl <- dim(test_data$grounding_line)[2]
@@ -210,28 +239,6 @@ summary(model)
 
 ### Plot the loss
 history <- qread(file = paste0(output_dir, "history_", data_date, ".qs"))
-# history %>% plot() #+
-# coord_cartesian(xlim = c(1, epochs))
-
-# if (use_missing_pattern) {
-#     plot_dir <- paste0("./plots/cnn/", setsf, "/missing")
-# } else {
-#     plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing")
-
-# }
-
-# if (save_plots) {
-
-#     if (!dir.exists(plot_dir)) {
-#         dir.create(plot_dir)
-#     }
-
-#     png(paste0(plot_dir, "/loss.png"), width = 1000, height = 500)
-#     plot(history$metrics$loss[2:100], type = "l")
-#     lines(history$metrics$val_loss[2:100], col = "red")
-#     legend("topright", legend = c("Training", "Validation"), col = c("black", "red"), lty = 1, cex = 0.8)
-#     dev.off()
-# }
 
 ###################################
 ##        Mean prediction        ##   

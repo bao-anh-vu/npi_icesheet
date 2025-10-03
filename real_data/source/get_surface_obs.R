@@ -5,13 +5,15 @@ get_obs <- function(sim_data, msmt_noise_info, warmup = 0) {
     J <- length(domain)
     gl <- sim_data$grounding_line
 
-    if (warmup == 0) {
-      all_ref_velocities <- sim_data$all_velocities # remove initial condition
-      all_top_surface <- sim_data$all_top_surface # remove initial condition
-    } else {
-      all_ref_velocities <- sim_data$all_velocities[, -(1:warmup)] # remove initial condition
-      all_top_surface <- sim_data$all_top_surface[, -(1:warmup)] # remove initial condition
-    }
+    # if (warmup == 0) {
+    #   all_ref_velocities <- sim_data$all_velocities[] # remove initial condition
+    #   all_top_surface <- sim_data$all_top_surface[] # remove initial condition
+    # } else {
+    #   all_ref_velocities <- sim_data$all_velocities[, -(1:warmup)] # remove initial condition
+    #   all_top_surface <- sim_data$all_top_surface[, -(1:warmup)] # remove initial condition
+    # }
+    all_ref_velocities <- sim_data$all_velocities[, -(1:(warmup+1))] # remove initial condition and warmup years
+    all_top_surface <- sim_data$all_top_surface[, -(1:(warmup+1))] # remove initial condition and warmup years
 
     obs_velocities <- all_ref_velocities # extract velocity vectors at annual resolution
     

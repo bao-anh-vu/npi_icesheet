@@ -59,11 +59,10 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111" 
 N <- 1000 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 21:50 #50 #:10
+sets <- 50 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
-warmup <- 1
-years <- 10 + warmup
-# nbasis <- 120
+warmup <- 0
+years <- 11 # number of years data is collected (not including initial condition)
 
 ## Physical params
 params <- list(
@@ -186,13 +185,12 @@ bed_sims <- mean_mat + L %*% u_mat #rnorm(nrow(L) * N)
     bed_sim_list[[i]] <- bed_sims
     fric_sim_list[[i]] <- fric_sims
 
-# png(file = paste0("./plots/cnn/input/bed_sims_", setf, "_", data_date, ".png"), width = 800, height = 500)
-# matplot(domain, bed_sims[, 5:6], type = "l", col = "salmon", ylab = "Bedrock Elev (m)", xlab = "Distance along flowline (m)")
-# lines(domain, bedmachine, col = "blue", lwd = 2)    
-# points(bed_obs_df$loc, bed_obs_df$bed_elev, pch = 16)
-# abline(v = domain[gl_ind], lty = 2)
-# dev.off()
-# browser()
+png(file = paste0("./plots/cnn/input/bed_sims_", setf, "_", data_date, ".png"), width = 800, height = 500)
+matplot(domain, bed_sims[, 5:6], type = "l", col = "salmon", ylab = "Bedrock Elev (m)", xlab = "Distance along flowline (m)")
+lines(domain, bedmachine, col = "blue", lwd = 2)    
+points(bed_obs_df$loc, bed_obs_df$bed_elev, pch = 16)
+abline(v = domain[gl_ind], lty = 2)
+dev.off()
 
     # if (save_sims) {
     #   qsave(bed_sims, file = paste0(train_data_dir, "/bed_sims_", data_date, ".qs"))
@@ -260,7 +258,7 @@ dev.off()
         param_list = param_list,
         domain = domain,
         phys_params = params,
-        years = years, # sim_beds = T,
+        years = years, # number of years data is collected
         warmup = warmup,
         ini_thickness = ssa_steady$current_thickness,
         ini_velocity = ssa_steady$current_velocity,
@@ -269,10 +267,6 @@ dev.off()
         # log_transform = log_transform
       )
     )
-
-    if (save_sims) {
-      qsave(sim_results, file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".qs"))
-    }
 
     ## Need to get rid of the simulations that failed here
     bad_sims <- sim_results$bad_sims
@@ -298,6 +292,7 @@ dev.off()
 
     if (save_sims) {
       setf <- formatC(sets[i], width = 2, flag = "0")
+      qsave(sim_results, file = paste0(train_data_dir, "/sim_results_", setf, "_", data_date, ".qs"))
       qsave(surface_obs_arr_s, file = paste0(train_data_dir, "/surface_obs_arr_", setf, "_", data_date, ".qs"))
       qsave(friction_arr_s, file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
       qsave(gl_arr_s, file = paste0(train_data_dir, "/gl_arr_", setf, "_", data_date, ".qs"))

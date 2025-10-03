@@ -36,7 +36,7 @@ n_fric_basis <- 120
 n_bed_basis <- 150
 
 ## Read simulated parameters
-sets <- 1:50
+sets <- 1:10
 
 bed_sim_list <- list()
 fric_sim_list <- list()
@@ -49,6 +49,10 @@ for (i in 1:length(sets)) {
 ## Concatenate the bed simulations and take the mean
 bed_sims_arr <- abind(bed_sim_list, along = 1)
 bed_mean <- colMeans(bed_sims_arr)
+
+## Bedmachine data to compare
+bedmachine_data <- qread(paste0("./data/bedmachine/flowline_bedmachine.qs"))
+bedmachine <- bedmachine_data$bed_avg
 
 ## Then fit basis functions
 for (i in 1:length(sets)) {

@@ -34,24 +34,16 @@ if (length(gpus) > 0) {
 rerun_cnn <- T
 # output_var <- "all" # "all" #"bed"  # "grounding_line" # "bed"
 use_missing_pattern <- T
-# save_output <- T
+leave_one_out <- T
 
 source("./source/create_model.R")
 # source("./source/custom_loss_function.R")
 source("./source/posterior_loss.R")
 
-# if (output_var == "friction") {
-#   source("./source/create_model.R")
-# } else if (output_var == "grounding_line") {
-#   source("./source/create_cnn_gl.R")
-# } else if (output_var == "bed") {
-#   source("./source/create_model.R")
-# }
-
 ## Read data
 data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:10 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -69,6 +61,14 @@ system.time({
 train_input <- train_data$input
 val_input <- val_data$input
 test_input <- test_data$input
+
+if (leave_one_out) {
+    n_years <- dim(train_input)[3] - 1
+    train_input <- train_input[,,1:n_years,]
+    val_input <- val_input[,,1:n_years,]
+    test_input <- test_input[,,1:n_years,]
+    print(paste0("Using first ", n_years, " years of data for leave-one-out cross-validation"))
+}
 
 train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$grounding_line)
 val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
@@ -97,7 +97,7 @@ dev.off()
 ############################
 print("Creating model...")
 # Create a basic model instance
-input_dim <- dim(train_data$input)[2:4]
+input_dim <- dim(train_input)[2:4]
 n_fric_basis <- dim(train_data$fric_coefs)[2]
 n_bed_basis <- dim(train_data$bed_coefs)[2]
 n_gl <- dim(train_data$grounding_line)[2]
