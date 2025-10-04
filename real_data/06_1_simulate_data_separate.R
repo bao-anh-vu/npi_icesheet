@@ -87,9 +87,10 @@ J <- length(domain)
 surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
 # 0. Read bed observations
-bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
-bed_obs_chosen <- bed_obs_df
+# bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
 # bed_obs_chosen <- bed_obs_df[bed_obs_df$chosen == 1, ]
+bed_obs_df <- qread(file = paste0("./data/bedmap/bed_obs_df_all.qs"))
+bed_obs_chosen <- bed_obs_df
 
 # if (constrain_gl) {
 #   ## Impose an exta condition at GL: bed = surface elevation / (rho_w/rho_i + 1)
