@@ -9,6 +9,7 @@ library(R.utils)
 library(mvtnorm)
 library(ggplot2)
 library(mgcv)
+library(FRK)
 # library("qlcMatrix")
 # library("fastmatrix")
 # library("expm")
@@ -22,7 +23,7 @@ source("./source/solve_velocity_azm.R")
 source("./source/solve_thickness.R")
 source("./source/surface_elev.R")
 source("./source/simulate_friction.R")
-# source("./source/fit_basis.R")
+source("./source/fit_basis.R")
 
 rerun_steady_state <- T
 use_basal_melt_data <- F
@@ -60,11 +61,45 @@ bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
 L <- t(chol(bed_prior$cov))
 bed_sim <- bed_prior$mean + L %*% rnorm(nrow(L))
 
+## Fit basis to bed
+n_bed_basis <- 150
+bed_basis <- fit_bed_basis(
+        nbasis = n_bed_basis, domain = flowline_dist,
+        bed_arr = t(bed_sim - bed_prior$mean), # centre the bed around the prior mean
+        lengthscale = 2.5e3,
+        parallelise = F
+    )
+bed_sim <- t(bed_basis$fitted_values) + bed_prior$mean
+
 qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
 
-print("Simulating friction coefficient...")
+## Bedmachine data to compare
+bedmachine_data <- qread(paste0("./data/bedmachine/flowline_bedmachine.qs"))
+bedmachine <- bedmachine_data$bed_avg
+
+## BedMap observations 
+bed_obs_df <- qread(file = paste0("./data/bedmap/bed_obs_df_all.qs"))
+
+## Plot bed
+png(file = paste0("./plots/steady_state/bed_sim_steady_state_", data_date, ".png"), width = 800, height = 600)
+# plot(flowline_dist/1000, bed_sim, type = "l", 
+#     xlab = "Distance along flowline (km)", ylab = "Bed elevation (m)")
+plot(flowline_dist/1000, t(bed_basis$fitted_values) + bed_prior$mean, col = "red", type = "l")
+lines(flowline_dist/1000, bedmachine, col = "blue", lty = 3)
+points(bed_obs_df$dist/1000, bed_obs_df$bed, pch = 16, cex = 0.5)
+legend("topright", legend = c("Simulated bed", "Fitted bed basis", "Bedmachine", "Bed observations"), 
+    col = c("black", "red", "blue", "black"), pch = c(NA, NA, NA, 16), lty = c(1, 2, 3, NA), bty = "n")
+dev.off()
+
+## Plot basis function coefficients
+png(file = paste0("./plots/steady_state/bed_basis_coefs_steady_state_", data_date, ".png"), width = 800, height = 600)
+plot(t(bed_basis$basis_coefs), type = "l", 
+    xlab = "Basis function index", ylab = "Coefficient value")
+# abline(h = 0, lty = 2)
+dev.off()
 
 ## Simulate friction coefficient
+print("Simulating friction coefficient...")
 
 # L <- flowline_dist[J] - flowline_dist[1]
 # fric_sim <- create_fric_coef(flowline_dist, L) * 1e6 * (params$secpera)^params$m
