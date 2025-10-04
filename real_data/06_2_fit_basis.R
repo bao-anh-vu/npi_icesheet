@@ -36,7 +36,7 @@ n_fric_basis <- 120
 n_bed_basis <- 150
 
 ## Read simulated parameters
-sets <- 1:10
+sets <- 1#:10
 
 bed_sim_list <- list()
 fric_sim_list <- list()
@@ -101,17 +101,23 @@ for (i in 1:length(sets)) {
     
 }
 
+## Bedmachine data to compare
+bedmachine_data <- qread(paste0("./data/bedmachine/flowline_bedmachine.qs"))
+bedmachine <- bedmachine_data$bed_avg
+
 ## Plot the fitted friction and bed
 set <- sets[1]
 setf <- formatC(set, width = 2, flag = "0")
+sim <- 2
 png(file = paste0("./plots/cnn/input/friction_basis_", setf, "_", data_date, ".png"), width = 800, height = 400)
 plot_domain <- 1:J # 1000
-plot(domain[plot_domain], friction_basis$true_vals[1, plot_domain], type = "l")
-lines(domain[plot_domain], friction_basis$fitted_values[1, plot_domain], col = "red")
+plot(domain[plot_domain], friction_basis$true_vals[sim, plot_domain], type = "l")
+lines(domain[plot_domain], friction_basis$fitted_values[sim, plot_domain], col = "red")
 dev.off()
 
 png(file = paste0("./plots/cnn/input/bed_basis_", setf, "_", data_date, ".png"))
 plot_domain <- 1:J
-plot(domain[plot_domain], bed_basis$true_vals[1, plot_domain], type = "l")
-lines(domain[plot_domain], bed_basis$fitted_values[1, plot_domain], col = "red")
+plot(domain[plot_domain], bed_basis$true_vals[sim, plot_domain] + bed_mean, type = "l")
+lines(domain[plot_domain], bed_basis$fitted_values[sim, plot_domain] + bed_mean, col = "red")
+lines(domain[plot_domain], bedmachine[plot_domain], col = "blue", lty = 2)
 dev.off()   
