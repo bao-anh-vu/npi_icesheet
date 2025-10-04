@@ -79,12 +79,21 @@ test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$ground
 ## Also load real data
 if (correct_model_discrepancy) {
     surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", data_date, ".qs"))
-    velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
+    # velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
 } else {
     surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
-    velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
     # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
 }
+velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
+    
+## Plot original and adjusted real data
+    # png("./plots/cnn/input/real_data_adjustment.png", width = 1500, height = 500)
+    # par(mfrow = c(1,2))
+    # matplot(surf_elev_data, type = "l", lty = 1, col = "grey", main = "Original vs adj surface elevation data")
+    # matlines(adj_surf_elev_data, type = "l", lty = 1, col = "salmon")
+    # matplot(velocity_data, type = "l", lty = 1, col = "grey", main = "Original vs adj velocity data")
+    # matlines(adj_velocity_data, type = "l", lty = 1, col = "salmon")
+    # dev.off()
 
 surf_elev_data <- surf_elev_data[, 1:n_years]
 velocity_data <- velocity_data[, 1:n_years]
@@ -160,11 +169,13 @@ grid$test_se <- as.vector(test_input[1,,,1])
 grid$real_vel <- as.vector(real_data[1,,,2])
 grid$test_vel <- as.vector(test_input[1,,,2])
 
+se_lims <- range(c(grid$real_se, grid$test_se), na.rm = T)
+vel_lims <- range(c(grid$real_vel, grid$test_vel), na.rm = T)
+
 real_se_plot <- ggplot(grid) +
     geom_tile(aes(space, time, fill = real_se)) +
     scale_y_reverse() +
-    scale_fill_distiller(palette = "Blues", direction = 1) +
-
+    scale_fill_distiller(palette = "Blues", direction = 1, limits = se_lims) +
     theme_bw() +
     theme(text = element_text(size = 30)) +
     # labs(fill="Thickness (m)")
@@ -176,14 +187,14 @@ real_vel_plot <- ggplot(grid) +
     scale_y_reverse() +
     theme_bw() +
     theme(text = element_text(size = 30)) +
-    scale_fill_distiller(palette = "Reds", direction = 1, limits = c(-5, 5)) +
+    scale_fill_distiller(palette = "Reds", direction = 1, limits = vel_lims) +
     labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")")) +
     ggtitle("Real data")
 
 test_se_plot <- ggplot(grid) +
     geom_tile(aes(space, time, fill = test_se)) +
     scale_y_reverse() +
-    scale_fill_distiller(palette = "Blues", direction = 1) +
+    scale_fill_distiller(palette = "Blues", direction = 1, limits = se_lims) +
     theme_bw() +
     theme(text = element_text(size = 30)) +
     # labs(fill="Thickness (m)")
@@ -195,19 +206,19 @@ test_vel_plot <- ggplot(grid) +
     scale_y_reverse() +
     theme_bw() +
     theme(text = element_text(size = 30)) +
-    scale_fill_distiller(palette = "Reds", direction = 1, limits = c(-5, 5)) +
+    scale_fill_distiller(palette = "Reds", direction = 1, limits = vel_lims) +
     labs(fill = bquote("Velocity (m" ~ a^-1 ~ ")")) +
     ggtitle("Test data")
 
 real_vs_test_plots <- list(test_se_plot, real_se_plot, test_vel_plot, real_vel_plot)
 
-png("./plots/cnn/input/real_vs_test_hovmoller.png", width = 1400, height = 800)
+png(paste0(plot_dir, "real_vs_test_hovmoller.png"), width = 1400, height = 800)
 par(mfrow = c(2,2))
 grid.arrange(grobs = real_vs_test_plots)
 dev.off()
 
-sim <- sample(1:dim(test_input)[1], 1)
-png("./plots/cnn/input/real_vs_test_obs.png", width = 800, height = 600)
+sim <- 1 #sample(1:dim(test_input)[1], 1)
+png(paste0(plot_dir, "real_vs_test_obs.png"), width = 800, height = 600)
 
 par(mfrow = c(2,1))
 matplot(test_input[sim,,,1], col = "grey", type = "l", main = paste0("Simulation ", sim))
@@ -420,7 +431,7 @@ p <- ggplot(data = fric_df, aes(x = domain)) +
     geom_line(aes(y = pred), color = "red", lwd = 1) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
-    # ylim(0, 0.05) +
+    ylim(0, 0.1) +
     labs(x = "Flowline (km)", y = "Friction coefficient") +
     theme_bw()
 
