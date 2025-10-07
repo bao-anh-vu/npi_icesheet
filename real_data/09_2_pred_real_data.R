@@ -26,12 +26,12 @@ save_plots <- T
 log_transform <- T
 test_on_train <- F
 # use_missing_pattern <- T
-correct_model_discrepancy <- T
+correct_model_discrepancy <- F
 leave_one_out <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #51:100 #51:100 #6:20
+sets <- 51:100 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # if (use_missing_pattern) {
@@ -79,15 +79,15 @@ test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$ground
 ## Also load real data
 if (correct_model_discrepancy) {
     surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", data_date, ".qs"))
-    # velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
+    velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
 } else {
     surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
     # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
+    velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 }
-velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
     
-## Plot original and adjusted real data
-    # png("./plots/cnn/input/real_data_adjustment.png", width = 1500, height = 500)
+# Plot original and adjusted real data
+    # png(paste0(plot_dir, "/real_data_adjustment.png"), width = 2000, height = 600, res = 100)
     # par(mfrow = c(1,2))
     # matplot(surf_elev_data, type = "l", lty = 1, col = "grey", main = "Original vs adj surface elevation data")
     # matlines(adj_surf_elev_data, type = "l", lty = 1, col = "salmon")
@@ -164,10 +164,11 @@ grid <- expand.grid(space, time)
 head(grid)
 names(grid) <- c("space", "time")
 
+sim <- sample(1:dim(test_input)[1], 1)
 grid$real_se <- as.vector(real_data[1,,,1])
-grid$test_se <- as.vector(test_input[1,,,1])
+grid$test_se <- as.vector(test_input[sim,,,1])
 grid$real_vel <- as.vector(real_data[1,,,2])
-grid$test_vel <- as.vector(test_input[1,,,2])
+grid$test_vel <- as.vector(test_input[sim,,,2])
 
 se_lims <- range(c(grid$real_se, grid$test_se), na.rm = T)
 vel_lims <- range(c(grid$real_vel, grid$test_vel), na.rm = T)
@@ -217,8 +218,8 @@ par(mfrow = c(2,2))
 grid.arrange(grobs = real_vs_test_plots)
 dev.off()
 
-sim <- 1 #sample(1:dim(test_input)[1], 1)
-png(paste0(plot_dir, "real_vs_test_obs.png"), width = 800, height = 600)
+
+png(paste0(plot_dir, "real_vs_test_obs.png"), width = 800, height = 800, res = 100)
 
 par(mfrow = c(2,1))
 matplot(test_input[sim,,,1], col = "grey", type = "l", main = paste0("Simulation ", sim))
@@ -392,7 +393,8 @@ fric_samples <- exp(fric_basis_mat %*% fric_coefs_ustd)
 ## Transform basis coefficients into bed elevations
 bed_coefs <- pred_samples_ls[(n_fric_basis+1):(n_fric_basis+n_bed_basis), ]
 bed_coefs_ustd <- bed_coefs * test_data$sd_bed_coefs + test_data$mean_bed_coefs
-bed_samples <- bed_basis_mat %*% bed_coefs_ustd + bed_mean
+bed_mean_mat <- matrix(rep(bed_mean, S), nrow = length(bed_mean), ncol = S)
+bed_samples <- bed_basis_mat %*% bed_coefs_ustd + bed_mean_mat
 
 ## Grounding line is a direct output from the CNN
 gl_samples_ls <- pred_samples_ls[(n_fric_basis+n_bed_basis+1):n_mean_elements, ]
@@ -431,7 +433,7 @@ p <- ggplot(data = fric_df, aes(x = domain)) +
     geom_line(aes(y = pred), color = "red", lwd = 1) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
-    ylim(0, 0.1) +
+    ylim(0, 0.5) +
     labs(x = "Flowline (km)", y = "Friction coefficient") +
     theme_bw()
 
@@ -456,12 +458,14 @@ bed_df <- data.frame(domain = domain/1e3,
                      lq = bed_lq, 
                      uq = bed_uq, 
                      pred = pred_bed,
-                     bedmachine = bedmachine$bed_avg)
+                     bedmachine = bedmachine$bed_avg,
+                     prior_mean = bed_mean)
 gl_df <- data.frame(gl = gl_obs/1e3)
 p <- ggplot(data = bed_df, aes(x = domain)) +
     geom_ribbon(aes(ymin = lq, ymax = uq), fill = "grey", alpha = 0.5) +
     geom_line(aes(y = pred), color = "red", lwd = 1) +
     geom_line(aes(y = bedmachine), color = "blue", lwd = 1, lty = 2) +
+    geom_line(aes(y = prior_mean), color = "black", lwd = 1, lty = 3) +
     # geom_point(data = bed_obs_train, aes(x = loc/1e3, y = bed_elev), color = "black", size = 1) +
     # geom_point(data = bed_obs_val, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 1) +
     geom_point(data = bed_obs_df, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 2) +

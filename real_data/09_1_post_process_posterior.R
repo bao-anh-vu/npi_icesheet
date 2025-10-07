@@ -20,13 +20,13 @@ library(dplyr)
 save_pred <- T
 save_plots <- T
 log_transform <- T
-test_on_train <- F 
+test_on_train <- F
 # use_missing_pattern <- T
 leave_one_out <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #6:20
+sets <- 51:100 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -50,6 +50,13 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
     pred_output_dir <- paste0(output_dir, "pred/")
     plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
 # }
+
+if (!dir.exists(plot_dir)) {
+    dir.create(plot_dir)
+}
+if (save_pred & !dir.exists(pred_output_dir)) {
+    dir.create(pred_output_dir)
+}
 
 if (test_on_train) {
     test_data <- qread(file = paste0(data_dir, "train_data_", data_date, ".qs"))
@@ -84,9 +91,9 @@ ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_
 domain <- ssa_steady$domain
 
 ## Bed observations
-bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
-bed_obs_train <- bed_obs_df %>% filter(chosen == 1) 
-bed_obs_val <- bed_obs_df %>% filter(chosen == 0) 
+bed_obs_df <- qread(file = paste0("./data/bedmap/bed_obs_df_all.qs"))
+# bed_obs_train <- bed_obs_df %>% filter(chosen == 1) 
+# bed_obs_val <- bed_obs_df %>% filter(chosen == 0) 
 
 bed_basis <- qread(file = paste0("./data/training_data/bed_basis_", setf, "_", data_date, ".qs"))
 bed_mean <- bed_basis$mean 
@@ -417,8 +424,9 @@ if (save_plots) {
         lines(domain[plot_domain] / 1000, pred_bed[plot_domain, s], lwd = 3, col = "red")
         lines(domain[plot_domain] / 1000, bed_lq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
         lines(domain[plot_domain] / 1000, bed_uq[[s]][plot_domain], lty = 1, lwd = 2, col = "salmon")
-        points(bed_obs_train$loc / 1000, bed_obs_train$bed_elev, col = "black", pch = 16, cex = 2)
-        points(bed_obs_val$loc / 1000, bed_obs_val$bed_elev, col = "cyan", pch = 16, cex = 2)
+        # points(bed_obs_train$loc / 1000, bed_obs_train$bed_elev, col = "black", pch = 16, cex = 2)
+        # points(bed_obs_val$loc / 1000, bed_obs_val$bed_elev, col = "cyan", pch = 16, cex = 2)
+        points(bed_obs_df$loc / 1000, bed_obs_df$bed_elev, col = "black", pch = 16, cex = 2)
         abline(v = true_gl[s, ncol(true_gl)], lty = 2, lwd = 3)
     }
     dev.off()

@@ -42,16 +42,21 @@ source("./source/posterior_loss.R")
 
 ## Read data
 data_date <- "20241111" #"20241103" #"20241103"
-# arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
+# arg <- commandyArgs(trailingOnly = TRUE)
+sets <- 51:100 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-print("Reading data...")
-  train_data_dir <- paste0("./data/training_data", "/", setsf, "/")
-  output_dir <- paste0("./output/cnn/", setsf, "/")
-  plot_dir <- paste0("./plots/cnn/", setsf, "/")
+## Directories
+train_data_dir <- paste0("./data/training_data", "/", setsf, "/")
+output_dir <- paste0("./output/cnn/", setsf, "/")
+plot_dir <- paste0("./plots/cnn/", setsf, "/")
 
+if (!dir.exists(plot_dir)) {
+    dir.create(plot_dir)
+}
+
+print("Reading data...")
 system.time({
   train_data <- qread(file = paste0(train_data_dir, "train_data_", data_date, ".qs"))
   val_data <- qread(file = paste0(train_data_dir, "val_data_", data_date, ".qs"))
@@ -74,18 +79,17 @@ train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$gr
 val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
-png(paste0(plot_dir, "/input_", data_date, ".png"), width = 800, height = 400)
+png(paste0(plot_dir, "input_", data_date, ".png"), width = 800, height = 400)
 par(mfrow = c(1, 2))
 sp <- sample(1:dim(val_input)[1], 1)
 # matplot(train_input[100,,,1], type = "l", col = "grey")
 # matlines(val_input[100,,,1], col = scales::alpha("red", 0.1))
 image(train_input[sp,, ,1], col = terrain.colors(100), main = "Train input example")
 image(val_input[sp,, ,1], col = terrain.colors(100), main = "Val input example")
-legend("topright", legend = c("train", "val"), col = c("grey", "red"), lty = 1)
 dev.off()
 
 sp <- sample(1:dim(val_output)[1], 1)
-png(paste0(plot_dir, "/output_", data_date, ".png"))
+png(paste0(plot_dir, "output_", data_date, ".png"))
 plot(train_output[sp, ], type = "l", col = "grey", 
     main = "Output example", ylab = "Output value", xlab = "Coefficient index")
 lines(val_output[sp, ], col = scales::alpha("red", 0.5))
@@ -129,7 +133,7 @@ if (!dir.exists(output_dir)) {
   unlink(paste0(output_dir, "/*"))
 }
 
-checkpoint_path <- paste0(output_dir, "/checkpoints/cp-{epoch:04d}.ckpt")
+checkpoint_path <- paste0(output_dir, "checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
@@ -165,10 +169,6 @@ if (rerun_cnn) {
 } else {
   model <- load_model_tf(paste0(output_dir, "/model_", data_date))
   history <- qread(file = paste0(output_dir, "/history_", data_date, ".qs"))
-}
-
-if (!dir.exists(plot_dir)) {
-    dir.create(plot_dir)
 }
 
 ## Plot the loss

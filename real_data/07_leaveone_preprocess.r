@@ -48,7 +48,7 @@ leave_one_out <- T
 data_date <- "20241111"
 
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 1#:10
+sets <- 51:100
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 # setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
 
@@ -106,6 +106,7 @@ print("Reading friction data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/friction_arr_", x, "_", data_date, ".qs"))
 fric_list <- lapply(files, qread)
 fric_arr <- abind(fric_list, along = 1)
+
 rm(fric_list)
 
 ## Read basis coefficients data
@@ -140,7 +141,7 @@ gl_arr <- abind(gl_list, along = 1)
 rm(gl_list)
 
 ## Filter out bad simulations (e.g. with very unreasonable values)
-test <- sapply(1:dim(surface_obs_arr)[1], function(i) ifelse(max(surface_obs_arr[i,,,]) > 10000 | min(surface_obs_arr[i,,,]) < -100, 1, 0))
+test <- sapply(1:dim(surface_obs_arr)[1], function(i) ifelse(max(surface_obs_arr[i,,,]) > 10000 | min(surface_obs_arr[i,,,]) < -500, 1, 0))
 bad_sims <- which(test == 1)
 
 if (length(bad_sims) > 0) { 
@@ -155,10 +156,6 @@ if (length(bad_sims) > 0) {
     bed_basis_coefs <- bed_basis_coefs[-bad_sims, ]
     gl_arr <- gl_arr[-bad_sims, ]
 }
-
-curr_mem_usage <- sum(sapply(ls(), function(x) {
-    object.size(get(x))
-})) / 1e09
 
 ## From here on: u = velocity, h = ice thickness
 
@@ -353,7 +350,8 @@ if (save_data) {
 
 test_data <- list(
     input = test_input,
-    input_mean = c(surf_elev_mean, velocity_mean), input_sd = c(surf_elev_sd, velocity_sd),
+    input_mean = c(surf_elev_mean, velocity_mean), 
+    input_sd = c(surf_elev_sd, velocity_sd),
     bed_coefs = bed_basis_coefs_test,
     mean_bed_coefs = mean_bed_coefs,
     sd_bed_coefs = sd_bed_coefs,

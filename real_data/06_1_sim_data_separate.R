@@ -57,9 +57,9 @@ train_data_dir <- "./data/training_data"
 
 ## Presets
 data_date <- "20241111" 
-N <- 1000 # number of simulations per set
+N <- 200 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 50 #50 #:10
+sets <- 11:20 #50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 warmup <- 0
 years <- 11 # number of years data is collected (not including initial condition)
@@ -131,6 +131,11 @@ if (use_basal_melt_data) {
 }
 params$ab <- avg_melt_rate # melt rate (m/s)
 
+## Prior info
+bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
+L <- t(chol(bed_prior$cov))
+mean_mat <- matrix(rep(bed_prior$mean, N), nrow = nrow(bed_prior$mean), ncol = N)
+
 t1 <- proc.time()
 if (regenerate_sims) {
 
@@ -177,11 +182,8 @@ if (regenerate_sims) {
     # bed_sims <- bed_sim_output$sims
     # bed_mean <- bed_sim_output$mean
 
-bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
-L <- t(chol(bed_prior$cov))
-u_mat <- matrix(rnorm(nrow(L) * N), nrow = nrow(L), ncol = N) 
-mean_mat <- matrix(rep(bed_prior$mean, N), nrow = nrow(bed_prior$mean), ncol = N)
-bed_sims <- mean_mat + L %*% u_mat #rnorm(nrow(L) * N)
+    u_mat <- matrix(rnorm(nrow(L) * N), nrow = nrow(L), ncol = N) 
+    bed_sims <- mean_mat + L %*% u_mat #rnorm(nrow(L) * N)
 
     bed_sim_list[[i]] <- bed_sims
     fric_sim_list[[i]] <- fric_sims
@@ -240,12 +242,7 @@ dev.off()
 # dev.off()
 
 # fric_scale <- 1e6 * params$secpera^(1 / params$n)
- param_list <- lapply(1:N, function(r) {
-      list(
-        friction = fric_sims[, r], #* 1e6 * params$secpera^(1 / params$n),
-        bedrock = bed_sims[, r] #+ bed_mean
-      )
- })
+
 
   ## Concatenate the bed simulations and take the mean
   # bed_sims_arr <- abind(bed_sim_list, along = 1)
@@ -253,6 +250,13 @@ dev.off()
     
   ## Generate observations based on the simulated bed and friction
   for (i in 1:length(sets)) {
+
+ param_list <- lapply(1:N, function(r) {
+      list(
+        friction = fric_sim_list[[i]][, r], #* 1e6 * params$secpera^(1 / params$n),
+        bedrock = bed_sim_list[[i]][, r] #+ bed_mean
+      )
+ })
 
     test <- try(
       sim_results <- sim_obs(
@@ -461,6 +465,5 @@ dev.off()
 # matplot(surface_obs_arr[2,,,1], type = "l", col = "grey")
 # matlines(surf_elev_mat, col = "red")
 # dev.off()
-
 
 

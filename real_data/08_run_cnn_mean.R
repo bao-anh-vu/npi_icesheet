@@ -41,16 +41,16 @@ source("./source/create_model.R")
 ## Read data
 data_date <- "20241111"
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 51:60 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 11:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 print("Reading data...")
-if (use_missing_pattern) {
-    train_data_dir <- paste0("./data/training_data", "/", setsf, "/missing/")
-} else {
-    train_data_dir <- paste0("./data/training_data", "/", setsf, "/nonmissing/")
-}
+# if (use_missing_pattern) {
+    train_data_dir <- paste0("./data/training_data", "/", setsf, "/")
+# } else {
+#     train_data_dir <- paste0("./data/training_data", "/", setsf, "/nonmissing/")
+# }
 
 # system.time({
 train_data <- qread(file = paste0(train_data_dir, "train_data_", data_date, ".qs"))

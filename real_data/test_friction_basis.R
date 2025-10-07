@@ -20,7 +20,7 @@ J <- length(domain)
 ## Friction simulations
 set <- 51
 setf <- formatC(set, width = 2, flag = "0")
-fric_sims <- qread(file = paste0(train_data_dir, "/friction_arr_", setf, "_", data_date, ".qs"))
+fric_sims <- qread(file = paste0(train_data_dir, "/fric_sims_", setf, "_", data_date, ".qs"))
 
 ## Fit basis to log(friction)
 lengthscales <- c(2.5e3, 3e3, 4e3, 5e3)
@@ -32,7 +32,7 @@ for (i in seq_along(lengthscales)) {
     output_list[[i]] <- fit_friction_basis(
       nbasis = nbasis,
       domain = domain,
-      fric_arr = fric_sims,
+      fric_arr = t(fric_sims),
       log_transform = T,
       lengthscale = lengthscales[i]
     )
@@ -40,7 +40,7 @@ for (i in seq_along(lengthscales)) {
 
 
 
-sim <- 2
+sim <- 3
 fitted <- lapply(output_list, function(x) exp(x$fitted_values[sim, ]))
 basis_coefs <- lapply(output_list, function(x) x$basis_coefs[sim, ])
 
@@ -50,7 +50,7 @@ plot_domain <- 1:J #1000
 par(mfrow = c(length(lengthscales), 2))
 cols <- RColorBrewer::brewer.pal(n = length(lengthscales), name = "Set1")
 for (i in seq_along(lengthscales)) {
-    plot(domain[plot_domain]/1e3, fric_sims[sim, plot_domain], cex = 1.5,
+    plot(domain[plot_domain]/1e3, t(fric_sims)[sim, plot_domain], cex = 1.5,
     type = "l", main = paste0("Friction basis functions with lengthscale = ", lengthscales[i]/1e3, " km"),
     ylab = "Friction", xlab = "Distance (m)")
     lines(domain[plot_domain]/1e3, fitted[[i]][plot_domain], col  = cols[i], lwd = 2)
