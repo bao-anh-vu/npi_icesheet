@@ -38,17 +38,30 @@ sim_obs <- function(param_list,
                 ini_velocity, ini_thickness, years, warmup,
                 msmt_noise_info) {
 
+        # sim_out <- solve_ssa_nl(
+        #     domain = domain,
+        #     bedrock = param$bedrock,
+        #     friction_coef = param$friction * 1e6 * phys_params$secpera^(1 / phys_params$n),
+        #     phys_params = phys_params,
+        #     ini_velocity = ini_velocity,
+        #     ini_thickness = ini_thickness,
+        #     years = years + warmup,
+        #     steps_per_yr = 100,
+        #     add_process_noise = F
+        # )
+
         sim_out <- solve_ssa_nl(
             domain = domain,
             bedrock = param$bedrock,
             friction_coef = param$friction * 1e6 * phys_params$secpera^(1 / phys_params$n),
             phys_params = phys_params,
-            ini_velocity = ini_velocity,
-            ini_thickness = ini_thickness,
+            ini_velocity = param$ini_velocity,
+            ini_thickness = param$ini_thickness,
             years = years + warmup,
             steps_per_yr = 100,
             add_process_noise = F
         )
+
 
         ## Add noise to surface to obtain surface observations
         surface_obs <- get_obs(sim_out, msmt_noise_info, warmup = warmup)

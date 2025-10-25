@@ -118,50 +118,49 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
 
   ## Basal friction coefficient
 
-  if (!is.null(friction_coef)) {
+  # if (!is.null(friction_coef)) {
     C <- friction_coef
-  } else {
-    C <- 0.020 + 0.015 * sin(5 * 2 * pi * x / L) * sin(100 * 2 * pi * x / L) #757.366 # Basal friction coefficient
-    C <- C * 1e6 * (secpera)^m
-  }
+  # } else {
+  #   C <- 0.020 + 0.015 * sin(5 * 2 * pi * x / L) * sin(100 * 2 * pi * x / L) #757.366 # Basal friction coefficient
+  #   C <- C * 1e6 * (secpera)^m
+  # }
 
   ## Bed topography
-  b <- rep(0, length(x))
-  if (!is.null(bedrock)) {
+  # if (!is.null(bedrock)) {
     b <- bedrock
-  } else {
+  # } else {
 
-    if (variable_bed) {
-      left <- (x <= 450e3)
-      right <- (x > 450e3)
-      b[left] <- - 1100 + x[left] / 1000
-      b[right] <- - 650 - 5 * (x[right] / 1000 - 450)
-      b <- b + 500
-    } else {
-      b <- rep(-650, length(x))
-    }
+  #   if (variable_bed) {
+  #     left <- (x <= 450e3)
+  #     right <- (x > 450e3)
+  #     b[left] <- - 1100 + x[left] / 1000
+  #     b[right] <- - 650 - 5 * (x[right] / 1000 - 450)
+  #     b <- b + 500
+  #   } else {
+  #     b <- rep(-650, length(x))
+  #   }
 
-    if (random_bed) { # Use random midpoint displacement to generate bed roughness
-      set.seed(bed_random_seed)
+  #   if (random_bed) { # Use random midpoint displacement to generate bed roughness
+  #     set.seed(bed_random_seed)
 
-      # Parameters for random midpoint displacement
-      K <- 2
-      br <- rep(0, K)
-      mu <- 0
-      sigma <- 500
-      h <- 0.7
-      reps <- 12
+  #     # Parameters for random midpoint displacement
+  #     K <- 2
+  #     br <- rep(0, K)
+  #     mu <- 0
+  #     sigma <- 500
+  #     h <- 0.7
+  #     reps <- 12
 
-      for (i in 1:reps) {
-        midpoints <- 0.5 * (br[2:length(br)] + br[1:(length(br) - 1)])
-        midpoints <- midpoints + rnorm(length(midpoints), mu, sigma)
-        indices <- seq(2, length(br), 1)
-        br <- insert(br, indices, midpoints)
-        sigma <- sigma / (2^h)
-      }
-      b <- b + br[1:length(b)]
-    }
-  }
+  #     for (i in 1:reps) {
+  #       midpoints <- 0.5 * (br[2:length(br)] + br[1:(length(br) - 1)])
+  #       midpoints <- midpoints + rnorm(length(midpoints), mu, sigma)
+  #       indices <- seq(2, length(br), 1)
+  #       br <- insert(br, indices, midpoints)
+  #       sigma <- sigma / (2^h)
+  #     }
+  #     b <- b + br[1:length(b)]
+  #   }
+  # }
 
   ##################### Boundary conditions ########################
 
@@ -226,7 +225,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
   H_mat[, 1] <- as.vector(H_ini)
   zs_mat[, 1] <- get_surface_elev(H = H_ini, b = b, rho = rho, rho_w = rho_w)
   GL_position[1] <- gl_migrate(H_ini, b, z0, rho, rho_w)
-  
+
   ## Years to save output
   obs_ind <- seq(0, years * steps_per_yr, steps_per_yr) # measure_freq = # times to measure per year
 
@@ -245,16 +244,16 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
         break
       }
     }
-    
-    # # Plot ice geometry every 100 years
-    # if (i == 1 | i %% (steps_per_yr * 100) == 0) {
-      
+   
+    # Plot ice geometry every 100 years
+    # if (i == 1 | i %% (steps_per_yr * 1) == 0) {
+    #   # if (i >= 1) {
     #   cat("Year: ", i/steps_per_yr, "\t")
       
     #   z_curr <- get_surface_elev(H_curr, b, z0, rho, rho_w)
     #   z_b_curr <- z_curr - H_curr
 
-    #   # cat("GL position: ", GL / J * L / 1000,  "\t")
+    #   cat("GL position: ", GL / J * L / 1000,  "\t")
             
     #   if (use_relaxation) {
     #     plot_name <- "z_curr_relax"
@@ -262,8 +261,8 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
     #     plot_name <- "z_curr"
     #   }
 
-    #   png(paste0("./plots/temp/", plot_name, ceiling(i / steps_per_yr), ".png"))
-    #   # png(paste0("./plots/steady_state/z_curr", i, ".png"))
+    #   # png(paste0("./plots/temp/", plot_name, ceiling(i / steps_per_yr), ".png"))
+    #   png(paste0("./plots/temp/z_curr", i, ".png"))
       
     #   par(mfrow = c(2, 1))
       
