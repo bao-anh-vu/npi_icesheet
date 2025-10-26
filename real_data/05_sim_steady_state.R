@@ -71,7 +71,7 @@ bed_basis <- fit_bed_basis(
     )
 bed_sim <- t(bed_basis$fitted_values) + bed_prior$mean
 
-qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
+# qsave(bed_sim, file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
 
 ## Bedmachine data to compare
 bedmachine_data <- qread(paste0("./data/bedmachine/flowline_bedmachine.qs"))
@@ -81,16 +81,42 @@ bedmachine <- bedmachine_data$bed_avg
 bed_obs_df <- qread(file = paste0("./data/bedmap/bed_obs_df_all.qs"))
 
 ## Plot bed
-png(file = paste0("./plots/steady_state/bed_sim_steady_state_", data_date, ".png"), width = 800, height = 600)
-# plot(flowline_dist/1000, bed_sim, type = "l", 
-#     xlab = "Distance along flowline (km)", ylab = "Bed elevation (m)")
-plot(flowline_dist/1000, t(bed_basis$fitted_values) + bed_prior$mean, col = "red", type = "l")
-lines(flowline_dist/1000, bedmachine, col = "blue", lty = 3)
-points(bed_obs_df$dist/1000, bed_obs_df$bed, pch = 16, cex = 0.5)
-legend("topright", legend = c("Simulated bed", "Fitted bed basis", "Bedmachine", "Bed observations"), 
-    col = c("black", "red", "blue", "black"), pch = c(NA, NA, NA, 16), lty = c(1, 2, 3, NA), bty = "n")
+# png(file = paste0("./plots/steady_state/bed_sim_steady_state_", data_date, ".png"), width = 800, height = 600)
+# # plot(flowline_dist/1000, bed_sim, type = "l", 
+# #     xlab = "Distance along flowline (km)", ylab = "Bed elevation (m)")
+# plot(flowline_dist/1000, t(bed_basis$fitted_values) + bed_prior$mean, col = "red", type = "l")
+# lines(flowline_dist/1000, bedmachine, col = "blue", lty = 3)
+# points(bed_obs_df$dist/1000, bed_obs_df$bed, pch = 16, cex = 0.5)
+# legend("topright", legend = c("Simulated bed", "Fitted bed basis", "Bedmachine", "Bed observations"), 
+#     col = c("black", "red", "blue", "black"), pch = c(NA, NA, NA, 16), lty = c(1, 2, 3, NA), bty = "n")
+# dev.off()
+
+## Same plot but in ggplot
+bed_df <- data.frame(
+    dist = flowline_dist/1000,
+    bed_sim = bed_sim,
+    bed_basis = t(bed_basis$fitted_values) + bed_prior$mean,
+    bedmachine = bedmachine
+)
+
+bed_plot <- ggplot() +
+    # geom_line(bed_df, aes(x = dist, y = bed_sim, col = "Simulated bed")) +
+    # geom_line(aes(y = bed_basis, col = "Fitted bed basis")) +
+    # geom_line(aes(y = bedmachine, col = "BedMachine"), linetype = "dashed") +
+    geom_point(data = bed_obs_df, aes(x = loc/1000, y = bed_elev), size = 2) +
+    theme_bw() +
+    xlab("Distance along flowline (km)") +
+    ylab("Bed elevation (m)") +
+    xlim(c(0, 180)) +
+    # scale_color_manual(values = c("Simulated bed" = "black", "Fitted bed basis" = "red", 
+                                #   "Bedmachine" = "blue", "Bed observations" = "black")) +
+    theme(text = element_text(size = 24), legend.title = element_blank())
+
+png(file = paste0("./plots/steady_state/bed_sim_steady_state_", data_date, ".png"), width = 1500, height = 600, res = 150)
+print(bed_plot)
 dev.off()
 
+browser()
 ## Plot basis function coefficients
 png(file = paste0("./plots/steady_state/bed_basis_coefs_steady_state_", data_date, ".png"), width = 800, height = 600)
 plot(t(bed_basis$basis_coefs), type = "l", 
