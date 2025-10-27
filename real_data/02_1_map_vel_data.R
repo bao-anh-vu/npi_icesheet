@@ -38,9 +38,8 @@ years <- 2010:2020
 
 vel_data <- list()
 for (year in years) {
-
     if (reread_data) {
-    cat("Mapping velocity data for year", year, "\n")
+        cat("Mapping velocity data for year", year, "\n")
 
         ## Velocity data
         vel_data <- nc_open(paste0(data_dir, "velocity/ITS_LIVE_velocity_120m_RGI19A_", year, "_v02.nc"))
@@ -87,37 +86,48 @@ for (year in years) {
         thwaites_vel <- qread(paste0(data_dir, "velocity/vel_thwaites_", year, ".qs"))
     }
 
+
+    avg_nearest_four <- function(pos, data, var, delta = 120) {
+        near_pts <- data %>% filter(
+            x >= (pos[1] - delta) & x <= (pos[1] + delta),
+            y >= (pos[2] - delta) & y <= (pos[2] + delta)
+        )
+
+        near_v <- near_pts %>%
+            mutate(dist = sqrt((x - pos[1])^2 + (y - pos[2])^2)) %>%
+            filter(dist > 0) %>%
+            arrange(dist) %>%
+            slice_min(dist, n = 4) %>%
+            # select(var) %>%
+            summarise(v_nearest = .data[[var]][1], v_avg = mean(.data[[var]])) # , vx_avg = mean(vx), vy_avg = mean(vy)) # %>% # take average vx and vx as vx and vy at current position
+        # as.numeric()
+
+        return(near_v)
+    }
+
+## Flowline data
+    flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
+
+    flowline <- na.omit(flowline)
+    flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
+
+## Also map velocity error to flowline
+print("Mapping velocity error to flowline...")
+grid_thwaites <- qread("./data/velocity/vel_thwaites.qs") # "composite" (averaged) vel data
+
+test <- mclapply(flowline_pos, avg_nearest_four, data = grid_thwaites, var = "v_error", mc.cores = 10L) # , mc.cores = 12L)
+vel_err_avg <- sapply(test, function(x) x$v_avg)
+# Range of velocity error is (6.00 1360.75), which is crazy!!
+browser()
+
     if (remap_vel) {
         cat("Mapping velocity to flowline for year ", year, "\n")
         ## Now map velocity to flowline
 
-        avg_nearest_four <- function(pos) {
-            near_pts <- thwaites_vel %>% filter(
-                x >= (pos[1] - delta) & x <= (pos[1] + delta),
-                y >= (pos[2] - delta) & y <= (pos[2] + delta)
-            )
-
-            near_v <- near_pts %>%
-                mutate(dist = sqrt((x - pos[1])^2 + (y - pos[2])^2)) %>%
-                filter(dist > 0) %>%
-                arrange(dist) %>%
-                slice_min(dist, n = 4) %>%
-                select(v) %>%
-                summarise(v_nearest = v[1], v_avg = mean(v)) # , vx_avg = mean(vx), vy_avg = mean(vy)) # %>% # take average vx and vx as vx and vy at current position
-            # as.numeric()
-
-            return(near_v)
-        }
-
-
-        delta <- 120 # grid size 
+        delta <- 120 # grid size
         # flowline <- readRDS(paste0(data_dir, "flowline_regrid.rds"))
-        flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
-
-        flowline <- na.omit(flowline)
-        flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
         t12 <- system.time({
-            velocities <- mclapply(flowline_pos, avg_nearest_four, mc.cores = 10L)
+            velocities <- mclapply(flowline_pos, avg_nearest_four, data = thwaites_vel, var = "v", mc.cores = 10L)
         })
 
         velocities_nearest <- sapply(velocities, function(x) x$v_nearest)
@@ -139,9 +149,11 @@ for (year in years) {
 
     png(paste0("./plots/velocity/vel_flowline_1d_", year, ".png"), width = 800, height = 500)
     # plot(flowline$vel_nearest, type = "l")
-    plot(1:nrow(flowline), flowline$vel_avg, type = "l", 
-    main = paste0("Velocity for ", year), 
-    xlab = "Point along flowline", ylab = "Velocity (m/a)")
+    plot(1:nrow(flowline), flowline$vel_avg,
+        type = "l",
+        main = paste0("Velocity for ", year),
+        xlab = "Point along flowline", ylab = "Velocity (m/a)"
+    )
     abline(v = gl_pos$ind, col = "salmon", lty = 2, lwd = 2)
     dev.off()
 
@@ -181,8 +193,6 @@ for (year in years) {
 
 
 
-
-
 # vel_nearest <- sapply(velocities, function(x) x$v_nearest)
 # vel_avg <- sapply(velocities, function(x) x$v_avg)
 
@@ -214,4 +224,3 @@ for (year in years) {
 #     coord_fixed() +
 #     theme_bw()
 # dev.off()
-

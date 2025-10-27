@@ -21,6 +21,8 @@ data_dir <- "./data"
 # year <- 2000
 flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 J <- nrow(flowline) # number of grid points
+flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
+flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 
 surf_elev_mat <- matrix(NA, nrow = J, ncol = length(years))
 for (i in 1:length(years)) {
@@ -35,11 +37,30 @@ for (i in 1:length(years)) {
 gl_pos <- qread(file = paste0(data_dir, "/grounding_line/gl_pos.qs"))
 gl_ind <- gl_pos$ind
 surf_elev_mat[(gl_ind+1):nrow(surf_elev_mat), ] <- NA
+gl_km <- flowline_dist[gl_ind] / 1000
 
-qsave(surf_elev_mat, "./data/surface_elev/surf_elev_mat.qs")
+# qsave(surf_elev_mat, "./data/surface_elev/surf_elev_mat.qs")
 
-png("./plots/surface_elev/surf_elev_st_plot.png", width = 800, height = 600)
-image(surf_elev_mat)
+## Plot surface elevation using ggplot
+elev_df <- data.frame(dist = rep(flowline_dist/1000, times = length(years)),
+                    year = rep(years, each = nrow(flowline)),
+                    elev = c(surf_elev_mat))
+
+ice_geometry_plot <- ggplot(elev_df, aes(x = dist, y = elev, group = year)) +
+  geom_line(aes(alpha = year), color = "darkcyan") +
+#   scale_alpha(range = c(0.1, 1), guide = 'none') +
+#   geom_line(aes(x = x, y = z_b,  group = year, alpha = year), color = "darkcyan") +
+  scale_alpha(range = c(0.1, 1), guide = 'none') +
+#   geom_hline(yintercept = 0, linetype = "dashed", color = "turquoise") +
+#   geom_line(aes(y = b), color = "black") +
+  labs(x = "Distance along flowline (km)", y = "Surface elevation (m)") +
+  theme_bw() +
+  theme(text = element_text(size = 24)) +
+  xlim(c(0, 180)) 
+#   ylim(c(-1000, 1800)) 
+
+png(paste0("./plots/surface_elev/surf_elev.png"), width = 1500, height = 600, res = 150)
+print(ice_geometry_plot)
 dev.off()
 
 surf_ev_missing_pattern <- ifelse(is.na(surf_elev_mat), 0, 1)

@@ -11,17 +11,18 @@ library(lattice)
 library(sf) # for shapefiles
 # library(sfheaders)
 library(sp)
+library(qs)
 # library(raster)
 
 setwd("~/SSA_model/CNN/real_data/")
 
 reread_data <- T
 
-data_dir <- "./data"
+data_dir <- "./data/"
 
 ## Basin shapefile
 # unzip("./boundaries/Basins_Antarctica_v02.zip", junkpaths = FALSE)
-basin_data <- read_sf(paste0(data_dir, "/boundaries/Basins/Basins_Antarctica_v02.shp"))
+basin_data <- read_sf(paste0(data_dir, "boundaries/Basins/Basins_Antarctica_v02.shp"))
 
 # basin_plot <- ggplot(basin_data) +
 #   geom_sf(fill = "#69b3a2", color = "white") +
@@ -37,11 +38,11 @@ thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 #   geom_sf(color = "black", fill = NA) +
 #   theme_bw()
 
-year <- 0000 # "0000" for the composite velocity data
+year <- "0000" # "0000" for the composite velocity data
 
 if (reread_data) {
   ## Velocity data
-  vel_data <- nc_open(paste0(data_dir, "/velocity/ITS_LIVE_velocity_120m_RGI19A_", year, "_v02.nc"))
+  vel_data <- nc_open(paste0(data_dir, "velocity/ITS_LIVE_velocity_120m_RGI19A_", year, "_v02.nc"))
   ## Print variables and their info
   print(vel_data)
   names(vel_data$var)
@@ -93,12 +94,11 @@ if (reread_data) {
   ## Try filtering grid points in v with coordinates in x_thwaites and y_thwaites
   grid_thwaites <- grid %>% filter(x %in% x_thwaites & y %in% y_thwaites)
 
-  saveRDS(grid_thwaites, file = "./data/vel_thwaites.rds")
+  qsave(grid_thwaites, file = "./data/velocity/vel_thwaites.qs")
 
 } else {
-  grid_thwaites <- readRDS("./data/vel_thwaites.rds")
+  grid_thwaites <- qread("./data/velocity/vel_thwaites.qs")
 }
-
 
 ## Plot velocity data
 plot_thwaites <- ggplot(grid_thwaites) + 
@@ -125,7 +125,7 @@ dev.off()
 # retained_rows <- setdiff(1:nrow(grid_thwaites), removed_rows)
 # thwaites_vel <- grid_thwaites[retained_rows,]
 
-saveRDS(grid_thwaites, file = "./data/thwaites_vel.rds")
+qsave(grid_thwaites, file = "./data/thwaites_vel.qs")
 
 
 

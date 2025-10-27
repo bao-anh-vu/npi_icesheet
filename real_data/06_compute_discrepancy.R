@@ -32,25 +32,26 @@ data_dir <- "./data/"
 data_date <- "20241111" # "20241103"
 
 ## Flags
-use_basal_melt_data <- T
+use_basal_melt_data <- F
 leave_one_out <- T
+nsims <- 1000
 
-## Physical params
-# params <- qread(file = paste0("./data/training_data/phys_params_", data_date, ".qs"))
-# params <- list(
-#     secpera = 31556926, # seconds per annum
-#     n = 3.0, # exponent in Glen's flow law
-#     rho_i = 917.0, # ice density
-#     rho_w = 1028.0, # sea water density
-#     g = 9.81 # gravity constant
-#     # A = 4.227e-25, #1.4579e-25, # flow rate parameter
-# )
+# Physical params
+params <- qread(file = paste0("./data/training_data/phys_params_", data_date, ".qs"))
+params <- list(
+    secpera = 31556926, # seconds per annum
+    n = 3.0, # exponent in Glen's flow law
+    rho_i = 917.0, # ice density
+    rho_w = 1028.0, # sea water density
+    g = 9.81 # gravity constant
+    # A = 4.227e-25, #1.4579e-25, # flow rate parameter
+)
 
-# params$m <- 1 / params$n
-# params$B <- 0.6 * 1e6 * params$secpera^params$m
-# params$A <- params$B^(-params$n)
+params$m <- 1 / params$n
+params$B <- 0.7 * 1e6 * params$secpera^params$m
+params$A <- params$B^(-params$n)
 
-params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
+# params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
 
 
 ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
@@ -83,7 +84,7 @@ if (use_basal_melt_data) {
     # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
     avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
     melt_nonmissing <- which(!is.na(avg_melt_rate))
-    avg_melt_rate[1:(melt_nonmissing[1] - 1)] <- -1 # impose a melt rate of 1 m/a upstream of the first non-missing value
+    avg_melt_rate[1:(melt_nonmissing[1] - 1)] <- -0.1 # impose a melt rate of 1 m/a upstream of the first non-missing value
     avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) # for the remaining part of the shelf just use the last non-missing value
     avg_melt_rate <- -avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
 } else {
@@ -111,9 +112,7 @@ dev.off()
 ######################################
 ##     Simulate bed and friction    ##
 ######################################
-print("Simulating bed and friction coefficient...")
 
-nsims <- 1000
 # sim_param_output <- sim_params(
 #     nsims = nsims, domain = ssa_steady$domain,
 #     bed_obs = bed_obs_df[bed_obs_df$chosen == 1, ]
@@ -198,6 +197,7 @@ sim_out <- sim_obs(
     phys_params = params,
     years = years,
     warmup = warmup,
+    # use_relaxation = T,
     ini_thickness = ssa_steady$current_thickness,
     ini_velocity = ssa_steady$current_velocity,
     smb = smb_avg,
@@ -209,6 +209,7 @@ prior_bad_sims <- sim_out$bad_sims
 if (length(prior_bad_sims) > 0) {
     cat(length(prior_bad_sims), " prior simulations failed \n")
     sim_out$results <- sim_out$results[-prior_bad_sims]
+    nsims <- length(sim_out$results)
 }
 
 generated_data <- process_sim_results(sims = sim_out$results)
@@ -302,6 +303,7 @@ for (s in 1:nsims_plot) {
     matlines(domain / 1000, vel_sims[[s]],
         type = "l", lty = 1, col = rgb(0, 0, 0, 0.25), lwd = 2
     )
+    lines(domain/1000, ssa_steady$current_velocity, col = "blue", lwd = 2)
     abline(v = GL_pos[s], lty = 2, col = "red")
     legend("bottomright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.25), "salmon"), lty = 1, bty = "n")
 }
@@ -335,6 +337,7 @@ for (s in 1:nsims_plot) {
     matlines(domain / 1000, se_sims[[s]],
         type = "l", lty = 1, col = rgb(0, 0, 0, 0.25), lwd = 2
     )
+    lines(domain/1000, ssa_steady$current_top_surface, col = "blue", lwd = 2)
     legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.25), "salmon"), lty = 1, bty = "n")
     abline(v = GL_pos[s], lty = 2, col = "red")
 }

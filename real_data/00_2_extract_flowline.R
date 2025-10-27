@@ -6,7 +6,7 @@ library(ggplot2)
 library(qs)
 
 extract_flowline <- F
-regrid_flowline <- T
+regrid_flowline <- F
 
 ## Read (averaged) velocity data
 setwd("~/SSA_model/CNN/real_data/")
@@ -111,27 +111,28 @@ flowline_x <- sapply(positions, function(x) x[1])
 flowline_y <- sapply(positions, function(x) x[2])
 
 # gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
-gl_thwaites <- qread(paste0(data_dir, "/gl_thwaites.qs"))
+# gl_thwaites <- qread(paste0(data_dir, "/gl_thwaites.qs"))
 
 plot_flowline <- ggplot(vel_thwaites) +
-    geom_point(aes(x = x, y = y, colour = log10(v))) +
+    # geom_point(aes(x = x, y = y, colour = log10(v))) +
+    geom_point(aes(x = x, y = y, colour = v)) +
     scale_colour_distiller(
-      palette = "Reds", direction = 1,
-      # limits = log10(c(1, 2000)),
-      name = "Log-velocity (m/a)"
+      palette = "BuPu", direction = 1,
+      # limits = c(1, 10000),
+      name = "Velocity (m/a)"
     ) +
-    geom_point(data = gl_thwaites, aes(x = X, y = Y), color = "black", size = 0.2) +
+    # geom_point(data = gl_thwaites, aes(x = X, y = Y), color = "black", size = 0.2) +
     geom_sf(data = thwaites_bound, color = "black", fill = NA) +
     geom_point(data = data.frame(chosen_pt), aes(x = x, y = y), color = "black", size = 5) +
     geom_line(data = data.frame(x = flowline_x, y = flowline_y),
-                aes(x = x, y = y), color = "cyan", linewidth = 2) +
+                aes(x = x, y = y), color = "red", linewidth = 2) +
     theme_bw()
 
-# print("Saving flowline plot...")
-# png(paste0("./plots/flowline2.png"), width = 800, height = 800)
-# print(plot_flowline)
+print("Saving flowline plot...")
+png(paste0("./plots/flowline2.png"), width = 800, height = 800, res = 100)
+print(plot_flowline)
 # plot(flowline_x, flowline_y, type = "l", col = "blue", xlab = "x", ylab = "y")
-# dev.off()
+dev.off()
 
 ## Re-grid
 if (regrid_flowline) {

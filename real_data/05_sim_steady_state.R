@@ -42,7 +42,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.8 * 1e6 * params$secpera^params$m
+params$B <- 0.55 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## Flowline data
@@ -56,7 +56,7 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 ## Simulate bed
 # bed_sim <- create_bed(x = flowline_dist)
 # bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
-set.seed(2024)
+set.seed(2025)
 bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
 L <- t(chol(bed_prior$cov))
 bed_sim <- bed_prior$mean + L %*% rnorm(nrow(L))
@@ -80,6 +80,8 @@ bedmachine <- bedmachine_data$bed_avg
 ## BedMap observations 
 bed_obs_df <- qread(file = paste0("./data/bedmap/bed_obs_df_all.qs"))
 
+browser()
+
 ## Plot bed
 # png(file = paste0("./plots/steady_state/bed_sim_steady_state_", data_date, ".png"), width = 800, height = 600)
 # # plot(flowline_dist/1000, bed_sim, type = "l", 
@@ -100,7 +102,7 @@ bed_df <- data.frame(
 )
 
 bed_plot <- ggplot() +
-    # geom_line(bed_df, aes(x = dist, y = bed_sim, col = "Simulated bed")) +
+    geom_line(data = bed_df, aes(x = dist, y = bed_sim, col = "Simulated bed")) +
     # geom_line(aes(y = bed_basis, col = "Fitted bed basis")) +
     # geom_line(aes(y = bedmachine, col = "BedMachine"), linetype = "dashed") +
     geom_point(data = bed_obs_df, aes(x = loc/1000, y = bed_elev), size = 2) +
@@ -116,7 +118,6 @@ png(file = paste0("./plots/steady_state/bed_sim_steady_state_", data_date, ".png
 print(bed_plot)
 dev.off()
 
-browser()
 ## Plot basis function coefficients
 png(file = paste0("./plots/steady_state/bed_basis_coefs_steady_state_", data_date, ".png"), width = 800, height = 600)
 plot(t(bed_basis$basis_coefs), type = "l", 
@@ -162,7 +163,9 @@ length_shelf <- J - length(se_grounded)
 # H_shelf <- se_shelf / (1 - params$rho_i / params$rho_w) # thickness at grounding line based on flotation condition
 # H_shelf <- - bed_sim[(gl_ind+1):J] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
 H_gl <- - bed_sim[(gl_ind+1)] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
-H_shelf <- rep(500, length_shelf) #seq(from = H_gl, to = 500, length.out = length_shelf)
+# H_shelf <- rep(500, length_shelf) 
+H_shelf <- H_gl * exp(-0.002*seq(0, length_shelf-1))
+# H_shelf <- seq(from = H_gl, to = 500, length.out = length_shelf)
 
 # thickness_at_gl <- - bed_sim[gl_ind][1] * params$rho_w / params$rho_i
 # H_shelf <- seq(thickness_at_gl - 1, 500, length.out = length_shelf)
@@ -213,13 +216,16 @@ if (rerun_steady_state) {
                             bedrock = bed_sim, 
                             friction_coef = fric_sim * 1e6 * params$secpera^(1 / params$n), 
                             phys_params = params,
-                            tol = 1e-02, #m/yr 
+                            tol = 1e-03, #m/yr 
                             # years = 100,
                             steps_per_yr = 100, 
                             add_process_noise = F,
                             # thickness_bc = 3500,
                             ini_thickness = H_ini_all,
-                            ini_velocity = vel_curr_smooth
+                            ini_velocity = vel_curr_smooth,
+                            use_relaxation = T,
+                            observed_thickness = H_ini_all,
+                            plot_ice_geometry = T
                         )
 
     qsave(steady_state, file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
@@ -232,21 +238,21 @@ n_years_steady <- ncol(steady_state$all_top_surface) - 1
 png(file = paste0("./plots/steady_state/steady_state_", data_date, ".png"), width = 800, height = 600)
 
 par(mfrow = c(2,1))
-matplot(flowline_dist/1000, steady_state$current_top_surface, type = "l", col = "grey", ylim = c(0, 1500),
+matplot(flowline_dist/1000, steady_state$current_top_surface, type = "l", col = "black", ylim = c(0, 1500),
     xlab = "Distance along flowline (km)", ylab = "Elevation (m)", 
     main = paste0("Steady state after ", n_years_steady, " years"))
 matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
 legend("topright", legend = c(paste0("Simulated steady-state"), "Observed"), 
-    col = c("grey", "red"), lty = 1, bty = "n")
+    col = c("black", "red"), lty = 1, bty = "n")
 
-matplot(flowline_dist/1000, steady_state$current_velocity, type = "l", col = "grey", ylim = c(0, 4000),
+matplot(flowline_dist/1000, steady_state$current_velocity, type = "l", col = "black", ylim = c(0, 4000),
     xlab = "Distance along flowline (km)", ylab = "Velocity (m/a)")
 matlines(flowline_dist/1000, vel_mat, col = "red", lty = 1)
 # lines(flowline_dist/1000, steady_state$current_velocity, col = "salmon")
 # lines(flowline_dist/1000, relaxation$current_velocity, col = "red")
 legend("topleft", legend = c(paste0("Simulated steady-state"), "Observed"), 
-    col = c("grey", "red"), lty = 1, bty = "n")
+    col = c("black", "red"), lty = 1, bty = "n")
 dev.off()
 
 # ## Then start ``thinning'' the ice by using present-day average melt rate

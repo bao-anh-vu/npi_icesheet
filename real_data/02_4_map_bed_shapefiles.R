@@ -6,6 +6,7 @@ library(RColorBrewer)
 library(sp)
 library(sf)
 library(parallel)
+library(qs)
 
 setwd("~/SSA_model/CNN/real_data/")
 

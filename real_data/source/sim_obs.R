@@ -3,12 +3,14 @@ sim_obs <- function(param_list,
                     phys_params, 
                     years = 20,
                     warmup = 0,
+                    use_relaxation = F,
                     # steady_state, 
                     ini_velocity,
                     ini_thickness, 
                     smb = 0.5, # default of 0.5 m/yr
-                    basal_melt = 0#, # default of 0 m/yr
+                    basal_melt = 0 # default of 0 m/yr
                     # log_transform = T
+                    
                     ) { # , bed_obs) {
 
     ## Simulate ice thickness and velocity observations
@@ -55,9 +57,11 @@ sim_obs <- function(param_list,
             bedrock = param$bedrock,
             friction_coef = param$friction * 1e6 * phys_params$secpera^(1 / phys_params$n),
             phys_params = phys_params,
-            ini_velocity = param$ini_velocity,
-            ini_thickness = param$ini_thickness,
+            ini_velocity = ini_velocity,
+            ini_thickness = ini_thickness,
             years = years + warmup,
+            use_relaxation = use_relaxation,
+            observed_thickness = ini_thickness, # this is to hold geometry "fixed" during relaxation
             steps_per_yr = 100,
             add_process_noise = F
         )

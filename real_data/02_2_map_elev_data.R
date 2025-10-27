@@ -32,6 +32,14 @@ gl_thwaites <- qread(paste0(data_dir, "/grounding_line/gl_thwaites.qs"))
 
 # surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/height_thwaites.rds"))
 surf_elev_data <- qread(file = paste0(data_dir, "/surface_elev/height_thwaites.qs"))
+se_err_grid <- qread(paste0(data_dir, "/surface_elev/height_err_thwaites.qs"))
+
+## Flowline data
+delta <- 1920 # grid size
+# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
+flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
+flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
+
 
 ## Map surface elevation data to flowline
 
@@ -57,14 +65,20 @@ years <- 2010:2020
 # test <- surf_elev_data %>% select(x, y, height2013, height2020) %>% 
 #         mutate(height_diff = height2020 - height2013) 
 
+se_err_ls <- list()
+for (i in 1:length(years)) {
+    var <- paste0("err", year)
+    # se_err <- se_err_grid %>% select(x, y, all_of(paste0("err", year)))
+    se_err_ls[[i]] <- lapply(flowline_pos, avg_nearest_four, values = se_err_grid) # , mc.cores = 12L)
+}
+
+qsave(se_err_ls, paste0(data_dir, "/surface_elev/se_err_flowline.qs"))
+
+## Range of error is (0.3170417 1.2102708), so I think it's safe to assume a measurement error sd of about 1m
+
 for (year in years) {
     var <- paste0("height", year)
     cat("Mapping surface elevation data to flowline for", year, "\n")
-
-    delta <- 1920 # grid size
-    # flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-    flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
-    flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
     # gl <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 
@@ -84,15 +98,15 @@ for (year in years) {
     dev.off()
 
     surf_elev <- lapply(flowline_pos, avg_nearest_four, values = annual_surf_elev) #, mc.cores = 12L)
-
     ## where's the ice shelf??
-
+browser()
     png(paste0("./plots/surface_elev/elev_flowline_1d_", year, ".png"), width = 800, height = 500)
     plot(unlist(surf_elev), type = "l")
     dev.off()
 
     # saveRDS(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
     qsave(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".qs"))
+    qsave(se_err, paste0(data_dir, "/surface_elev/surf_elev_err_", year, ".qs"))
 }
 
 

@@ -31,7 +31,7 @@ reread_smb_data <- F
 reread_basal_melt_data <- T
 
 ## Basal melt data
-basal_melt_data <- nc_open(paste0(data_dir, "/basal_melt/NSIDC-0792_19920317-20171216_V01.nc"))
+basal_melt_data <- nc_open(paste0(data_dir, "basal_melt/NSIDC-0792_19920317-20171216_V01.0.nc"))
 print(basal_melt_data)
 
 height_change <- ncvar_get(basal_melt_data, "height_change")

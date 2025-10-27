@@ -17,15 +17,18 @@ library(mvtnorm)
 library(abind)
 # library(ggplot2)
 # library(gridExtra)
-# library(FRK)
+library(FRK)
 library(qs)
 library(parallel)
+library(ggplot2)
+library(tidyr)
+library(gridExtra)
 
 source("./source/sim_obs.R")
 # source("./source/cond_sim_gp.R")
 source("./source/get_ini_thickness.R")
 source("./source/process_sim_results.R")
-# source("./source/fit_basis.R")
+source("./source/fit_basis.R")
 source("./source/surface_elev.R")
 # source("./source/create_params.R")
 # source("./source/create_ref.R")
@@ -38,7 +41,7 @@ source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 
 data_date <- "20241111" # "20241103"
-sets <- 51:100 # 6:20
+sets <- 1:50 # 6:20
 # use_missing_pattern <- T
 use_basal_melt_data <- T
 correct_model_discrepancy <- T
@@ -69,6 +72,7 @@ if (correct_model_discrepancy) {
 
 ## Load real data
 surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+# velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 
 ## Physical params
@@ -116,10 +120,10 @@ surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
 # 0. Read bed observations
 bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
-bed_obs_chosen <- bed_obs_df#[bed_obs_df$chosen == 1, ]
+# bed_obs_chosen <- bed_obs_df#[bed_obs_df$chosen == 1, ]
 
-## Scaling units for friction coefficients
-# fric_scale <- 1e6 * params$secpera^(1 / params$n)
+## BedMachine data for comparison
+bedmachine <- qread("./data/bedmachine/flowline_bedmachine.qs")
 
 ############################################################
 ##      Load posterior samples and compare with prior
@@ -138,6 +142,7 @@ bed_post_mean <- qread(file = paste0(pred_output_dir, "pred_bed_real_", data_dat
 # prior_fric_samples <- t(qread(file = paste0("./data/training_data/friction_arr_", setf, "_", data_date, ".qs")))
 # prior_bed_samples <- t(qread(file = paste0("./data/training_data/bed_arr_", setf, "_", data_date, ".qs")))
 print("Simulating from prior...")
+set.seed(2025)
 n_samples <- 100
 bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
 L <- t(chol(bed_prior$cov))
@@ -148,44 +153,115 @@ prior_bed_samples <- mean_mat + L %*% u_mat
 prior_fric_samples <- simulate_friction2(
       nsim = n_samples, domain = domain) 
 
+## Fit basis functions to prior samples
+n_fric_basis <- 120
+n_bed_basis <- 150
+prior_fric_basis <- fit_friction_basis(
+        nbasis = n_fric_basis,
+        domain = domain,
+        fric_arr = t(prior_fric_samples),
+        log_transform = T,
+        lengthscale = 3e3
+    )
+
+bed_arr_demean <- prior_bed_samples - mean_mat
+
+## Fit basis to de-meaned bedrock
+prior_bed_basis <- fit_bed_basis(
+    nbasis = n_bed_basis, domain = domain,
+    bed_arr = t(bed_arr_demean),
+    lengthscale = 2.5e3
+)
+prior_bed_basis$mean <- bed_prior$mean
+
+prior_fric_samples_basis <- t(exp(prior_fric_basis$fitted_values))
+prior_bed_samples_basis <- t(prior_bed_basis$fitted_values) + mean_mat
+
 ## Create parameter lists for posterior and prior samples
 
 post_param_list <- lapply(1:n_samples, function(r) {
   list(
     friction = post_fric_samples[, r], #* 1e6 * params$secpera^(1 / params$n),
-    bedrock = post_bed_samples[, r] #+ bed_mean
+    bedrock = post_bed_samples[, r]#, #+ bed_mean
+    # ini_thickness = ssa_steady$current_thickness,
+    # ini_velocity = ssa_steady$current_velocity
   )
 })
 
 prior_param_list <- lapply(1:n_samples, function(r) {
   list(
-    friction = prior_fric_samples[, r], #* 1e6 * params$secpera^(1 / params$n),
-    bedrock = prior_bed_samples[, r] #+ bed_mean
+    friction = prior_fric_samples_basis[, r], #* 1e6 * params$secpera^(1 / params$n),
+    bedrock = prior_bed_samples_basis[, r]#,
+    # ini_thickness = ssa_steady$current_thickness,
+    # ini_velocity = ssa_steady$current_velocity
   )
 })
 
 ## Plot prior vs posterior samples
-png(file = paste0(plot_dir, "/posterior_vs_prior_", data_date, ".png"), width = 800, height = 800)
-matplot(post_fric_samples[, 1:3], type = "l", col = "red", main = "Friction samples vs prior simulations", ylab = "Friction coeff (scaled)", xlab = "Sample index")
-matlines(prior_fric_samples[, 1:3], col = "blue")
+png(file = paste0(plot_dir, "posterior_vs_prior_", data_date, ".png"), width = 800, height = 800)
+par(mfrow = c(2, 1))
+sims <- 1:3
+matplot(post_fric_samples[, sims], type = "l", col = "red", main = "Friction samples vs prior simulations", ylab = "Friction coeff (scaled)", xlab = "Sample index")
+matlines(prior_fric_samples_basis[, sims], col = "blue")
 legend("topright", legend = c("Posterior samples", "Prior simulations"), col = c("red", "blue"), lty = 1)
 
-matplot(post_bed_samples[, 1:3], type = "l", col = "red", main = "Bed samples vs prior simulations", ylab = "Bedrock (m)", xlab = "Sample index")
-matlines(prior_bed_samples[, 1:3], col = "blue")
+matplot(post_bed_samples[, sims], type = "l", col = "red", main = "Bed samples vs prior simulations", ylab = "Bedrock (m)", xlab = "Sample index")
+matlines(prior_bed_samples_basis[, sims], col = "blue")
 legend("topright", legend = c("Posterior samples", "Prior simulations"), col = c("red", "blue"), lty = 1)
 dev.off()
 
-# param_mean <- list()
-# param_mean[[1]] <- list(
-#     friction = as.vector(fric_post_mean), #* 1e6 * params$secpera^(1 / params$n),
-#     bedrock = as.vector(bed_post_mean) #+ bed_mean
-# )
+## Same plot but in ggplot
 
-## Plot parameters
-png(filename = paste0(plot_dir, "fric_bed_samples_real_", data_date, ".png"), width = 800, height = 800)
-par(mfrow = c(2, 1))
-plot(post_param_list[[1]]$friction, type = "l", main = "Friction sample", ylab = "Friction coeff (scaled)", xlab = "Sample index")
-plot(post_param_list[[1]]$bedrock, type = "l", main = "Bed sample", ylab = "Friction coeff (scaled)", xlab = "Sample index")
+n_plot_samples <- 10
+prior_fric_df <- data.frame(x = rep(domain/1000, n_plot_samples),
+                      sample = rep(1:n_plot_samples, each = length(domain)),
+                      fric = as.vector(prior_fric_samples_basis[, 1:n_plot_samples]))
+post_fric_df <- data.frame(x = rep(domain/1000, n_plot_samples),
+                      sample = rep(1:n_plot_samples, each = length(domain)),
+                      fric = as.vector(post_fric_samples[, 1:n_plot_samples]))
+# post_fric_df_sample <- post_fric_df %>% filter(sample %in% 1:n_plot_samples)
+# post_fric_df_wide <- pivot_wider(post_fric_df, names_from = sample, values_from = fric, names_prefix = "sample")
+# post_fric_df_long <- pivot_longer(post_fric_df_wide, cols = starts_with("sample"), names_to = "sample", values_to = "fric")
+post_fric_plot <- ggplot() +
+  geom_line(data = prior_fric_df, aes(x = x, y = fric, group = sample), col = "lightblue") +
+  geom_line(data = post_fric_df, aes(x = x, y = fric, group = sample), col = "salmon") +
+  geom_line(alpha = 0.3) +
+  theme_bw() +
+  xlim(c(0, 150)) +
+  xlab("Dist. along flowline (km)") +
+  ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")")) +
+  theme(text = element_text(size = 24))
+
+# png(filename = paste0(plot_dir, "fric_samples_real_gg_", data_date, ".png"), width = 1000, height = 600, res = 150)
+# print(post_fric_plot)
+# dev.off()
+
+prior_bed_df <- data.frame(x = rep(domain/1000, n_plot_samples),
+                      sample = rep(1:n_plot_samples, each = length(domain)),
+                      bed = as.vector(prior_bed_samples_basis[, 1:n_plot_samples]))
+
+post_bed_df <- data.frame(x = rep(domain/1000, n_plot_samples),
+                      sample = rep(1:n_plot_samples, each = length(domain)),
+                      bed = as.vector(post_bed_samples[, 1:n_plot_samples]))
+
+bedmachine_df <- data.frame(x = domain/1000, bed = bedmachine$bed_avg)
+
+# post_bed_df_sample <- post_bed_df %>% filter(sample %in% 1:n_plot_samples)
+
+post_bed_plot <- ggplot() +
+  geom_line(data = prior_bed_df, aes(x = x, y = bed, group = sample), col = "lightblue") +
+  geom_line(data = post_bed_df, aes(x = x, y = bed, group = sample), col = "salmon") +
+  geom_line(data = bedmachine_df, aes(x = x, y = bed), col = "blue", lwd = 1, lty = 2) +
+  geom_point(data = bed_obs_df, aes(x = loc/1000, y = bed_elev), col = "black", size = 2) +
+  theme_bw() +
+  xlim(c(0, 150)) +
+  ylim(c(-1500, -500)) +
+  xlab("Dist. along flowline (km)") +
+  ylab("Bed (m)") +
+  theme(text = element_text(size = 24))
+
+png(filename = paste0(plot_dir, "param_samples_real_gg_", data_date, ".png"), width = 1000, height = 1000, res = 150)
+grid.arrange(grobs = list(post_bed_plot, post_fric_plot), nrow = 2, ncol = 1)
 dev.off()
 
 ############################################################
@@ -203,7 +279,7 @@ post_pred <- sim_obs(
   years = years, # sim_beds = T,
   warmup = warmup,
   ini_thickness = ssa_steady$current_thickness,
-  ini_velocity = velocity_data[, 10],
+  ini_velocity = ssa_steady$current_velocity,
   smb = smb_avg,
   basal_melt = avg_melt_rate
   # log_transform = log_transform
@@ -277,8 +353,11 @@ if (correct_model_discrepancy) {
     }
   }
 
-  
 }
+
+## Save simulated observations
+qsave(prior_pred_obs, file = paste0(pred_output_dir, "prior_pred_obs_", data_date, ".qs"))
+qsave(post_pred_obs, file = paste0(pred_output_dir, "post_pred_obs_", data_date, ".qs"))
 
 ########### Prior & Posterior predictive distributions ##########
 prior_pred_obs_mean <- apply(prior_pred_obs, c(2, 3, 4), mean)
@@ -293,7 +372,7 @@ post_pred_obs_uci <- apply(post_pred_obs, c(2, 3, 4), quantile, probs = 0.975, n
 ### First for surface elevation
 
 se_post_pred_df <- data.frame(
-  domain = rep(domain, years),
+  domain = rep(domain/1000, years),
   year = rep(1:years, each = J),
   obs = as.vector(surf_elev_data),
   prior_mean = as.vector(prior_pred_obs_mean[, , 1]),
@@ -306,7 +385,7 @@ se_post_pred_df <- data.frame(
 
 ## Then for surface velocity
 vel_post_pred_df <- data.frame(
-  domain = rep(domain, years),
+  domain = rep(domain/1000, years),
   year = rep(1:years, each = J),
   obs = as.vector(velocity_data),
   prior_mean = as.vector(prior_pred_obs_mean[, , 2]),
@@ -328,11 +407,36 @@ p1 <- ggplot(se_post_pred_df, aes(x = domain)) +
   # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
   geom_line(aes(y = obs), color = "black", lwd = 0.8) +
   facet_wrap(~ year, ncol = 2) +
-  xlim(0, 150e3) +
-  labs(title = "Prior vs posterior predictive surface elevation by year", y = "Surface elevation (m)", x = "Domain") +
+  xlim(0, 150) +
+  labs(title = "Prior vs posterior predictive surface elevation by year", 
+      y = "Surface elevation (m)", x = "Dist. along flowline (km)") +
   theme_minimal()
 print(p1)
 dev.off()
+
+## Do the same plot, but save each year individually
+yearnum <- 2010:2020
+for (yr in 1:years) {
+
+  se_df <- se_post_pred_df[se_post_pred_df$year == yr, ]
+
+  png(filename = paste0(plot_dir, "post_pred_se_year", formatC(yr, width = 2, flag = "0"), "_", data_date, ".png"), width = 1000, height = 600, res = 150)
+
+  p_yr <- ggplot(se_df, aes(x = domain)) +
+  geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "lightblue", alpha = 0.75) +
+  geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "salmon", alpha = 0.5) +
+  # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
+  geom_line(aes(y = obs), color = "black", lwd = 0.8) +
+  # facet_wrap(~ year, ncol = 2) +
+  xlim(0, 150) +
+  labs(title = paste0("Year ", yearnum[yr]), y = "Surface elevation (m)", x = "Dist. along flowline (km)") +
+  theme_bw() +
+  theme(text = element_text(size = 20))
+  
+  print(p_yr)
+
+  dev.off()
+}
 
 
 ## Same for the velocity
@@ -343,110 +447,36 @@ p2 <- ggplot(vel_post_pred_df, aes(x = domain)) +
   # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
   geom_line(aes(y = obs), color = "black", lwd = 0.8) +
   facet_wrap(~ year, ncol = 2, scales = "free_y") +
-  xlim(0, 150e3) +
+  xlim(0, 150) +
   # ylim(0, 4000) +
-  labs(title = "Prior vs posterior predictive surface velocity", y = "Surface velocity (m/yr)", x = "Domain") +
+  labs(title = "Prior vs posterior predictive surface velocity", 
+      y = "Surface velocity (m/yr)", x = "Dist. along flowline (km)") +
   theme_minimal()
 print(p2)
 dev.off()
 
-# browser()
-# ## Plot simulated surface observations
-# # s <- 1
-# png(filename = paste0(plot_dir, "post_pred_obs_", data_date, ".png"), width = 2000, height = 1500, res = 200)
-# par(mfrow = c(2, 2))
-# matplot(surf_elev_data, ylim = c(0, 1500),
-#   type = "l", lty = 1, col = "salmon",
-#   main = "Prior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
-# )
-# matlines(prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
-# # matlines(prior_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
-# legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
+## Individual plots for each year
+for (yr in 1:years) {
 
-# matplot(velocity_data,
-#   type = "l", lty = 1, col = "salmon",
-#   main = "Prior predictive velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
-# )
-# matlines(prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
-# # matlines(prior_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
+  vel_df <- vel_post_pred_df[vel_post_pred_df$year == yr, ]
 
-# legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
+  png(filename = paste0(plot_dir, "post_pred_vel_year", formatC(yr, width = 2, flag = "0"), "_", data_date, ".png"), width = 1000, height = 600, res = 150)
 
-# ## Plot posterior predictive distribution with discrepancy adjustment
-# matplot(surf_elev_data, ylim = c(0, 1500),
-#   type = "l", lty = 1, col = "salmon",
-#   main = "Posterior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
-# )
-# matlines(post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
-# # matlines(post_pred_obs[s, , , 1], col = rgb(0, 0, 0, 0.3))
-# legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
+  p_yr <- ggplot(vel_df, aes(x = domain)) +
+  geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "lightblue", alpha = 0.75) +
+  geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "salmon", alpha = 0.5) +
+  # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
+  geom_line(aes(y = obs), color = "black", lwd = 0.8) +
+  # facet_wrap(~ year, ncol = 2) +
+  xlim(0, 150) +
+  labs(title = paste0("Year ", yearnum[yr]), y = "Velocity (m/yr)", x = "Dist. along flowline (km)") +
+  theme_bw() +
+  theme(text = element_text(size = 20))
+  
+  print(p_yr)
 
-# matplot(velocity_data,
-#   type = "l", lty = 1, col = "salmon",
-#   main = "Posterior predictive surface velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
-# )
-# matlines(post_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
-# # matlines(post_pred_obs[s, , , 2], col = rgb(0, 0, 0, 0.3))
-# legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
-# dev.off()
-
-# if (correct_model_discrepancy) {
-#   ## Model discrepancy
-#   avg_vel_discr <- qread(file = paste0("./data/discrepancy/avg_vel_discr_", data_date, ".qs"))
-#   avg_se_discr <- qread(file = paste0("./data/discrepancy/avg_se_discr_", data_date, ".qs"))
-
-#   ## Add discrepancy to simulated observations
-#   # post_pred_obs_adj <- post_pred_obs
-#   # prior_pred_obs_adj <- prior_pred_obs
-#   for (s in 1:n_samples) {
-#     # s <- 1
-#     for (t in 1:dim(post_pred_obs)[3]) {
-#       post_pred_obs[s, , t, 1] <- post_pred_obs[s, , t, 1] + avg_se_discr
-#       post_pred_obs[s, , t, 2] <- post_pred_obs[s, , t, 2] + avg_vel_discr
-#       prior_pred_obs[s, , t, 1] <- prior_pred_obs[s, , t, 1] + avg_se_discr
-#       prior_pred_obs[s, , t, 2] <- prior_pred_obs[s, , t, 2] + avg_vel_discr
-#     }
-#   }
-
-#   ## Average over posterior samples
-#   post_pred_obs_mean <- apply(post_pred_obs, c(2, 3, 4), mean)
-#   prior_pred_obs_mean <- apply(prior_pred_obs, c(2, 3, 4), mean)
-
-#   ## Compare prior and posterior predictive distributions with discrepancy adjustment
-#   png(filename = paste0(plot_dir, "adj_post_pred_surface_obs_", data_date, ".png"), width = 2000, height = 1500, res = 200)
-
-#   ## Plot prior predictive distribution with discrepancy adjustment
-#   par(mfrow = c(2, 2))
-#   matplot(surf_elev_data,
-#     type = "l", lty = 1, col = "salmon",
-#     main = "Prior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
-#   )
-#   matlines(prior_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
-#   legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
-
-#   matplot(velocity_data,
-#     type = "l", lty = 1, col = "salmon",
-#     main = "Prior predictive velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
-#   )
-#   matlines(prior_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
-#   legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
-
-#   ## Plot posterior predictive distribution with discrepancy adjustment
-#   matplot(surf_elev_data,
-#     type = "l", lty = 1, col = "salmon",
-#     main = "Posterior predictive surface elevation", ylab = "Surface elevation (m)", xlab = "Domain"
-#   )
-#   matlines(post_pred_obs_mean[, , 1], col = rgb(0, 0, 0, 0.3))
-#   legend("topright", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
-
-#   matplot(velocity_data,
-#     type = "l", lty = 1, col = "salmon",
-#     main = "Posterior predictive surface velocity", ylab = "Surface velocity (m/yr)", xlab = "Domain"
-#   )
-#   matlines(post_pred_obs_mean[, , 2], col = rgb(0, 0, 0, 0.3))
-#   legend("topleft", legend = c("Simulated", "Observed"), col = c(rgb(0, 0, 0, 0.3), "salmon"), lty = 1)
-#   dev.off()
-# }
+  dev.off()
+}
 
 ## Compute RMSE
 rmse <- function(obs, sim) {

@@ -5,7 +5,7 @@
 solve_thickness <- function(velocity, thickness, domain, bed, include_GL = TRUE, fixed_H0 = FALSE,
                             M_variable = FALSE, M_bueler = FALSE,
                             secpera = 31556926, steps_per_yr = 100,
-                            use_relaxation = FALSE, #relax_thickness = NULL,
+                            # use_relaxation = FALSE, #relax_thickness = NULL,
                             relax_rate = 0, as = 0.5, ab = 0) {
   
   u <- velocity

@@ -6,10 +6,11 @@ library(CFtime)
 library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
-library(lattice) 
+library(lattice)
 library(sf) # for shapefiles
 # library(sfheaders)
 library(sp)
+library(qs)
 library(parallel)
 
 setwd("~/SSA_model/CNN/real_data/")
@@ -22,7 +23,7 @@ thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
 
 ## Grounding line data
-gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
+gl_thwaites <- qread(paste0(data_dir, "/grounding_line/gl_thwaites.qs"))
 
 ## Surface elevation change data
 surf_elev_data <- nc_open(paste0(data_dir, "/surface_elev/ANT_G1920_GroundedIceHeight_v01.nc"))
@@ -56,9 +57,12 @@ height_arr <- ncvar_get(surf_elev_data, dname)
 fillvalue <- ncatt_get(surf_elev_data, dname,"_FillValue")
 height_arr[height_arr==fillvalue$value] <- NA
 
+
 dim(height_arr)
 height_grid <- expand.grid(x = x, y = y)
 height_grid$height <- as.vector(height_arr)
+
+height_err_grid <- height_grid
 
 ## Filter height data to Thwaites glacier
 xmin <- min(x) # min(thwaites_points$X)
@@ -89,12 +93,17 @@ dev.off()
 # Get height change data
 dname <- "height_change"
 height_change_arr <- ncvar_get(surf_elev_data, dname)
+
 # dlname <- ncatt_get(surf_elev_data, dname,"long_name")
 # dunits <- ncatt_get(surf_elev_data, dname, "units")
 fillvalue <- ncatt_get(surf_elev_data, dname,"_FillValue")
 
-dim(height_array)
+# dim(height_array)
 height_change_arr[height_change_arr==fillvalue$value] <- NA
+
+## Measurement error
+height_error <- ncvar_get(surf_elev_data, "height_change_rmse")
+height_error[height_error==fillvalue$value] <- NA
 
 time_2000 <- time_cf %>% filter(year >= 2000)
 data_from_2000 <- height_change_arr[,, time_2000$row]
@@ -105,6 +114,10 @@ yearly_height_change <- lapply(year_ind, function(x) {
     height_change_arr[,, x]
 })
 
+yearly_height_err <- lapply(year_ind, function(x) {
+    height_error[,, x]
+})
+
 # dim(yearly_height[[1]])
 # test <- apply(yearly_height[[1]], 1:2, mean, na.rm = TRUE)
 
@@ -112,12 +125,24 @@ height_change_list <- mclapply(yearly_height_change, function(x) {
     apply(x, 1:2, mean, na.rm = TRUE)
 }, mc.cores = 12L)
 
-# saveRDS(height_list, file = paste0(data_dir, "/surface_elev/height_change_thwaites.rds"))
+height_error_list <- mclapply(yearly_height_err, function(x) {
+    apply(x, 1:2, mean, na.rm = TRUE)
+}, mc.cores = 12L)
 
 for (year in 1:length(year_ind)) {
     height_grid[, ncol(height_grid) + 1] <- as.vector(height_change_list[[year]])
 }
+
 colnames(height_grid)[4:ncol(height_grid)] <- paste0("change", 2000:2020)
+
+for (year in 1:length(year_ind)) {
+    height_err_grid[, ncol(height_err_grid) + 1] <- as.vector(height_error_list[[year]])
+}
+colnames(height_err_grid)[4:ncol(height_err_grid)] <- paste0("err", 2000:2020)
+# height_err_grid <- qread(paste0(data_dir, "/surface_elev/height_err_thwaites.qs"))
+
+# height_err_thwaites <- height_err_grid %>% filter(x %in% x_thwaites & y %in% y_thwaites)
+# qsave(height_err_thwaites, file = paste0(data_dir, "/surface_elev/height_err_thwaites.qs"))
 
 test <- na.omit(height_grid)
 
@@ -136,9 +161,9 @@ height_change_plot <- height_change_thwaites %>%
         coord_equal() + 
         theme_bw() #+
 
-png(paste0("./plots/surface_elev/height_change_thwaites", year, ".png"), width = 800, height = 800)
-print(height_change_plot)
-dev.off()
+# png(paste0("./plots/surface_elev/height_change_thwaites", year, ".png"), width = 800, height = 800)
+# print(height_change_plot)
+# dev.off()
 
 # saveRDS(height_change_thwaites, file = paste0(data_dir, "/surface_elev/height_change_thwaites.rds"))
 add_height <- function(change, height) {
@@ -155,7 +180,7 @@ height_thwaites <- rename_with(
   starts_with("change")
 )
 
-# saveRDS(height_thwaites, file = paste0(data_dir, "/surface_elev/height_thwaites.rds"))
+qsave(height_thwaites, file = paste0(data_dir, "/surface_elev/height_thwaites.qs"))
 
 
 height_plot <- height_thwaites %>% ggplot() + geom_point(aes(x = x, y = y, colour = .data[[var]])) + 

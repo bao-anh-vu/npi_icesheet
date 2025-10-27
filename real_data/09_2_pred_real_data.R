@@ -26,12 +26,12 @@ save_plots <- T
 log_transform <- T
 test_on_train <- F
 # use_missing_pattern <- T
-correct_model_discrepancy <- F
+correct_model_discrepancy <- T
 leave_one_out <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 #51:100 #51:100 #6:20
+sets <- 1:50 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # if (use_missing_pattern) {
@@ -76,15 +76,19 @@ if (leave_one_out) {
 
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
+surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
+
 ## Also load real data
 if (correct_model_discrepancy) {
     surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", data_date, ".qs"))
     velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
-} else {
-    surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
-    # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
-    velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
-}
+} 
+# else {
+#     surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+#     # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
+#     velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
+# }
     
 # Plot original and adjusted real data
     # png(paste0(plot_dir, "/real_data_adjustment.png"), width = 2000, height = 600, res = 100)
@@ -428,16 +432,19 @@ fric_df <- data.frame(domain = domain/1e3,
                       uq = fric_uq, 
                       pred = pred_fric)
 gl_df <- data.frame(gl = gl_obs/1e3)
-p <- ggplot(data = fric_df, aes(x = domain)) +
-    geom_ribbon(aes(ymin = lq, ymax = uq), fill = "grey", alpha = 0.5) +
+fric_p <- ggplot(data = fric_df, aes(x = domain)) +
+    geom_ribbon(aes(ymin = lq, ymax = uq), fill = "salmon", alpha = 0.5) +
     geom_line(aes(y = pred), color = "red", lwd = 1) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
-    ylim(0, 0.5) +
+    # ylim(0, 0.5) +
     labs(x = "Flowline (km)", y = "Friction coefficient") +
-    theme_bw()
+    theme_bw() +
+    theme(text = element_text(size = 30))
 
-ggsave(filename = paste0(plot_dir, "pred_fric_real_ggplot.png"), plot = p, width = 10, height = 5)
+png(filename = paste0(plot_dir, "pred_fric_real_ggplot.png"), width = 1000, height = 500, res = 100)
+print(fric_p)
+dev.off()
 
 ## Validate against the rest of the bed obs
 bed_obs_df <- qread(file = "./data/bedmap/bed_obs_df_all.qs")
@@ -461,21 +468,36 @@ bed_df <- data.frame(domain = domain/1e3,
                      bedmachine = bedmachine$bed_avg,
                      prior_mean = bed_mean)
 gl_df <- data.frame(gl = gl_obs/1e3)
-p <- ggplot(data = bed_df, aes(x = domain)) +
-    geom_ribbon(aes(ymin = lq, ymax = uq), fill = "grey", alpha = 0.5) +
-    geom_line(aes(y = pred), color = "red", lwd = 1) +
-    geom_line(aes(y = bedmachine), color = "blue", lwd = 1, lty = 2) +
-    geom_line(aes(y = prior_mean), color = "black", lwd = 1, lty = 3) +
-    # geom_point(data = bed_obs_train, aes(x = loc/1e3, y = bed_elev), color = "black", size = 1) +
-    # geom_point(data = bed_obs_val, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 1) +
-    geom_point(data = bed_obs_df, aes(x = loc/1e3, y = bed_elev), color = "cyan", size = 2) +
+
+bed_p <- ggplot(data = bed_df, aes(x = domain)) +
+    geom_ribbon(aes(ymin = lq, ymax = uq), fill = "salmon", alpha = 0.5) +
+    geom_line(aes(y = pred, color = "Predicted bed"), lwd = 1) +
+    geom_line(aes(y = prior_mean, color = "Prior mean"), lwd = 1, lty = 3) +
+    geom_line(aes(y = bedmachine, color = "BedMachine"), lwd = 1, lty = 2) +
+    geom_point(data = bed_obs_df, aes(x = loc/1e3, y = bed_elev, color = "Observations"), size = 2) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
     ylim(-1500, -500) +
-    labs(x = "Flowline (km)", y = "Elevation (m)") +
-    theme_bw()
+    labs(x = "Flowline (km)", y = "Elevation (m)", color = "") +
+    scale_color_manual(
+        values = c(
+            "Predicted bed" = "red",
+            "Prior mean" = "black",
+            "BedMachine" = "blue",
+            "Observations" = "black"
+        )
+    ) +
+    theme_bw() +
+    theme(
+        text = element_text(size = 30),
+        legend.position = "bottom"   # 👈 Move legend to bottom
+    )
 
-ggsave(filename = paste0(plot_dir, "pred_bed_real_ggplot.png"), plot = p, width = 10, height = 5)
+
+# ggsave(filename = paste0(plot_dir, "pred_bed_real_ggplot.png"), plot = p, width = 10, height = 5)
+png(filename = paste0(plot_dir, "pred_bed_real_ggplot.png"), width = 1000, height = 600, res = 100)
+print(bed_p)
+dev.off()
 
 
 # if (save_pred) {

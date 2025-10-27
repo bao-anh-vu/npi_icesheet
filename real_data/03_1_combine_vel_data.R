@@ -44,10 +44,10 @@ velocity_arr <- abind(velocities_truncated, along = 2)
 
 qsave(velocity_arr, "./data/velocity/all_velocity_arr.qs")
 
-png("./plots/velocity/velocity_arr.png", width = 750, height = 500)
-matplot(velocity_arr, col = "grey", type = "l")
-abline(v = gl_ind, col = "black", lty = 2)
-dev.off()
+# png("./plots/velocity/velocity_arr.png", width = 750, height = 500)
+# matplot(velocity_arr, col = "grey", type = "l")
+# abline(v = gl_ind, col = "black", lty = 2)
+# dev.off()
 
 ###################################################
 ##  Smooth velocity data using median polishing  ##
@@ -111,11 +111,43 @@ for (i in 1:length(smooth_years)) {
 
 vel_smoothed2 <- cbind(vel_smoothed[, 1:3], velocity_arr[, 4:ncol(velocity_arr)])
 
-## Manually "mask" some unreliable velocity values in 2010 and 2011
-# vel_smoothed2[1:500, 1] <- NA # discard first 500 grid points in 2010 as the values seem unreliable
-vel_smoothed2[, 1:2] <- NA # discard 2011 data as well
+## Plot velocity for individual years
+plots <- list()
+n_years <- length(years)
+for (i in 1:n_years) {
+    year <- years[i]
+    vel_df <- data.frame(x = flowline_dist / 1000, 
+                        vel = velocity_arr[, i], 
+                        vel_smooth = vel_smoothed2[, i])
+    p <- ggplot(vel_df, aes(x = x, y = vel)) +
+        geom_line(color = "black") +
+        # geom_line(aes(y = vel_smooth), color = "salmon") +
+        # xlim(c(0, 150)) +
+        theme_bw() +
+        labs(x = "Distance along flowline (km)", y = "Velocity (m/yr)") +
+        ggtitle(paste("Velocity in", year)) 
+    plots[[i]] <- p
+
+    png(paste0("./plots/velocity/vel_yr_", year, ".png"), width = 1000, height = 600, res = 200)
+    print(p)
+    dev.off()
+
+}
 
 qsave(vel_smoothed2, "./data/velocity/vel_smoothed.qs")
+browser()
+######################################
+##          Data masking            ## 
+######################################
+
+if (censor_data) { # mask data after GL
+    vel_smoothed2[(gl_ind + 1):J, ] <- NA
+    # velocity_arr[(gl_ind + 1):J, ] <- NA
+    ## Manually "mask" some unreliable velocity values in 2010 and 2011
+    # vel_smoothed2[1:500, 1] <- NA # discard first 500 grid points in 2010 as the values seem unreliable
+    vel_smoothed2[, 1:2] <- NA # mask 2010-2011 data as well due to noisy observations
+    
+}
 
 png("./plots/velocity/vel_smoothed.png", width = 750, height = 500)
 matplot(velocity_arr, col = "grey", type = "l")
@@ -148,14 +180,10 @@ png("./plots/velocity/vel_st_plot.png", width = 800, height = 600)
 print(vel_st_plot)
 dev.off()
 
+
 ###############################
 ##  Extract missing pattern  ##
 ###############################
-if (censor_data) { # mask data after GL
-    vel_smoothed2[(gl_ind + 1):J, ] <- NA
-    # velocity_arr[(gl_ind + 1):J, ] <- NA
-    
-}
 
 vel_missing_pattern <- ifelse(is.na(vel_smoothed2), 0, 1)
 qsave(vel_missing_pattern, "./data/velocity/missing_pattern.qs")
