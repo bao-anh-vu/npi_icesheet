@@ -106,10 +106,10 @@ for (year in years) {
     }
 
 ## Flowline data
-    flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
+flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
 
-    flowline <- na.omit(flowline)
-    flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
+flowline <- na.omit(flowline)
+flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
 ## Also map velocity error to flowline
 print("Mapping velocity error to flowline...")
@@ -118,6 +118,16 @@ grid_thwaites <- qread("./data/velocity/vel_thwaites.qs") # "composite" (average
 test <- mclapply(flowline_pos, avg_nearest_four, data = grid_thwaites, var = "v_error", mc.cores = 10L) # , mc.cores = 12L)
 vel_err_avg <- sapply(test, function(x) x$v_avg)
 # Range of velocity error is (6.00 1360.75), which is crazy!!
+
+## Plot error along flowline
+png(paste0("./plots/velocity/avg_vel_error_flowline.png"), width = 800, height = 500)
+plot(1:nrow(flowline), vel_err_avg,
+    type = "l",
+    main = paste0("Velocity error along flowline for ", year),
+    xlab = "Point along flowline", ylab = "Velocity error (m/a)"
+)
+dev.off()
+
 browser()
 
     if (remap_vel) {

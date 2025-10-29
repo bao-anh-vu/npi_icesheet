@@ -43,7 +43,7 @@ source("./source/posterior_loss.R")
 ## Read data
 data_date <- "20241111" #"20241103" #"20241103"
 # arg <- commandyArgs(trailingOnly = TRUE)
-sets <- 1:50 #c(1,3,5) #11:15 #6:10 #arg
+sets <- 101:150 #c(1,3,5) #11:15 #6:10 #arg
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -137,7 +137,7 @@ checkpoint_path <- paste0(output_dir, "checkpoints/cp-{epoch:04d}.ckpt")
 # checkpoint_dir <- fs::path_dir(checkpoint_path)
 
 batch_size <- 64
-epochs <- 30
+epochs <- 50
 
 if (rerun_cnn) {
   print("Training CNN...")

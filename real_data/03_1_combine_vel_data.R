@@ -134,8 +134,10 @@ for (i in 1:n_years) {
 
 }
 
+vel_smoothed2[, 1:2] <- NA # discard 2010-2011 data as well due to noisy observations
+    
 qsave(vel_smoothed2, "./data/velocity/vel_smoothed.qs")
-browser()
+
 ######################################
 ##          Data masking            ## 
 ######################################
@@ -145,9 +147,9 @@ if (censor_data) { # mask data after GL
     # velocity_arr[(gl_ind + 1):J, ] <- NA
     ## Manually "mask" some unreliable velocity values in 2010 and 2011
     # vel_smoothed2[1:500, 1] <- NA # discard first 500 grid points in 2010 as the values seem unreliable
-    vel_smoothed2[, 1:2] <- NA # mask 2010-2011 data as well due to noisy observations
     
 }
+
 
 png("./plots/velocity/vel_smoothed.png", width = 750, height = 500)
 matplot(velocity_arr, col = "grey", type = "l")

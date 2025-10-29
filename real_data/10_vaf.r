@@ -36,7 +36,7 @@ dev.off()
 ## Now do the same but for bed and posterior predicted elevation data
 
 data_date <- "20241111" # "20241103"
-sets <- 1:50 #51:100 # 6:20
+sets <- 101:150 #51:100 # 6:20
 # use_missing_pattern <- T
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T
@@ -182,4 +182,21 @@ print(vaf_change_plot)
 dev.off()
 
 ## Calculate actual VAF using observed surface elevation data
-# surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+
+## but we don't have the true bed...
+## so maybe compare the change in height to observed change in height?
+obs_se_change <- surf_elev_data[, 2:years] - surf_elev_data[, 1:(years - 1)]
+avg_obs_se_change <- rowMeans(obs_se_change, na.rm = T)
+
+total_obs_se_change <- surf_elev_data[, years] - surf_elev_data[, 1]
+## Calculate mean predicted change in surface elevation from posterior samples
+# mean_post_se <- apply(post_se_samples, c(2, 3), mean)
+# pred_se_change <- mean_post_se[, 2:years] - mean_post_se[,
+
+## Plot avg observed change in surface elevation
+png(paste0(plot_dir, "avg_obs_se_change_", data_date, ".png"), width = 800, height = 600, res = 100)
+plot(domain/1e3, avg_obs_se_change, type = "b", pch = 16,
+     xlab = "Year", ylab = "Average observed change in surface elevation (m)",
+     main = "Average observed change in surface elevation over time")
+dev.off()

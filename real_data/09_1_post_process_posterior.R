@@ -26,7 +26,7 @@ leave_one_out <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #6:20
+sets <- 101:150 #6:20
 # setf <- formatC(set, width=2, flag="0")
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 

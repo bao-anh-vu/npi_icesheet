@@ -39,9 +39,10 @@ source("./source/get_surface_obs.R")
 # source("./source/simulate_bed.R")
 source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
+source("./source/comparison_metrics.R")
 
 data_date <- "20241111" # "20241103"
-sets <- 1:50 # 6:20
+sets <- 101:150 # 6:20
 # use_missing_pattern <- T
 use_basal_melt_data <- T
 correct_model_discrepancy <- T
@@ -143,7 +144,7 @@ bed_post_mean <- qread(file = paste0(pred_output_dir, "pred_bed_real_", data_dat
 # prior_bed_samples <- t(qread(file = paste0("./data/training_data/bed_arr_", setf, "_", data_date, ".qs")))
 print("Simulating from prior...")
 set.seed(2025)
-n_samples <- 100
+n_samples <- 1000
 bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
 L <- t(chol(bed_prior$cov))
 u_mat <- matrix(rnorm(nrow(L) * n_samples), nrow = nrow(L), ncol = n_samples) 
@@ -329,29 +330,47 @@ post_pred_obs <- post_pred_out$surface_obs_arr
 # post_pred_se_uci <- apply(post_pred_se, c(2, 3), quantile, probs = 0.975)
 
 if (correct_model_discrepancy) {
+
+  if (avg_over_time) {
+    file_tag <- "avg_"
+  } else {
+      file_tag <- ""
+  }
+
   ## Model discrepancy
-  avg_vel_discr <- qread(file = paste0("./data/discrepancy/avg_vel_discr_", data_date, ".qs"))
-  avg_se_discr <- qread(file = paste0("./data/discrepancy/avg_se_discr_", data_date, ".qs"))
+  vel_discr <- qread(file = paste0("./data/discrepancy/", file_tag, "vel_discr_", data_date, ".qs"))
+  se_discr <- qread(file = paste0("./data/discrepancy/", file_tag, "se_discr_", data_date, ".qs"))
+
+  # qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
+  # qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
 
   ## Add discrepancy to simulated observations
-  # post_pred_obs_adj <- post_pred_obs
-  # prior_pred_obs_adj <- prior_pred_obs
-
   for (s in 1:length(prior_pred$results)) {
-    # s <- 1
-    for (t in 1:dim(prior_pred_obs)[3]) {
-      prior_pred_obs[s, , t, 1] <- prior_pred_obs[s, , t, 1] + avg_se_discr
-      prior_pred_obs[s, , t, 2] <- prior_pred_obs[s, , t, 2] + avg_vel_discr
-    }
+      prior_pred_obs[s, , , 1] <- prior_pred_obs[s, , t, 1] + se_discr
+      prior_pred_obs[s, , , 2] <- prior_pred_obs[s, , t, 2] + vel_discr
   }
   
   for (s in 1:length(post_pred$results)) {
     # s <- 1
-    for (t in 1:dim(post_pred_obs)[3]) {
-      post_pred_obs[s, , t, 1] <- post_pred_obs[s, , t, 1] + avg_se_discr
-      post_pred_obs[s, , t, 2] <- post_pred_obs[s, , t, 2] + avg_vel_discr
-    }
+      post_pred_obs[s, , , 1] <- post_pred_obs[s, , , 1] + se_discr
+      post_pred_obs[s, , , 2] <- post_pred_obs[s, , , 2] + vel_discr
   }
+
+  # for (s in 1:length(prior_pred$results)) {
+  #   # s <- 1
+  #   for (t in 1:dim(prior_pred_obs)[3]) {
+  #     prior_pred_obs[s, , t, 1] <- prior_pred_obs[s, , t, 1] + se_discr
+  #     prior_pred_obs[s, , t, 2] <- prior_pred_obs[s, , t, 2] + vel_discr
+  #   }
+  # }
+  
+  # for (s in 1:length(post_pred$results)) {
+  #   # s <- 1
+  #   for (t in 1:dim(post_pred_obs)[3]) {
+  #     post_pred_obs[s, , t, 1] <- post_pred_obs[s, , t, 1] + se_discr
+  #     post_pred_obs[s, , t, 2] <- post_pred_obs[s, , t, 2] + vel_discr
+  #   }
+  # }
 
 }
 
@@ -373,7 +392,7 @@ post_pred_obs_uci <- apply(post_pred_obs, c(2, 3, 4), quantile, probs = 0.975, n
 
 se_post_pred_df <- data.frame(
   domain = rep(domain/1000, years),
-  year = rep(1:years, each = J),
+  year = rep(2010 + 0:(years-1), each = J),
   obs = as.vector(surf_elev_data),
   prior_mean = as.vector(prior_pred_obs_mean[, , 1]),
   prior_lci = as.vector(prior_pred_obs_lci[, , 1]),
@@ -386,7 +405,7 @@ se_post_pred_df <- data.frame(
 ## Then for surface velocity
 vel_post_pred_df <- data.frame(
   domain = rep(domain/1000, years),
-  year = rep(1:years, each = J),
+  year = rep(2010 + 0:(years-1), each = J),
   obs = as.vector(velocity_data),
   prior_mean = as.vector(prior_pred_obs_mean[, , 2]),
   prior_lci = as.vector(prior_pred_obs_lci[, , 2]),
@@ -410,13 +429,14 @@ p1 <- ggplot(se_post_pred_df, aes(x = domain)) +
   xlim(0, 150) +
   labs(title = "Prior vs posterior predictive surface elevation by year", 
       y = "Surface elevation (m)", x = "Dist. along flowline (km)") +
-  theme_minimal()
+  theme_bw() + 
+  theme(text = element_text(size = 20))
 print(p1)
 dev.off()
 
 ## Do the same plot, but save each year individually
 yearnum <- 2010:2020
-for (yr in 1:years) {
+for (yr in yearnum) {
 
   se_df <- se_post_pred_df[se_post_pred_df$year == yr, ]
 
@@ -429,7 +449,7 @@ for (yr in 1:years) {
   geom_line(aes(y = obs), color = "black", lwd = 0.8) +
   # facet_wrap(~ year, ncol = 2) +
   xlim(0, 150) +
-  labs(title = paste0("Year ", yearnum[yr]), y = "Surface elevation (m)", x = "Dist. along flowline (km)") +
+  labs(title = paste0("Year ", yr), y = "Surface elevation (m)", x = "Dist. along flowline (km)") +
   theme_bw() +
   theme(text = element_text(size = 20))
   
@@ -451,12 +471,13 @@ p2 <- ggplot(vel_post_pred_df, aes(x = domain)) +
   # ylim(0, 4000) +
   labs(title = "Prior vs posterior predictive surface velocity", 
       y = "Surface velocity (m/yr)", x = "Dist. along flowline (km)") +
-  theme_minimal()
+  theme_bw() +
+  theme(text = element_text(size = 20))
 print(p2)
 dev.off()
 
 ## Individual plots for each year
-for (yr in 1:years) {
+for (yr in yearnum) {
 
   vel_df <- vel_post_pred_df[vel_post_pred_df$year == yr, ]
 
@@ -469,7 +490,7 @@ for (yr in 1:years) {
   geom_line(aes(y = obs), color = "black", lwd = 0.8) +
   # facet_wrap(~ year, ncol = 2) +
   xlim(0, 150) +
-  labs(title = paste0("Year ", yearnum[yr]), y = "Velocity (m/yr)", x = "Dist. along flowline (km)") +
+  labs(title = paste0("Year ", yr), y = "Velocity (m/yr)", x = "Dist. along flowline (km)") +
   theme_bw() +
   theme(text = element_text(size = 20))
   
@@ -479,9 +500,9 @@ for (yr in 1:years) {
 }
 
 ## Compute RMSE
-rmse <- function(obs, sim) {
-  sqrt(mean((obs - sim)^2, na.rm = T))
-}
+# rmse <- function(obs, sim) {
+#   sqrt(mean((obs - sim)^2, na.rm = T))
+# }
 
 prior_se_rmse <- rmse(se_post_pred_df$obs, se_post_pred_df$prior_mean)
 prior_vel_rmse <- rmse(vel_post_pred_df$obs, vel_post_pred_df$prior_mean)
@@ -497,3 +518,48 @@ rmse_df <- data.frame(
 
 ## Save as a .csv file
 write.csv(rmse_df, file = paste0(plot_dir, "rmse_summary_", data_date, ".csv"), row.names = F)
+
+
+## Compute CRPS
+
+### Extract all final-year surface elevation obs from posterior predictive simulations
+prior_pred_se_final <- prior_pred_obs[, , years, 1]
+post_pred_se_final <- post_pred_obs[, , years, 1] 
+obs_se_final <- surf_elev_data[, years]
+
+### Discard observation locations with missing data
+valid_locs <- which(!is.na(obs_se_final))
+prior_pred_se_final <- prior_pred_se_final[, valid_locs]
+post_pred_se_final <- post_pred_se_final[, valid_locs]
+obs_se_final <- obs_se_final[valid_locs]
+
+prior_crps_se_fin <- crps_multivariate(prior_pred_se_final,
+                                obs_se_final)
+post_crps_se_fin <- crps_multivariate(post_pred_se_final,
+                              obs_se_final)
+
+## Now calculate CRPS for velocity
+prior_pred_vel_final <- prior_pred_obs[, , years, 2]
+post_pred_vel_final <- post_pred_obs[, , years, 2]
+obs_vel_final <- velocity_data[, years]
+
+### Discard observation locations with missing data
+valid_locs_vel <- valid_locs #which(!is.na(obs_vel_final))
+prior_pred_vel_final <- prior_pred_vel_final[, valid_locs_vel]
+post_pred_vel_final <- post_pred_vel_final[, valid_locs_vel]
+obs_vel_final <- obs_vel_final[valid_locs_vel]
+
+prior_crps_vel_fin <- crps_multivariate(prior_pred_vel_final,
+                                obs_vel_final)
+post_crps_vel_fin <- crps_multivariate(post_pred_vel_final,
+                              obs_vel_final)
+
+## Collect CRPS into a data frame
+crps_df <- data.frame(
+  Pred = c("Prior", "Posterior"),
+  surface_elev_CRPS = c(prior_crps_se_fin, post_crps_se_fin),
+  velocity_CRPS = c(prior_crps_vel_fin, post_crps_vel_fin)
+)
+
+## Save as a .csv file
+write.csv(crps_df, file = paste0(plot_dir, "crps_summary_", data_date, ".csv"), row.names = F)

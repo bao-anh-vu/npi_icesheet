@@ -42,7 +42,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.55 * 1e6 * params$secpera^params$m
+params$B <- 0.5 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## Flowline data
@@ -79,8 +79,6 @@ bedmachine <- bedmachine_data$bed_avg
 
 ## BedMap observations 
 bed_obs_df <- qread(file = paste0("./data/bedmap/bed_obs_df_all.qs"))
-
-browser()
 
 ## Plot bed
 # png(file = paste0("./plots/steady_state/bed_sim_steady_state_", data_date, ".png"), width = 800, height = 600)
@@ -153,7 +151,9 @@ gl_ind <- gl_pos$ind
 surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs") # this is on grounded ice only
 
 ## Initial thickness
-se_grounded <- na.omit(rowMeans(surf_elev_mat)) # Use surface elevation in the year 2000 to initialise ice thickness
+# se_grounded <- na.omit(rowMeans(surf_elev_mat)) # Use surface elevation in the year 2000 to initialise ice thickness
+se_grounded <- na.omit(surf_elev_mat[, 1]) # Use surface elevation in the year 2000 to initialise ice thickness
+
 H_ini <- se_grounded - bed_sim[1:length(se_grounded)]
 length_shelf <- J - length(se_grounded)
 

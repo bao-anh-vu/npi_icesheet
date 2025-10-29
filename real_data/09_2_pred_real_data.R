@@ -27,11 +27,12 @@ log_transform <- T
 test_on_train <- F
 # use_missing_pattern <- T
 correct_model_discrepancy <- T
+avg_over_time <- F
 leave_one_out <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #51:100 #51:100 #6:20
+sets <- 101:150 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # if (use_missing_pattern) {
@@ -81,8 +82,14 @@ velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 
 ## Also load real data
 if (correct_model_discrepancy) {
-    surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", data_date, ".qs"))
-    velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", data_date, ".qs"))
+    if (avg_over_time) {
+    file_tag <- "avg_"
+    } else {
+        file_tag <- ""
+    }
+
+    surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
+    velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
 } 
 # else {
 #     surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
@@ -222,17 +229,21 @@ par(mfrow = c(2,2))
 grid.arrange(grobs = real_vs_test_plots)
 dev.off()
 
-
+## Compare real data and test data for some simulations
 png(paste0(plot_dir, "real_vs_test_obs.png"), width = 800, height = 800, res = 100)
+nsims <- 4
+test_sims <- sample(1:dim(test_input)[1], nsims)
+par(mfrow = c(nsims, 2))
 
-par(mfrow = c(2,1))
-matplot(test_input[sim,,,1], col = "grey", type = "l", main = paste0("Simulation ", sim))
-matlines(real_data[1,,,1], col = "salmon")
-legend("topright", legend = c("test data", "real data"), col = c("grey", "salmon"), lty = 1)
+for (sim in test_sims) {
+    matplot(test_input[sim,,,1], col = "grey", type = "l", main = paste0("Simulation ", sim))
+    matlines(real_data[1,,,1], col = "salmon")
+    legend("topright", legend = c("test data", "real data"), col = c("grey", "salmon"), lty = 1)
 
-matplot(test_input[sim,,,2], col = "grey", type = "l", main = paste0("Simulation ", sim))
-matlines(real_data[1,,,2], col = "salmon")
-legend("topright", legend = c("test data", "real data"), col = c("grey", "salmon"), lty = 1)
+    matplot(test_input[sim,,,2], col = "grey", type = "l", main = paste0("Simulation ", sim))
+    matlines(real_data[1,,,2], col = "salmon")
+    legend("topright", legend = c("test data", "real data"), col = c("grey", "salmon"), lty = 1)
+}
 dev.off()
 
 ## Load the model
