@@ -296,7 +296,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       ## else apply relaxation throughout
 
       if (use_relaxation) {
-        tau <- 1 # relaxation "speed", the higher this is, the slower the relaxation
+        tau <- 2 # relaxation "speed", the higher this is, the slower the relaxation
         relax_rate <- (observed_thickness - H_curr) / tau # m/yr
       }
 

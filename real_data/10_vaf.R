@@ -40,6 +40,7 @@ sets <- 101:150 #51:100 # 6:20
 # use_missing_pattern <- T
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T
+avg_over_time <- T
 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -48,8 +49,13 @@ output_dir <- paste0("./output/cnn/", setsf, "/")
 
 ## Directories
 if (correct_model_discrepancy) {
-    pred_output_dir <- paste0(output_dir, "pred/discr/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
+    if (avg_over_time) {
+        pred_output_dir <- paste0(output_dir, "pred/discr_avg/")
+        plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr_avg/")
+    } else {
+        pred_output_dir <- paste0(output_dir, "pred/discr/")
+        plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
+    }
 } else {
     pred_output_dir <- paste0(output_dir, "pred/")
     plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")

@@ -27,7 +27,7 @@ log_transform <- T
 test_on_train <- F
 # use_missing_pattern <- T
 correct_model_discrepancy <- T
-avg_over_time <- F
+avg_over_time <- T
 leave_one_out <- T
 
 ## Read data
@@ -35,25 +35,30 @@ data_date <- "20241111" #"20241103"
 sets <- 101:150 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
-# if (use_missing_pattern) {
-#     data_dir <- paste0("./data/training_data/", setsf, "/")
-#     output_dir <- paste0("./output/cnn/", setsf, "/")
-#     plot_dir <- paste0("./plots/cnn/", setsf, "/")
-# } else {
-#     data_dir <- paste0("./data/training_data/", setsf, "/non")
-#     output_dir <- paste0("./output/cnn/", setsf, "/non")
-#     plot_dir <- paste0("./plots/cnn/", setsf, "/non")
-# }
 data_dir <- paste0("./data/training_data/", setsf, "/")
 output_dir <- paste0("./output/cnn/", setsf, "/")
 
 ## Save predictions
 if (correct_model_discrepancy) {
-    pred_output_dir <- paste0(output_dir, "pred/discr/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
+    if (avg_over_time) {
+        pred_output_dir <- paste0(output_dir, "pred/discr_avg/")
+        plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr_avg/")
+    } else {
+        pred_output_dir <- paste0(output_dir, "pred/discr/")
+        plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
+    }
+    
 } else {
     pred_output_dir <- paste0(output_dir, "pred/")
     plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
+}
+
+if (!dir.exists(plot_dir)) {
+    dir.create(plot_dir)
+}
+
+if (!dir.exists(pred_output_dir)) {
+    dir.create(pred_output_dir)
 }
 
 ## Domain data
@@ -77,37 +82,41 @@ if (leave_one_out) {
 
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
+## Load real surface observations (just use the first 10 years, leave the last for OOS forecast)
 surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 
-## Also load real data
-if (correct_model_discrepancy) {
-    if (avg_over_time) {
-    file_tag <- "avg_"
-    } else {
-        file_tag <- ""
-    }
-
-    surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
-    velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
-} 
-# else {
-#     surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
-#     # velocity_data <- qread(file = "./data/velocity/all_velocity_arr.qs")
-#     velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
-# }
-    
-# Plot original and adjusted real data
-    # png(paste0(plot_dir, "/real_data_adjustment.png"), width = 2000, height = 600, res = 100)
-    # par(mfrow = c(1,2))
-    # matplot(surf_elev_data, type = "l", lty = 1, col = "grey", main = "Original vs adj surface elevation data")
-    # matlines(adj_surf_elev_data, type = "l", lty = 1, col = "salmon")
-    # matplot(velocity_data, type = "l", lty = 1, col = "grey", main = "Original vs adj velocity data")
-    # matlines(adj_velocity_data, type = "l", lty = 1, col = "salmon")
-    # dev.off()
-
 surf_elev_data <- surf_elev_data[, 1:n_years]
 velocity_data <- velocity_data[, 1:n_years]
+
+## Adjust real data if correcting for model discrepancy
+if (correct_model_discrepancy) {
+
+    ## Model discrepancy
+    vel_discr <- qread(file = paste0("./data/discrepancy/vel_discr_", data_date, ".qs"))
+    se_discr <- qread(file = paste0("./data/discrepancy/se_discr_", data_date, ".qs"))
+
+    avg_vel_discr <- rowMeans(vel_discr, na.rm = T)
+    avg_se_discr <- rowMeans(se_discr, na.rm = T)
+    if (avg_over_time) { # just use average discrepancy for all years
+        vel_discr_mat <- matrix(rep(avg_vel_discr, n_years), nrow = length(avg_vel_discr), ncol = n_years)
+        se_discr_mat <- matrix(rep(avg_se_discr, n_years), nrow = length(avg_se_discr), ncol = n_years)
+    } else { 
+        # use yearly discrepancy, except for the one year that was left out for validation 
+        # (just use the avg discrepancy over the first 10 years for that 11th year)
+        # vel_discr_mat <- cbind(vel_discr, avg_vel_discr)
+        # se_discr_mat <- cbind(se_discr, avg_se_discr)
+        vel_discr_mat <- vel_discr
+        se_discr_mat <- se_discr
+    }
+
+    ## Adjust real data
+    surf_elev_data <- surf_elev_data - se_discr_mat
+    velocity_data <- velocity_data - vel_discr_mat
+
+    # surf_elev_data <- qread(file = paste0("./data/surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
+    # velocity_data <- qread(file = paste0("./data/velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
+} 
 
 ## Replace NA values in real_data with 0
 surf_elev_data[is.na(surf_elev_data)] <- 0

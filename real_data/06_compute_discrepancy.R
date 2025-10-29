@@ -32,10 +32,10 @@ data_dir <- "./data/"
 data_date <- "20241111" # "20241103"
 
 ## Flags
-use_basal_melt_data <- T
+use_basal_melt_data <- F
 leave_one_out <- T
 nsims <- 100#0
-avg_over_time <- F
+avg_over_time <- T
 
 # Physical params
 # params <- qread(file = paste0("./data/training_data/phys_params_", data_date, ".qs"))
@@ -49,11 +49,10 @@ avg_over_time <- F
 # )
 
 # params$m <- 1 / params$n
-# params$B <- 0.7 * 1e6 * params$secpera^params$m
+# params$B <- 0.5 * 1e6 * params$secpera^params$m
 # params$A <- params$B^(-params$n)
 
 params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
-
 
 ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
 domain <- ssa_steady$domain
@@ -199,7 +198,7 @@ sim_out <- sim_obs(
     phys_params = params,
     years = years,
     warmup = warmup,
-    # use_relaxation = T,
+    use_relaxation = T,
     ini_thickness = ssa_steady$current_thickness,
     ini_velocity = ssa_steady$current_velocity,
     smb = smb_avg,
@@ -371,110 +370,113 @@ dev.off()
 
 years <- dim(vel_mat)[2]
     
-if (avg_over_time) {
-    ## Find average discrepancy (over simulations and over time)
-    vel_discr_concat <- do.call(cbind, vel_discr)
-    avg_vel_discr <- rowMeans(vel_discr_concat, na.rm = T)
-    se_discr_concat <- do.call(cbind, se_discr)
-    avg_se_discr <- rowMeans(se_discr_concat, na.rm = T)
+# if (avg_over_time) {
+    # ## Find average discrepancy (over simulations and over time)
+    # vel_discr_concat <- do.call(cbind, vel_discr)
+    # avg_vel_discr <- rowMeans(vel_discr_concat, na.rm = T)
+    # se_discr_concat <- do.call(cbind, se_discr)
+    # avg_se_discr <- rowMeans(se_discr_concat, na.rm = T)
 
-    vel_discr_mat <- matrix(rep(avg_vel_discr, years), nrow = J, ncol = years)
-    se_discr_mat <- matrix(rep(avg_se_discr, years), nrow = J, ncol = years)
+    # vel_discr_mat <- matrix(rep(avg_vel_discr, years), nrow = J, ncol = years)
+    # se_discr_mat <- matrix(rep(avg_se_discr, years), nrow = J, ncol = years)
 
-} else {
+# } else {
     ## Find average discrepancy (over simulations) for each year
     vel_discr_mat <- Reduce("+", vel_discr) / length(vel_discr)
     se_discr_mat <- Reduce("+", se_discr) / length(se_discr)
 
-    ## For the 11th year, just use the average discrepancy from the previous years
-    avg_vel_discr <- rowMeans(vel_discr_mat, na.rm = T)
-    avg_se_discr <- rowMeans(se_discr_mat, na.rm = T)
-    vel_discr_mat <- cbind(vel_discr_mat, avg_vel_discr)
-    se_discr_mat <- cbind(se_discr_mat, avg_se_discr)
-}
-
-adj_se_mat <- surf_elev_mat - se_discr_mat
-adj_vel_mat <- vel_mat - vel_discr_mat
+    # ## For the 11th year, just use the average discrepancy from the previous years
+    # avg_vel_discr <- rowMeans(vel_discr_mat, na.rm = T)
+    # avg_se_discr <- rowMeans(se_discr_mat, na.rm = T)
+    # vel_discr_mat <- cbind(vel_discr_mat, avg_vel_discr)
+    # se_discr_mat <- cbind(se_discr_mat, avg_se_discr)
+# }
 
 ## Save discrepancy
-if (avg_over_time) {
-    file_tag <- "avg_"
-} else {
-    file_tag <- ""
-}
+# if (avg_over_time) {
+#     file_tag <- "avg_"
+# } else {
+#     file_tag <- ""
+# }
 
-qsave(vel_discr_mat, file = paste0(data_dir, "discrepancy/", file_tag, "vel_discr_", data_date, ".qs"))
-qsave(se_discr_mat, file = paste0(data_dir, "discrepancy/", file_tag, "se_discr_", data_date, ".qs"))
+qsave(vel_discr_mat, file = paste0(data_dir, "discrepancy/vel_discr_", data_date, ".qs"))
+qsave(se_discr_mat, file = paste0(data_dir, "discrepancy/se_discr_", data_date, ".qs"))
 
-# Save adjusted observed data
-qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
-qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
+
+#################################################
+# adj_se_mat <- surf_elev_mat - se_discr_mat
+# adj_vel_mat <- vel_mat - vel_discr_mat
+
+# # Save adjusted observed data
+# qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
+# qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
 
 ## Plot the average discrepancy
-pdf(file = paste0("./plots/discr/adjusted_obs_", file_tag, data_date, ".pdf"), width = 15, height = 20, pointsize = 18)
-
-par(mfrow = c(2, 1), cex = 1.5)
-matplot(domain / 1000, vel_discr_mat,
-    type = "l", col = cols, lwd = 2,
-    # cex = 2,
-    xlab = "Distance along flowline (km)", ylab = "Average velocity discrepancy (m/yr)",
-    main = "Average velocity discrepancy"
-)
-abline(h = 0, col = "grey", lty = 2)
-abline(v = gl, lty = 2)
-
+# pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 15, height = 20, pointsize = 18)
+png(file = paste0("./plots/discr/avg_discrepancy_", data_date, ".png"), width = 800, height = 1000, res = 150)
+par(mfrow = c(2, 1))
 matplot(domain / 1000, se_discr_mat,
     type = "l", col = cols, lwd = 2,
     # cex = 2,
-    xlab = "Distance along flowline (km)", ylab = "Average surface elevation discrepancy (m)",
+    xlab = "Distance along flowline (km)", ylab = "Discrepancy (m)",
     main = "Average surface elevation discrepancy"
 )
 abline(h = 0, col = "grey", lty = 2)
 abline(v = gl, lty = 2)
+
+matplot(domain / 1000, vel_discr_mat,
+    type = "l", col = cols, lwd = 2,
+    # cex = 2,
+    xlab = "Distance along flowline (km)", ylab = "Discrepancy (m/yr)",
+    main = "Average velocity discrepancy"
+)
+abline(h = 0, col = "grey", lty = 2)
+abline(v = gl, lty = 2)
+dev.off()
 
 ## Plot observed data minus discrepancy
 
 # png(file = paste0("./plots/discr/vel_obs_minus_discr_", data_date, ".png"), width = 800, height = 600)
 # pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 10, height = 20)
 
-par(mfrow = c(nsims_plot / 2, 2))
-for (s in 1:nsims_plot) {
-    matplot(domain / 1000, vel_sims[[s]],
-        type = "l", col = "black", lwd = 2,
-        ylim = c(0, 4000),
-        xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)",
-        main = "(Adjusted) observed vs simulated velocity"
-    )
-    matlines(domain / 1000, vel_mat - vel_discr_mat,
-        type = "l", col = "salmon", lwd = 2
-    )
-    legend("topright",
-        legend = c("Simulated", "Observed - avg discrepancy"),
-        col = c("grey", "salmon"), lwd = 2, bty = "n"
-    )
-    abline(v = gl, lty = 2)
-}
+# par(mfrow = c(nsims_plot / 2, 2))
+# for (s in 1:nsims_plot) {
+#     matplot(domain / 1000, vel_sims[[s]],
+#         type = "l", col = "black", lwd = 2,
+#         ylim = c(0, 4000),
+#         xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)",
+#         main = "(Adjusted) observed vs simulated velocity"
+#     )
+#     matlines(domain / 1000, vel_mat - vel_discr_mat,
+#         type = "l", col = "salmon", lwd = 2
+#     )
+#     legend("topright",
+#         legend = c("Simulated", "Observed - avg discrepancy"),
+#         col = c("grey", "salmon"), lwd = 2, bty = "n"
+#     )
+#     abline(v = gl, lty = 2)
+# }
+# # dev.off()
+
+# ## Same plots for the surface elevation
+# # pdf(file = paste0("./plots/discr/adjusted_se_obs_", data_date, ".pdf"), width = 15, height = 20)
+
+
+# par(mfrow = c(nsims_plot / 2, 2))
+# for (s in 1:nsims_plot) {
+#     matplot(domain / 1000, se_sims[[s]],
+#         type = "l", col = "black", lwd = 2,
+#         ylim = c(0, 1600),
+#         xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)",
+#         main = "(Adjusted) observed vs simulated surface elevation"
+#     )
+#     matlines(domain / 1000, adj_se_mat,
+#         type = "l", col = "salmon", lwd = 2
+#     )
+#     legend("topright",
+#         legend = c("Simulated", "Observed - avg discrepancy"),
+#         col = c("grey", "salmon"), lwd = 2, bty = "n"
+#     )
+#     abline(v = gl, lty = 2)
+# }
 # dev.off()
-
-## Same plots for the surface elevation
-# pdf(file = paste0("./plots/discr/adjusted_se_obs_", data_date, ".pdf"), width = 15, height = 20)
-
-
-par(mfrow = c(nsims_plot / 2, 2))
-for (s in 1:nsims_plot) {
-    matplot(domain / 1000, se_sims[[s]],
-        type = "l", col = "black", lwd = 2,
-        ylim = c(0, 1600),
-        xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)",
-        main = "(Adjusted) observed vs simulated surface elevation"
-    )
-    matlines(domain / 1000, adj_se_mat,
-        type = "l", col = "salmon", lwd = 2
-    )
-    legend("topright",
-        legend = c("Simulated", "Observed - avg discrepancy"),
-        col = c("grey", "salmon"), lwd = 2, bty = "n"
-    )
-    abline(v = gl, lty = 2)
-}
-dev.off()

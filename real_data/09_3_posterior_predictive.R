@@ -41,31 +41,29 @@ source("./source/simulate_friction.R")
 source("./source/azm_cond_sim.R")
 source("./source/comparison_metrics.R")
 
+## Flags/settings
 data_date <- "20241111" # "20241103"
 sets <- 101:150 # 6:20
 # use_missing_pattern <- T
 use_basal_melt_data <- T
-correct_model_discrepancy <- T
+correct_model_discrepancy <- F
+avg_over_time <- T
+n_samples <- 100#0
 
+## Directories
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
-
-# if (use_missing_pattern) {
-#   data_dir <- paste0("./data/training_data/", setsf, "/missing/")
-#   output_dir <- paste0("./output/cnn/", setsf, "/missing/")
-#   plot_dir <- paste0("./plots/cnn/", setsf, "/missing/")
-# } else {
-#   data_dir <- paste0("./data/training_data/", setsf, "/nonmissing/")
-#   output_dir <- paste0("./output/cnn/", setsf, "/nonmissing/")
-#   plot_dir <- paste0("./plots/cnn/", setsf, "/nonmissing/")
-# }
 
 data_dir <- paste0("./data/training_data/", setsf, "/")
 output_dir <- paste0("./output/cnn/", setsf, "/")
 
-## Directories
 if (correct_model_discrepancy) {
-    pred_output_dir <- paste0(output_dir, "pred/discr/")
-    plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
+    if (avg_over_time) {
+        pred_output_dir <- paste0(output_dir, "pred/discr_avg/")
+        plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr_avg/")
+    } else {
+        pred_output_dir <- paste0(output_dir, "pred/discr/")
+        plot_dir <- paste0("./plots/cnn/", setsf, "/pred/discr/")
+    }
 } else {
     pred_output_dir <- paste0(output_dir, "pred/")
     plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
@@ -76,50 +74,18 @@ surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 # velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 
-## Physical params
-# params <- list(
-#   secpera = 31556926, # seconds per annum
-#   n = 3.0, # exponent in Glen's flow law
-#   rho_i = 917.0, # ice density
-#   rho_w = 1028.0, # sea water density
-#   g = 9.81 # gravity constant
-#   # A = 4.227e-25, #1.4579e-25, # flow rate parameter
-# )
-
-# params$m <- 1 / params$n
-# params$B <- 0.6 * 1e6 * params$secpera^params$m
-# params$A <- params$B^(-params$n)
-
-# ## SMB data
-# smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
-# smb_avg <- colMeans(smb_data_racmo, na.rm = T)
-# params$as <- smb_avg # surface accumulation rate (m/s)
-
-# ## Basal melt data
-# if (use_basal_melt_data) {
-#   melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
-#   # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
-#   avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
-#   melt_nonmissing <- which(!is.na(avg_melt_rate))
-#   avg_melt_rate[1:(melt_nonmissing[1] - 1)] <- -1 # impose a melt rate of 1 m/a upstream of the first non-missing value
-#   avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) # for the remaining part of the shelf just use the last non-missing value
-#   avg_melt_rate <- -avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
-# } else {
-#   avg_melt_rate <- rep(0, J)
-# }
-# params$ab <- avg_melt_rate # melt rate (m/s)
-
+# Load physical parameters (SMB, basal melt rate, etc.)
 params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
 
-# 0. Load ice sheet at steady state
+# Load ice sheet at steady state
 ssa_steady <- qread(file = paste0("./data/training_data/steady_state/steady_state_", data_date, ".qs"))
 domain <- ssa_steady$domain
 J <- length(domain)
 
-# 0. Load surface elevation data
+# Load surface elevation data
 surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
-# 0. Read bed observations
+# Read bed observations
 bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
 # bed_obs_chosen <- bed_obs_df#[bed_obs_df$chosen == 1, ]
 
@@ -144,7 +110,7 @@ bed_post_mean <- qread(file = paste0(pred_output_dir, "pred_bed_real_", data_dat
 # prior_bed_samples <- t(qread(file = paste0("./data/training_data/bed_arr_", setf, "_", data_date, ".qs")))
 print("Simulating from prior...")
 set.seed(2025)
-n_samples <- 1000
+
 bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
 L <- t(chol(bed_prior$cov))
 u_mat <- matrix(rnorm(nrow(L) * n_samples), nrow = nrow(L), ncol = n_samples) 
@@ -331,46 +297,33 @@ post_pred_obs <- post_pred_out$surface_obs_arr
 
 if (correct_model_discrepancy) {
 
-  if (avg_over_time) {
-    file_tag <- "avg_"
-  } else {
-      file_tag <- ""
-  }
-
   ## Model discrepancy
-  vel_discr <- qread(file = paste0("./data/discrepancy/", file_tag, "vel_discr_", data_date, ".qs"))
-  se_discr <- qread(file = paste0("./data/discrepancy/", file_tag, "se_discr_", data_date, ".qs"))
+  vel_discr <- qread(file = paste0("./data/discrepancy/vel_discr_", data_date, ".qs"))
+  se_discr <- qread(file = paste0("./data/discrepancy/se_discr_", data_date, ".qs"))
 
-  # qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
-  # qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
+  avg_vel_discr <- rowMeans(vel_discr, na.rm = T)
+  avg_se_discr <- rowMeans(se_discr, na.rm = T)
+  if (avg_over_time) { # just use average discrepancy for all years
+      vel_discr_mat <- matrix(rep(avg_vel_discr, years), nrow = length(avg_vel_discr), ncol = years)
+      se_discr_mat <- matrix(rep(avg_se_discr, years), nrow = length(avg_se_discr), ncol = years)
+  } else { 
+      # use yearly discrepancy, except for the one year that was left out for validation 
+      # for that year, use the avg discrepancy over the first 10 years
+      vel_discr_mat <- cbind(vel_discr, avg_vel_discr)
+      se_discr_mat <- cbind(se_discr, avg_se_discr)
+  }
 
   ## Add discrepancy to simulated observations
   for (s in 1:length(prior_pred$results)) {
-      prior_pred_obs[s, , , 1] <- prior_pred_obs[s, , t, 1] + se_discr
-      prior_pred_obs[s, , , 2] <- prior_pred_obs[s, , t, 2] + vel_discr
+      prior_pred_obs[s, , , 1] <- prior_pred_obs[s, , , 1] + se_discr_mat
+      prior_pred_obs[s, , , 2] <- prior_pred_obs[s, , , 2] + vel_discr_mat
   }
   
   for (s in 1:length(post_pred$results)) {
     # s <- 1
-      post_pred_obs[s, , , 1] <- post_pred_obs[s, , , 1] + se_discr
-      post_pred_obs[s, , , 2] <- post_pred_obs[s, , , 2] + vel_discr
+      post_pred_obs[s, , , 1] <- post_pred_obs[s, , , 1] + se_discr_mat
+      post_pred_obs[s, , , 2] <- post_pred_obs[s, , , 2] + vel_discr_mat
   }
-
-  # for (s in 1:length(prior_pred$results)) {
-  #   # s <- 1
-  #   for (t in 1:dim(prior_pred_obs)[3]) {
-  #     prior_pred_obs[s, , t, 1] <- prior_pred_obs[s, , t, 1] + se_discr
-  #     prior_pred_obs[s, , t, 2] <- prior_pred_obs[s, , t, 2] + vel_discr
-  #   }
-  # }
-  
-  # for (s in 1:length(post_pred$results)) {
-  #   # s <- 1
-  #   for (t in 1:dim(post_pred_obs)[3]) {
-  #     post_pred_obs[s, , t, 1] <- post_pred_obs[s, , t, 1] + se_discr
-  #     post_pred_obs[s, , t, 2] <- post_pred_obs[s, , t, 2] + vel_discr
-  #   }
-  # }
 
 }
 
