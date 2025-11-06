@@ -51,6 +51,8 @@ save_sims <- T
 # log_transform <- T
 use_basal_melt_data <- T
 constrain_gl <- F
+use_relaxation <- F # whether to use relaxation towards observed thickness in the simulations
+warmup <- 0 #1 # how many years after steady-state to ignore (to let the model get used to new parameters) before collecting data
 
 ## Directory for training data
 train_data_dir <- "./data/training_data"
@@ -59,9 +61,8 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111"
 N <- 1000 # 0 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 111:150 # 50 #:10
+sets <- 1:50 # 50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
-warmup <- 0
 years <- 11 # number of years data is collected (not including initial condition)
 
 ## Physical params
@@ -75,7 +76,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.7 * 1e6 * params$secpera^params$m
+params$B <- 0.6 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## SMB data
@@ -106,6 +107,22 @@ J <- length(domain)
 
 # 0. Load surface elevation data
 surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+
+## Load velocity error data 
+vel_err_avg <- qread(file = paste0("./data/velocity/vel_error_flowline_avg.qs"))
+
+## Fit a curve through the velocity error data to smooth it out
+vel_err_df <- data.frame(
+    dist = ssa_steady$domain / 1000,
+    vel_error = vel_err_avg
+)
+
+library(mgcv)
+vel_err_fit <- gam(vel_error ~ s(dist, k = 50), data = vel_err_df)
+vel_err_smooth <- predict(vel_err_fit, newdata = vel_err_df)
+vel_err_sd <- as.vector(vel_err_smooth) / 3 # assume sd is 1/3 the smoothed error value
+
+# qsave(vel_err_sd, file = paste0("./data/velocity/vel_err_sd_", data_date, ".qs"))
 
 # 0. Read bed observations
 # bed_obs_df <- qread(file = paste0("./data/bed_obs_df.qs"))
@@ -300,8 +317,11 @@ for (i in 1:length(sets)) {
             phys_params = params,
             years = years, # number of years data is collected
             warmup = warmup,
+            use_relaxation = use_relaxation,
+            relax_years = warmup, # over how many years to relax towards observed thickness
             ini_thickness = ssa_steady$current_thickness,
             ini_velocity = ssa_steady$current_velocity,
+            vel_err_sd = vel_err_sd,
             smb = smb_avg,
             basal_melt = avg_melt_rate
             # log_transform = log_transform

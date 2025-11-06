@@ -36,11 +36,11 @@ dev.off()
 ## Now do the same but for bed and posterior predicted elevation data
 
 data_date <- "20241111" # "20241103"
-sets <- 101:150 #51:100 # 6:20
+sets <- 1:50 #51:100 # 6:20
 # use_missing_pattern <- T
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T
-avg_over_time <- T
+avg_over_time <- F
 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -61,6 +61,11 @@ if (correct_model_discrepancy) {
     plot_dir <- paste0("./plots/cnn/", setsf, "/pred/")
 }
 
+## Load flowline data here so we have the grid spacing
+ssa_steady <- qread(file = paste0("./data/training_data/steady_state/steady_state_", data_date, ".qs"))
+domain <- ssa_steady$domain  # in m
+# J <- length(domain)
+dx <- diff(domain)[1]
 
 ## Posterior samples
 post_bed_samples <- qread(file = paste0(pred_output_dir, "bed_samples_real_", data_date, ".qs"))
@@ -69,11 +74,17 @@ post_bed_samples <- qread(file = paste0(pred_output_dir, "bed_samples_real_", da
 post_se_samples <- qread(file = paste0(pred_output_dir, "post_pred_obs_", data_date, ".qs"))
 n_post_samples <- dim(post_se_samples)[1]
 
-## Then load flowline data here so we have the grid spacing
-ssa_steady <- qread(file = paste0("./data/training_data/steady_state/steady_state_", data_date, ".qs"))
-domain <- ssa_steady$domain  # in m
-# J <- length(domain)
-dx <- diff(domain)[1]
+## For the first sample in post_se_samples,
+## compute the change in elevation per year to check
+cols <- colorRampPalette(c("turquoise", "blue"))(10)
+sp <- 6
+se_change <- post_se_samples[sp, , 2:11, 1] - post_se_samples[sp, , 1:10, 1]
+png(paste0(plot_dir, "se_change_sample1_", data_date, ".png"), width = 1000, height = 500, res = 150)
+matplot(domain/1e3, se_change, type = "l", lty = 1, col = cols,
+        xlab = "Distance along flowline (km)", ylab = "Change in surface elevation (m)",
+        main = paste0("Surface elevation change per year for posterior sample ", sp))
+dev.off()
+
 
 quadrature <- function(dx, y1, y2) {
     # Compute the difference between curves
@@ -192,6 +203,7 @@ surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
 ## but we don't have the true bed...
 ## so maybe compare the change in height to observed change in height?
+years <- ncol(surf_elev_data)
 obs_se_change <- surf_elev_data[, 2:years] - surf_elev_data[, 1:(years - 1)]
 avg_obs_se_change <- rowMeans(obs_se_change, na.rm = T)
 

@@ -77,6 +77,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          use_relaxation = FALSE,
                          observed_thickness = NULL,
                          relax_rate = 0,
+                         relax_years = NULL,
                          plot_ice_geometry = FALSE
                          #  basal_melt = 0, smb = 0.5
 ) {
@@ -296,8 +297,17 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
       ## else apply relaxation throughout
 
       if (use_relaxation) {
-        tau <- 2 # relaxation "speed", the higher this is, the slower the relaxation
+        
+        tau <- 1 # relaxation "speed", the higher this is, the slower the relaxation
         relax_rate <- (observed_thickness - H_curr) / tau # m/yr
+
+        if (!is.null(relax_years)) { 
+          ## apply relaxation for only specified number of years
+          ## and set relax_rate to 0 afterwards
+          if ((i / steps_per_yr) > relax_years) {
+            relax_rate <- 0
+          }
+        }
       }
 
       H_new <- solve_thickness(u_curr, H_curr, x, b,

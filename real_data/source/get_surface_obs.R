@@ -1,4 +1,4 @@
-get_obs <- function(sim_data, msmt_noise_info, warmup = 0) {
+get_obs <- function(sim_data, vel_sd, msmt_noise_info, warmup = 0) {
   
     ## Velocity observations ##
     domain <- sim_data$domain
@@ -22,9 +22,9 @@ get_obs <- function(sim_data, msmt_noise_info, warmup = 0) {
       # vel_sd <- 0.05 * all_ref_velocities[, j] # Constrain stdev of measurement noise to be less than 0.25 * velocity
       gl_ind <- sum(domain <= (gl[yr] * 1e3)) # grounding line position at year j
 
-      vel_sd <- c(rep(5, gl_ind), rep(100, J - gl_ind)) # set constant stdev of 5 m/s beyond grounding line
-      vel_sd[vel_sd <= 0] <- 0.01 #1e-05
-      
+      if (is.null(vel_sd)) {
+        vel_sd <- c(rep(5, gl_ind), rep(100, J - gl_ind)) # set constant stdev of 5 m/s beyond grounding line
+      } 
       vel_noise <- as.numeric(vel_sd * (msmt_noise_info$corrmat_chol %*% rnorm(J, 0, 1)))
       # vel_noise <- rnorm(J, rep(0, J), vel_sd)
       # obs_velocities[, j] <- all_ref_velocities[, j] + mvnorm_sample(1, rep(0, nrow(all_ref_velocities)), vel_cov)
@@ -41,7 +41,7 @@ get_obs <- function(sim_data, msmt_noise_info, warmup = 0) {
     # cov_surface <- diag(10^2, length(ref_top_surface)) # measurement noise for the top surface
     n_surface_obs <- nrow(all_top_surface) * ncol(all_top_surface)
     
-    surface_noise <- rnorm(n_surface_obs, rep(0, n_surface_obs), rep(1, n_surface_obs))
+    surface_noise <- rnorm(n_surface_obs, rep(0, n_surface_obs), rep(0.5, n_surface_obs))
     
     obs_surface <- all_top_surface + matrix(surface_noise, nrow = nrow(all_top_surface), ncol = ncol(all_top_surface))
     # for (j in 1:ncol(all_top_surface)) {

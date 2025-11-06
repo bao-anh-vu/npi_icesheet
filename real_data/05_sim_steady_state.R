@@ -27,6 +27,7 @@ source("./source/fit_basis.R")
 
 rerun_steady_state <- T
 use_basal_melt_data <- F
+use_prior_mean <- T
 
 data_dir <- "./data/"
 data_date <- "20241111" #"20241103"
@@ -42,7 +43,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.5 * 1e6 * params$secpera^params$m
+params$B <- 0.6 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## Flowline data
@@ -59,7 +60,12 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 set.seed(2025)
 bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
 L <- t(chol(bed_prior$cov))
-bed_sim <- bed_prior$mean + L %*% rnorm(nrow(L))
+
+if (use_prior_mean) {
+    bed_sim <- bed_prior$mean
+} else {
+    bed_sim <- bed_prior$mean + L %*% rnorm(nrow(L))
+}
 
 ## Fit basis to bed
 n_bed_basis <- 150
@@ -132,11 +138,12 @@ print("Simulating friction coefficient...")
 # fric.nugget <- 0
 # fric.range <- 5e3
 
-fric_sim <- simulate_friction2(
+if (use_prior_mean) {
+    fric_sim <- rep(0.02, length(flowline_dist))    
+} else {
+    fric_sim <- simulate_friction2(
     nsim = 1, domain = flowline_dist) #,
-#     sill = fric.sill, nugget = fric.nugget,
-#     range = fric.range
-# ) 
+}
 
 png(file = paste0("./plots/steady_state/friction_coef_", data_date, ".png"), width = 800, height = 600)
 plot(flowline_dist/1000, fric_sim, type = "l", 
@@ -224,6 +231,7 @@ if (rerun_steady_state) {
                             ini_thickness = H_ini_all,
                             ini_velocity = vel_curr_smooth,
                             use_relaxation = T,
+                            # relax_years = 10,
                             observed_thickness = H_ini_all,
                             plot_ice_geometry = T
                         )

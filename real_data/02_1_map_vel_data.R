@@ -119,6 +119,8 @@ test <- mclapply(flowline_pos, avg_nearest_four, data = grid_thwaites, var = "v_
 vel_err_avg <- sapply(test, function(x) x$v_avg)
 # Range of velocity error is (6.00 1360.75), which is crazy!!
 
+qsave(vel_err_avg, file = paste0(data_dir, "velocity/vel_error_flowline_avg.qs"))
+
 ## Plot error along flowline
 png(paste0("./plots/velocity/avg_vel_error_flowline.png"), width = 800, height = 500)
 plot(1:nrow(flowline), vel_err_avg,

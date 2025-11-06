@@ -30,12 +30,16 @@ source("./source/process_sim_results.R")
 
 data_dir <- "./data/"
 data_date <- "20241111" # "20241103"
+sets <- 1:50 #51:100 #51:100 #6:20
+setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 ## Flags
-use_basal_melt_data <- F
+use_basal_melt_data <- T
 leave_one_out <- T
-nsims <- 100#0
-avg_over_time <- T
+nsims <- 1000
+use_relaxation <- F
+warmup <- 0
+# avg_over_time <- T
 
 # Physical params
 # params <- qread(file = paste0("./data/training_data/phys_params_", data_date, ".qs"))
@@ -49,7 +53,7 @@ avg_over_time <- T
 # )
 
 # params$m <- 1 / params$n
-# params$B <- 0.5 * 1e6 * params$secpera^params$m
+# params$B <- 0.7 * 1e6 * params$secpera^params$m
 # params$A <- params$B^(-params$n)
 
 params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
@@ -68,6 +72,8 @@ bed_obs_chosen <- bed_obs_df
 # vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
 vel_mat <- qread("./data/velocity/vel_smoothed.qs") # adjusted observed velocities
 surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs") # this is on grounded ice only
+
+vel_err_sd <- qread(file = paste0("./data/velocity/vel_err_sd_", data_date, ".qs"))
 
 ## Grounding line data
 gl_pos <- qread(file = paste0(data_dir, "/grounding_line/gl_pos.qs"))
@@ -188,7 +194,7 @@ param_list <- lapply(1:nsims, function(r) {
 ## Run simulations for different friction coefficient fields
 ## starting from steady state
 years <- dim(surf_elev_mat)[2] # number of years data is collected
-warmup <- 0 # number of years to discard after steady state (for the model to adjust to new friction & bed)
+# warmup <- 0 # number of years to discard after steady state (for the model to adjust to new friction & bed)
 
 sim_surface_obs <- list()
 # for (s in 1:nsims) {
@@ -198,9 +204,11 @@ sim_out <- sim_obs(
     phys_params = params,
     years = years,
     warmup = warmup,
-    use_relaxation = T,
+    use_relaxation = use_relaxation,
+    relax_years = warmup, # over how many years to relax towards observed thickness
     ini_thickness = ssa_steady$current_thickness,
     ini_velocity = ssa_steady$current_velocity,
+    vel_err_sd = vel_err_sd,
     smb = smb_avg,
     basal_melt = avg_melt_rate
     # log_transform = log_transform
@@ -399,13 +407,15 @@ years <- dim(vel_mat)[2]
 #     file_tag <- ""
 # }
 
-qsave(vel_discr_mat, file = paste0(data_dir, "discrepancy/vel_discr_", data_date, ".qs"))
-qsave(se_discr_mat, file = paste0(data_dir, "discrepancy/se_discr_", data_date, ".qs"))
+qsave(vel_discr_mat, file = paste0(data_dir, "discrepancy/", setsf, "/vel_discr_", data_date, ".qs"))
+qsave(se_discr_mat, file = paste0(data_dir, "discrepancy/", setsf, "/se_discr_", data_date, ".qs"))
 
 
 #################################################
-# adj_se_mat <- surf_elev_mat - se_discr_mat
-# adj_vel_mat <- vel_mat - vel_discr_mat
+adj_se_mat <- surf_elev_mat - se_discr_mat
+adj_vel_mat <- vel_mat - vel_discr_mat
+
+browser()
 
 # # Save adjusted observed data
 # qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
@@ -436,7 +446,7 @@ dev.off()
 
 ## Plot observed data minus discrepancy
 
-# png(file = paste0("./plots/discr/vel_obs_minus_discr_", data_date, ".png"), width = 800, height = 600)
+# # png(file = paste0("./plots/discr/vel_obs_minus_discr_", data_date, ".png"), width = 800, height = 600)
 # pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 10, height = 20)
 
 # par(mfrow = c(nsims_plot / 2, 2))
@@ -480,3 +490,5 @@ dev.off()
 #     abline(v = gl, lty = 2)
 # }
 # dev.off()
+
+

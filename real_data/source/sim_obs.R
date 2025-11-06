@@ -4,9 +4,11 @@ sim_obs <- function(param_list,
                     years = 20,
                     warmup = 0,
                     use_relaxation = F,
+                    relax_years = NULL,
                     # steady_state, 
                     ini_velocity,
                     ini_thickness, 
+                    vel_err_sd = 50, # default of 50 m/yr
                     smb = 0.5, # default of 0.5 m/yr
                     basal_melt = 0 # default of 0 m/yr
                     # log_transform = T
@@ -34,10 +36,17 @@ sim_obs <- function(param_list,
     # sim_results <- lapply(param_list, 
     #     function(param, domain, phys_params,
     #             ini_velocity, ini_thickness, years, warmup,
+    #             use_relaxation = F,
+    #             relax_years = NULL,
+    #             vel_err_sd,
     #             msmt_noise_info) {
     sim_results <- mclapply(param_list, 
         function(param, domain, phys_params,
-                ini_velocity, ini_thickness, years, warmup,
+                ini_velocity, ini_thickness, years, 
+                warmup,
+                use_relaxation = F,
+                relax_years = NULL,
+                vel_err_sd,
                 msmt_noise_info) {
 
         # sim_out <- solve_ssa_nl(
@@ -61,14 +70,14 @@ sim_obs <- function(param_list,
             ini_thickness = ini_thickness,
             years = years + warmup,
             use_relaxation = use_relaxation,
+            relax_years = relax_years,
             observed_thickness = ini_thickness, # this is to hold geometry "fixed" during relaxation
             steps_per_yr = 100,
             add_process_noise = F
         )
 
-
         ## Add noise to surface to obtain surface observations
-        surface_obs <- get_obs(sim_out, msmt_noise_info, warmup = warmup)
+        surface_obs <- get_obs(sim_out, vel_err_sd, msmt_noise_info, warmup = warmup)
 
 ## Plot surface obs
 # png("./plots/temp/surface_obs.png")
@@ -108,6 +117,9 @@ sim_obs <- function(param_list,
     ini_thickness = ini_thickness,
     years = years,
     warmup = warmup,
+    use_relaxation = use_relaxation,
+    relax_years = relax_years,
+    vel_err_sd = vel_err_sd,
     msmt_noise_info = msmt_noise_info,
     mc.cores = 50L,
     ## mc.allow.fatal = TRUE,
