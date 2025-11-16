@@ -1,0 +1,51 @@
+Run started on Thu 13 Nov 2025 18:50:34 AEDT
+✅ Sample 9 completed successfully
+❌ Sample 8 FAILED (exit code 1)
+✅ Sample 7 completed successfully
+✅ Sample 6 completed successfully
+❌ Sample 10 FAILED (exit code 1)
+✅ Sample 4 completed successfully
+❌ Sample 5 FAILED (exit code 1)
+✅ Sample 2 completed successfully
+❌ Sample 3 FAILED (exit code 1)
+✅ Sample 1 completed successfully
+✅ Sample 13 completed successfully
+❌ Sample 14 FAILED (exit code 1)
+✅ Sample 11 completed successfully
+✅ Sample 12 completed successfully
+✅ Sample 17 completed successfully
+✅ Sample 18 completed successfully
+✅ Sample 15 completed successfully
+✅ Sample 16 completed successfully
+✅ Sample 19 completed successfully
+✅ Sample 20 completed successfully
+✅ Sample 25 completed successfully
+❌ Sample 26 FAILED (exit code 1)
+❌ Sample 27 FAILED (exit code 1)
+✅ Sample 28 completed successfully
+❌ Sample 29 FAILED (exit code 1)
+✅ Sample 30 completed successfully
+❌ Sample 24 FAILED (exit code 1)
+❌ Sample 23 FAILED (exit code 1)
+✅ Sample 22 completed successfully
+✅ Sample 21 completed successfully
+✅ Sample 38 completed successfully
+✅ Sample 39 completed successfully
+✅ Sample 36 completed successfully
+❌ Sample 37 FAILED (exit code 1)
+✅ Sample 34 completed successfully
+❌ Sample 35 FAILED (exit code 1)
+❌ Sample 32 FAILED (exit code 1)
+❌ Sample 33 FAILED (exit code 1)
+✅ Sample 31 completed successfully
+✅ Sample 40 completed successfully
+✅ Sample 49 completed successfully
+❌ Sample 48 FAILED (exit code 1)
+✅ Sample 43 completed successfully
+✅ Sample 42 completed successfully
+✅ Sample 41 completed successfully
+❌ Sample 47 FAILED (exit code 1)
+✅ Sample 46 completed successfully
+❌ Sample 45 FAILED (exit code 1)
+❌ Sample 44 FAILED (exit code 1)
+❌ Sample 50 FAILED (exit code 1)

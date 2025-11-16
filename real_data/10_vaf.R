@@ -36,11 +36,11 @@ dev.off()
 ## Now do the same but for bed and posterior predicted elevation data
 
 data_date <- "20241111" # "20241103"
-sets <- 1:50 #51:100 # 6:20
-# use_missing_pattern <- T
+sets <- 51:100 #51:100 # 6:20
+# use_missing_pattern <- Tth
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T
-avg_over_time <- F
+avg_over_time <- T
 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
@@ -77,7 +77,7 @@ n_post_samples <- dim(post_se_samples)[1]
 ## For the first sample in post_se_samples,
 ## compute the change in elevation per year to check
 cols <- colorRampPalette(c("turquoise", "blue"))(10)
-sp <- 6
+sp <- 1
 se_change <- post_se_samples[sp, , 2:11, 1] - post_se_samples[sp, , 1:10, 1]
 png(paste0(plot_dir, "se_change_sample1_", data_date, ".png"), width = 1000, height = 500, res = 150)
 matplot(domain/1e3, se_change, type = "l", lty = 1, col = cols,
@@ -183,6 +183,7 @@ png(paste0(plot_dir, "ice_vaf_boxplot_", data_date, ".png"), width = 1500, heigh
 print(vaf_plot)
 dev.off()
 
+
 ## Also calculate change in ice volume year to year
 vaf_diff <- t(apply(vaf_mat, 1, diff))
 vaf_diff_df <- data.frame(year = rep(2011:2020, each = n_post_samples),
@@ -192,7 +193,8 @@ vaf_change_plot <- ggplot(data = vaf_diff_df, aes(x = as.factor(year), y = volum
       geom_boxplot() +
       theme_bw() +
       labs(x = "Year", y = expression("Change in ice area (km"^2*")")) +
-      ggtitle("Posterior predictive distribution of change in volume above flotation")
+      ggtitle("Change in area (volume) above flotation") +
+    theme(text = element_text(size = 20))
 
 png(paste0(plot_dir, "ice_vaf_change_boxplot_", data_date, ".png"), width = 800, height = 600, res = 100)
 print(vaf_change_plot)
@@ -205,7 +207,7 @@ surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 ## so maybe compare the change in height to observed change in height?
 years <- ncol(surf_elev_data)
 obs_se_change <- surf_elev_data[, 2:years] - surf_elev_data[, 1:(years - 1)]
-avg_obs_se_change <- rowMeans(obs_se_change, na.rm = T)
+avg_obs_se_change <- colMeans(obs_se_change, na.rm = T) #rowMeans(obs_se_change, na.rm = T)
 
 total_obs_se_change <- surf_elev_data[, years] - surf_elev_data[, 1]
 ## Calculate mean predicted change in surface elevation from posterior samples
@@ -213,8 +215,8 @@ total_obs_se_change <- surf_elev_data[, years] - surf_elev_data[, 1]
 # pred_se_change <- mean_post_se[, 2:years] - mean_post_se[,
 
 ## Plot avg observed change in surface elevation
-png(paste0(plot_dir, "avg_obs_se_change_", data_date, ".png"), width = 800, height = 600, res = 100)
-plot(domain/1e3, avg_obs_se_change, type = "b", pch = 16,
-     xlab = "Year", ylab = "Average observed change in surface elevation (m)",
-     main = "Average observed change in surface elevation over time")
-dev.off()
+# png(paste0(plot_dir, "avg_obs_se_change_", data_date, ".png"), width = 800, height = 600, res = 100)
+# plot(2011:2020, avg_obs_se_change, type = "b", pch = 16,
+#      xlab = "Year", ylab = "Average observed change in surface elevation (m)",
+#      main = "Average observed change in surface elevation over time")
+# dev.off()

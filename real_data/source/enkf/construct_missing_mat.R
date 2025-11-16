@@ -4,12 +4,14 @@ construct_missing_matrix <- function(missing_pattern) {
     mp_year <- missing_pattern[, y]
     nonmiss <- sum(mp_year)
 
-    C_t <- sparseMatrix(
-      i = 1:nonmiss, j = which(mp_year == 1), x = 1,
-      dims = c(nonmiss, nrow(missing_pattern))
-    )
-
-    return(C_t)
+    if (nonmiss == 0) {
+      C_t <- NULL
+    } else {
+      C_t <- sparseMatrix(
+        i = 1:nonmiss, j = which(mp_year == 1), x = 1,
+        dims = c(nonmiss, nrow(missing_pattern))
+      )
+    }
   })
 
   return(missing_mat_ls)

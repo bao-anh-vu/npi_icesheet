@@ -28,12 +28,13 @@ test_on_train <- F
 # use_missing_pattern <- T
 correct_model_discrepancy <- T
 correct_velocity_discrepancy <- T
-avg_over_time <- F
+avg_over_time <- T
 leave_one_out <- T
+resample_posterior <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 1:50 #51:100 #51:100 #6:20
+sets <- 51:100 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 data_dir <- paste0("./data/training_data/", setsf, "/")
@@ -94,23 +95,21 @@ velocity_data <- velocity_data[, 1:n_years]
 ## Adjust real data if correcting for model discrepancy
 
 ## Model discrepancy
-vel_discr <- qread(file = paste0("./data/discrepancy/vel_discr_", data_date, ".qs"))
-se_discr <- qread(file = paste0("./data/discrepancy/se_discr_", data_date, ".qs"))
-
-avg_vel_discr <- rowMeans(vel_discr, na.rm = T)
-avg_se_discr <- rowMeans(se_discr, na.rm = T)
 if (avg_over_time) { # just use average discrepancy for all years
-    vel_discr_mat <- matrix(rep(avg_vel_discr, n_years), nrow = length(avg_vel_discr), ncol = n_years)
-    se_discr_mat <- matrix(rep(avg_se_discr, n_years), nrow = length(avg_se_discr), ncol = n_years)
+    
+    vel_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/vel_discr_avg_", data_date, ".qs"))
+    se_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/se_discr_avg_", data_date, ".qs"))
+
 } else { 
-    vel_discr_mat <- vel_discr
-    se_discr_mat <- se_discr
+    vel_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/vel_discr_", data_date, ".qs"))
+    se_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/se_discr_", data_date, ".qs"))
+
 }
 
 if (correct_model_discrepancy) {
-    surf_elev_data <- surf_elev_data - se_discr_mat
+    surf_elev_data <- surf_elev_data - se_discr_mat[, 1:n_years]
     if (correct_velocity_discrepancy) {
-        velocity_data <- velocity_data - vel_discr_mat
+        velocity_data <- velocity_data - vel_discr_mat[, 1:n_years]
     }  
 }
 
@@ -399,38 +398,51 @@ Lmats <- list()
 
 S <- 1000 ## number of posterior samples
 
-## Sample basis function coefficients from posterior
-pred_samples_ls <- sample_from_posterior(n = S, mean = pred_mean, prec_chol = Lmat)    
+if (resample_posterior) {
+    ## Sample basis function coefficients from posterior
+    pred_samples_ls <- sample_from_posterior(n = S, mean = pred_mean, prec_chol = Lmat)    
 
-## Transform basis coefficients into actual friction coefficients
-sd_fric_coefs <- test_data$sd_fric_coefs
-mean_fric_coefs <- test_data$mean_fric_coefs
+    ## Transform basis coefficients into actual friction coefficients
+    sd_fric_coefs <- test_data$sd_fric_coefs
+    mean_fric_coefs <- test_data$mean_fric_coefs
 
-fric_coefs <- pred_samples_ls[1:n_fric_basis, ]
-fric_coefs_ustd <- fric_coefs * sd_fric_coefs + mean_fric_coefs
-fric_samples <- exp(fric_basis_mat %*% fric_coefs_ustd)
+    fric_coefs <- pred_samples_ls[1:n_fric_basis, ]
+    fric_coefs_ustd <- fric_coefs * sd_fric_coefs + mean_fric_coefs
+    fric_samples <- exp(fric_basis_mat %*% fric_coefs_ustd)
 
-## Transform basis coefficients into bed elevations
-bed_coefs <- pred_samples_ls[(n_fric_basis+1):(n_fric_basis+n_bed_basis), ]
-bed_coefs_ustd <- bed_coefs * test_data$sd_bed_coefs + test_data$mean_bed_coefs
-bed_mean_mat <- matrix(rep(bed_mean, S), nrow = length(bed_mean), ncol = S)
-bed_samples <- bed_basis_mat %*% bed_coefs_ustd + bed_mean_mat
+    ## Transform basis coefficients into bed elevations
+    bed_coefs <- pred_samples_ls[(n_fric_basis+1):(n_fric_basis+n_bed_basis), ]
+    bed_coefs_ustd <- bed_coefs * test_data$sd_bed_coefs + test_data$mean_bed_coefs
+    bed_mean_mat <- matrix(rep(bed_mean, S), nrow = length(bed_mean), ncol = S)
+    bed_samples <- bed_basis_mat %*% bed_coefs_ustd + bed_mean_mat
 
-## Grounding line is a direct output from the CNN
-gl_samples_ls <- pred_samples_ls[(n_fric_basis+n_bed_basis+1):n_mean_elements, ]
-gl_ustd <- gl_samples_ls * test_data$sd_gl + test_data$mean_gl
+    ## Grounding line is a direct output from the CNN
+    gl_samples_ls <- pred_samples_ls[(n_fric_basis+n_bed_basis+1):n_mean_elements, ]
+    gl_ustd <- gl_samples_ls * test_data$sd_gl + test_data$mean_gl
 
-## Compute quantiles
-fric_q <- apply(fric_samples, 1, quantile, probs = c(0.025, 0.975))
-bed_q <- apply(bed_samples, 1, quantile, probs = c(0.025, 0.975))
-gl_q <- apply(gl_samples_ls, 1, quantile, probs = c(0.025, 0.975))
+    ## Compute quantiles
+    fric_q <- apply(fric_samples, 1, quantile, probs = c(0.025, 0.975))
+    bed_q <- apply(bed_samples, 1, quantile, probs = c(0.025, 0.975))
+    gl_q <- apply(gl_samples_ls, 1, quantile, probs = c(0.025, 0.975))
 
-fric_lq <- fric_q[1,]
-fric_uq <- fric_q[2,]
-bed_lq <- bed_q[1,]
-bed_uq <- bed_q[2,]
-gl_lq <- gl_q[1,]
-gl_uq <- gl_q[2,]
+# if (save_pred) {
+    qsave(pred_fric, file = paste0(pred_output_dir, "pred_fric_real_", data_date, ".qs"))
+    qsave(pred_bed, file = paste0(pred_output_dir, "pred_bed_real_", data_date, ".qs"))
+    qsave(fric_samples, file = paste0(pred_output_dir, "/fric_samples_real_", data_date, ".qs"))
+    qsave(bed_samples, file = paste0(pred_output_dir, "/bed_samples_real_", data_date, ".qs"))
+    qsave(fric_q, file = paste0(pred_output_dir, "/fric_quantiles_real_", data_date, ".qs"))
+    qsave(bed_q, file = paste0(pred_output_dir, "/bed_quantiles_real_", data_date, ".qs"))
+    qsave(gl_q, file = paste0(pred_output_dir, "/gl_quantiles_real_", data_date, ".qs"))
+# }
+
+} else {
+    pred_fric <- qread(file = paste0(pred_output_dir, "pred_fric_real_", data_date, ".qs"))
+    pred_bed <- qread(file = paste0(pred_output_dir, "pred_bed_real_", data_date, ".qs"))
+    fric_q <- qread(file = paste0(pred_output_dir, "/fric_quantiles_real_", data_date, ".qs"))
+    bed_q <- qread(file = paste0(pred_output_dir, "/bed_quantiles_real_", data_date, ".qs"))
+
+}
+
 
 ## Plot the results
 # png(paste0(plot_dir, "pred_fric_real.png"), width = 1000, height = 500)
@@ -443,9 +455,17 @@ gl_uq <- gl_q[2,]
 # dev.off()
 
 ## Same plot but using ggplot
+
+# fric_lq <- 
+# fric_uq <- 
+# bed_lq <- 
+# bed_uq <- bed_q[2,]
+# gl_lq <- gl_q[1,]
+# gl_uq <- gl_q[2,]
+
 fric_df <- data.frame(domain = domain/1e3, 
-                      lq = fric_lq, 
-                      uq = fric_uq, 
+                      lq = fric_q[1,], 
+                      uq = fric_q[2,], 
                       pred = pred_fric)
 gl_df <- data.frame(gl = gl_obs/1e3)
 fric_p <- ggplot(data = fric_df, aes(x = domain)) +
@@ -479,8 +499,8 @@ bed_obs_df <- qread(file = "./data/bedmap/bed_obs_df_all.qs")
 
 ## Same plot but using ggplot
 bed_df <- data.frame(domain = domain/1e3, 
-                     lq = bed_lq, 
-                     uq = bed_uq, 
+                     lq = bed_q[1,], 
+                     uq = bed_q[2,], 
                      pred = pred_bed,
                      bedmachine = bedmachine$bed_avg,
                      prior_mean = bed_mean)
@@ -489,13 +509,13 @@ gl_df <- data.frame(gl = gl_obs/1e3)
 bed_p <- ggplot(data = bed_df, aes(x = domain)) +
     geom_ribbon(aes(ymin = lq, ymax = uq), fill = "salmon", alpha = 0.5) +
     geom_line(aes(y = pred, color = "Predicted bed"), lwd = 1) +
-    geom_line(aes(y = prior_mean, color = "Prior mean"), lwd = 1, lty = 3) +
+    # geom_line(aes(y = prior_mean, color = "Prior mean"), lwd = 1, lty = 3) +
     geom_line(aes(y = bedmachine, color = "BedMachine"), lwd = 1, lty = 2) +
     geom_point(data = bed_obs_df, aes(x = loc/1e3, y = bed_elev, color = "Observations"), size = 2) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
     ylim(-1500, -500) +
-    labs(x = "Flowline (km)", y = "Elevation (m)", color = "") +
+    labs(x = "Flowline (km)", y = "Bed elevation (m)", color = "") +
     scale_color_manual(
         values = c(
             "Predicted bed" = "red",
@@ -518,12 +538,6 @@ grid.arrange(fric_p, bed_p, ncol = 2)
 dev.off()
 
 
-# if (save_pred) {
-    qsave(pred_fric, file = paste0(pred_output_dir, "pred_fric_real_", data_date, ".qs"))
-    qsave(pred_bed, file = paste0(pred_output_dir, "pred_bed_real_", data_date, ".qs"))
-    qsave(fric_samples, file = paste0(pred_output_dir, "/fric_samples_real_", data_date, ".qs"))
-    qsave(bed_samples, file = paste0(pred_output_dir, "/bed_samples_real_", data_date, ".qs"))
-    qsave(fric_q, file = paste0(pred_output_dir, "/fric_quantiles_real_", data_date, ".qs"))
-    qsave(bed_q, file = paste0(pred_output_dir, "/bed_quantiles_real_", data_date, ".qs"))
-    qsave(gl_q, file = paste0(pred_output_dir, "/gl_quantiles_real_", data_date, ".qs"))
-# }
+
+
+# gl_q <- qread(file = paste0(pred_output_dir, "/gl_quantiles_real_", data_date, ".qs"))

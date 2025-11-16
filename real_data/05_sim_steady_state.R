@@ -28,6 +28,7 @@ source("./source/fit_basis.R")
 rerun_steady_state <- T
 use_basal_melt_data <- F
 use_prior_mean <- T
+use_relaxation <- T
 
 data_dir <- "./data/"
 data_date <- "20241111" #"20241103"
@@ -223,14 +224,14 @@ if (rerun_steady_state) {
                             bedrock = bed_sim, 
                             friction_coef = fric_sim * 1e6 * params$secpera^(1 / params$n), 
                             phys_params = params,
-                            tol = 1e-03, #m/yr 
+                            tol = 1e-04, #m/yr 
                             # years = 100,
                             steps_per_yr = 100, 
                             add_process_noise = F,
                             # thickness_bc = 3500,
                             ini_thickness = H_ini_all,
                             ini_velocity = vel_curr_smooth,
-                            use_relaxation = T,
+                            use_relaxation = use_relaxation,
                             # relax_years = 10,
                             observed_thickness = H_ini_all,
                             plot_ice_geometry = T

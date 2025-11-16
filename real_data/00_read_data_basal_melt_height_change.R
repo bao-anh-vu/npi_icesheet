@@ -28,7 +28,8 @@ data_dir <- "./data/"
 
 reread_height_change_data <- F
 reread_smb_data <- F
-reread_basal_melt_data <- T
+reread_basal_melt_data <- F
+reread_thickness_data <- T
 
 ## Basal melt data
 basal_melt_data <- nc_open(paste0(data_dir, "basal_melt/NSIDC-0792_19920317-20171216_V01.0.nc"))
@@ -40,6 +41,8 @@ melt <- ncvar_get(basal_melt_data, "melt")
 mean_melt <- ncvar_get(basal_melt_data, "melt_mean")
 x <- ncvar_get(basal_melt_data, "x")
 y <- ncvar_get(basal_melt_data, "y")
+
+thickness_bedmachine <- ncvar_get(basal_melt_data, "thickness")
 
 ## Read timestamps
 time <- ncvar_get(basal_melt_data, "time")
@@ -65,6 +68,7 @@ annual_height_change_re2014 <- mclapply(0:n_years, function(i) { ## annual heigh
 annual_height_change <- lapply(2:length(annual_height_change_re2014), function(i) {
     annual_height_change_re2014[[i]] - annual_height_change_re2014[[i - 1]]
 })
+
 
 ## Grounding line data
 gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
@@ -113,6 +117,28 @@ if (reread_height_change_data) {
 } else {
     height_change_thwaites <- qread(paste0(data_dir, "/height_change_shelf_thwaites.qs"))
 }
+
+
+if (reread_thickness_data) {
+    ## Do the same for thickness data
+    annual_thickness <- mclapply(0:n_years, function(i) {
+        thickness_t <- thickness_bedmachine[, , (i * 4 + 1):((i + 1) * 4)]
+        thickness_avg <- apply(thickness_t, c(1, 2), mean, na.rm = TRUE)
+    }, mc.cores = 10L)
+
+
+    ## Restrict ice thickness to Thwaites glacier
+    thickness_thwaites <- data.frame(expand.grid(x = x, y = y))
+    for (t in 1:(n_years + 1)) {
+        varname <- paste0("thickness_", years[t])
+        thickness_thwaites[, varname] <- as.vector(annual_thickness[[t]])
+    }
+    thickness_thwaites <- thickness_thwaites %>% filter(x >= xmin & x <= xmax & y >= ymin & y <= ymax)
+
+    qsave(thickness_thwaites, file = paste0(data_dir, "/thickness/thickness_shelf_thwaites_bedmachine.qs"))
+}
+
+browser()
 
 ## SMB
 if (reread_smb_data) {
@@ -178,7 +204,7 @@ if (reread_basal_melt_data) {
         coord_fixed() +
         theme_bw()
 
-    png("./plots/melt_shelf.png")
+    png("./plots/temp/melt_shelf.png")
     print(melt_plot)
     dev.off()
 } else {

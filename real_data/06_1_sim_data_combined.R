@@ -52,7 +52,7 @@ save_sims <- T
 use_basal_melt_data <- T
 constrain_gl <- F
 use_relaxation <- F # whether to use relaxation towards observed thickness in the simulations
-warmup <- 0 #1 # how many years after steady-state to ignore (to let the model get used to new parameters) before collecting data
+warmup <- 5 # 1 # how many years after steady-state to ignore (to let the model get used to new parameters) before collecting data
 
 ## Directory for training data
 train_data_dir <- "./data/training_data"
@@ -61,7 +61,10 @@ train_data_dir <- "./data/training_data"
 data_date <- "20241111"
 N <- 1000 # 0 # number of simulations per set
 # set <- 1 #commandArgs(trailingOnly = TRUE)
-sets <- 1:50 # 50 #:10
+args <- commandArgs(trailingOnly = TRUE)
+set_start <- args[1]
+set_end <- args[2]
+sets <- seq(set_start, set_end, by = 1) # :50 # 50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 years <- 11 # number of years data is collected (not including initial condition)
 
@@ -79,6 +82,15 @@ params$m <- 1 / params$n
 params$B <- 0.6 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
+# 0. Load ice sheet at steady state
+ssa_steady <- qread(file = paste0(train_data_dir, "/steady_state/steady_state_", data_date, ".qs"))
+domain <- ssa_steady$domain
+J <- length(domain)
+
+## Grounding line position
+gl_pos <- qread(file = paste0("./data/grounding_line/gl_pos.qs"))
+gl_ind <- gl_pos$ind
+
 ## SMB data
 smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
 smb_avg <- colMeans(smb_data_racmo, na.rm = T)
@@ -86,13 +98,16 @@ params$as <- smb_avg # surface accumulation rate (m/s)
 
 if (use_basal_melt_data) {
     melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
-    # qsave(flowline_shelf_melt, file = paste0(data_dir, "/SMB/flowline_shelf_melt.qs"))
-    avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
-    melt_nonmissing <- which(!is.na(avg_melt_rate))
-    avg_melt_rate[1:(melt_nonmissing[1] - 1)] <- -1 # seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
-    avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) # mean(avg_melt_rate[melt_nonmissing])
-    avg_melt_rate <- -avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
-} else {
+    # avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
+    # melt_nonmissing <- which(!is.na(avg_melt_rate))
+    # avg_melt_rate[1:(melt_nonmissing[1] - 1)] <- -1 # seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
+    # avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) # mean(avg_melt_rate[melt_nonmissing])
+    # avg_melt_rate <- -avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
+
+    avg_melt_shelf <- mean(melt_thwaites, na.rm = T)
+    avg_melt_rate <- rep(-0.1, J)
+    avg_melt_rate[gl_ind:J] <- -avg_melt_shelf # extra minus sign here as the melt rate in my model is written as positive if ice is decreasing in height
+} else { ## assume no melt
     avg_melt_rate <- rep(0, J)
 }
 params$ab <- avg_melt_rate # melt rate (m/s)
@@ -100,16 +115,13 @@ params$ab <- avg_melt_rate # melt rate (m/s)
 ## Save physical params
 qsave(params, file = paste0(train_data_dir, "/phys_params_", data_date, ".qs"))
 
-# 0. Load ice sheet at steady state
-ssa_steady <- qread(file = paste0(train_data_dir, "/steady_state/steady_state_", data_date, ".qs"))
-domain <- ssa_steady$domain
-J <- length(domain)
-
 # 0. Load surface elevation data
 surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
-## Load velocity error data 
+## Load velocity error data
 vel_err_avg <- qread(file = paste0("./data/velocity/vel_error_flowline_avg.qs"))
+se_err_ls <- qread(file = "./data/surface_elev/se_err_flowline.qs")
+se_err_avg <- unlist(se_err_ls)
 
 ## Fit a curve through the velocity error data to smooth it out
 vel_err_df <- data.frame(
@@ -218,8 +230,8 @@ for (i in 1:length(sets)) {
     dev.off()
 
     # if (save_sims) {
-      qsave(bed_sims, file = paste0(train_data_dir, "/bed_sims_", setf, "_", data_date, ".qs"))
-      qsave(fric_sims, file = paste0(train_data_dir, "/fric_sims_",  setf, "_", data_date, ".qs"))
+    qsave(bed_sims, file = paste0(train_data_dir, "/bed_sims_", setf, "_", data_date, ".qs"))
+    qsave(fric_sims, file = paste0(train_data_dir, "/fric_sims_", setf, "_", data_date, ".qs"))
     # }
 
     # setf <- formatC(set, width = 2, flag = "0")
@@ -256,7 +268,7 @@ for (i in 1:length(sets)) {
         theme_bw()
     print(fric_sim_plot)
     dev.off()
-# }
+    # }
 
 
 
@@ -297,11 +309,11 @@ for (i in 1:length(sets)) {
     )
     bed_basis$mean <- bed_prior$mean
 
-# }
+    # }
 
 
-## Generate observations based on the simulated bed and friction
-# for (i in 1:length(sets)) {
+    ## Generate observations based on the simulated bed and friction
+    # for (i in 1:length(sets)) {
     param_list <- lapply(1:N, function(r) {
         list(
             friction = exp(friction_basis$fitted_values[r, ]),
@@ -321,9 +333,9 @@ for (i in 1:length(sets)) {
             relax_years = warmup, # over how many years to relax towards observed thickness
             ini_thickness = ssa_steady$current_thickness,
             ini_velocity = ssa_steady$current_velocity,
-            vel_err_sd = vel_err_sd,
-            smb = smb_avg,
-            basal_melt = avg_melt_rate
+            vel_err_sd = vel_err_sd
+            # smb = smb_avg,
+            # basal_melt = avg_melt_rate
             # log_transform = log_transform
         )
     )
@@ -335,14 +347,13 @@ for (i in 1:length(sets)) {
         good_sims <- sim_results$results[-bad_sims]
 
         ## Delete corresponding bad simulations from the fitted basis
-      friction_basis$basis_coefs <- friction_basis$basis_coefs[-bad_sims, ]
-      friction_basis$true_vals <- friction_basis$true_vals[-bad_sims, ]
-      friction_basis$fitted_values <- friction_basis$fitted_values[-bad_sims, ]
+        friction_basis$basis_coefs <- friction_basis$basis_coefs[-bad_sims, ]
+        friction_basis$true_vals <- friction_basis$true_vals[-bad_sims, ]
+        friction_basis$fitted_values <- friction_basis$fitted_values[-bad_sims, ]
 
-      bed_basis$basis_coefs <- bed_basis$basis_coefs[-bad_sims, ]
-      bed_basis$fitted_values <- bed_basis$fitted_values[-bad_sims, ]
-      bed_basis$true_vals <- bed_basis$true_vals[-bad_sims, ]
-
+        bed_basis$basis_coefs <- bed_basis$basis_coefs[-bad_sims, ]
+        bed_basis$fitted_values <- bed_basis$fitted_values[-bad_sims, ]
+        bed_basis$true_vals <- bed_basis$true_vals[-bad_sims, ]
     } else {
         good_sims <- sim_results$results
     }

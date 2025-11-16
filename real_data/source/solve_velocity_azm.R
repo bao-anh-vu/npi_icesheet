@@ -64,6 +64,7 @@ solve_velocity <- function(prev_velocity, thickness, domain, bed, friction,
     GL <- gl_migrate(H, b)
 
     # cat("GL position: ",  GL / J * L / 1000,  "\n")
+
     B <- rep(Bg, length(x))
     
     if (B_variable) {

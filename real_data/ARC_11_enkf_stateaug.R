@@ -147,8 +147,8 @@ bed_obs <- readRDS(file = paste0("./training_data/bed_obs_", output_date, ".rds"
 ################################
 
 ## Sample from test set and do state inference
-n_test_samples <- dim(test_data$input)[1]
-test_samples <- 2 #1:5 # sample(1:n_test_samples, 1) # sample index
+# n_test_samples <- dim(test_data$input)[1]
+# test_samples <- 2 #1:5 # sample(1:n_test_samples, 1) # sample index
 
 # NEED TO GENERATE ENSEMBLES OF BED AND FRICTION HERE
 
