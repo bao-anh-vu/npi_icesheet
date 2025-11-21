@@ -192,7 +192,7 @@ dev.off()
 
 ## Same plot but in ggplot
 
-n_plot_samples <- 10
+n_plot_samples <- 4
 prior_fric_df <- data.frame(
   x = rep(domain / 1000, n_plot_samples),
   sample = rep(1:n_plot_samples, each = length(domain)),
@@ -264,7 +264,8 @@ post_pred <- sim_obs(
   phys_params = params,
   years = years, # sim_beds = T,
   warmup = warmup,
-  ini_thickness = ssa_steady$current_thickness,
+  # ini_thickness = ssa_steady$current_thickness,
+  ini_surface = ssa_steady$current_top_surface,
   ini_velocity = ssa_steady$current_velocity,
   vel_err_sd = vel_err_sd
   # smb = smb_avg,
@@ -278,7 +279,8 @@ prior_pred <- sim_obs(
   phys_params = params,
   years = years, # sim_beds = T,
   warmup = warmup,
-  ini_thickness = ssa_steady$current_thickness,
+  # ini_thickness = ssa_steady$current_thickness,
+  ini_surface = ssa_steady$current_top_surface,
   ini_velocity = ssa_steady$current_velocity,
   vel_err_sd = vel_err_sd
   # smb = smb_avg,
@@ -402,11 +404,10 @@ if (correct_model_discrepancy) {
       vel_discr_fin[j] <- vel_pred
     }
 
-    if (correct_velocity_discrepancy) {
-      vel_discr_mat <- cbind(vel_discr, vel_discr_fin)
-    } else {
-      vel_discr_mat <- matrix(0, nrow = nrow(vel_discr), ncol = years)
-    }
+  }
+
+  if (!correct_velocity_discrepancy) {
+    vel_discr_mat <- matrix(0, nrow = length(domain), ncol = years)
   }
 
   ## Plot the discrepancy each year
@@ -497,7 +498,7 @@ p1 <- ggplot(se_post_pred_df, aes(x = domain)) +
   # geom_vline(data = gl_df, aes(xintercept = x), lty = 2) + # plot GL position
   facet_wrap(~year, ncol = 2) +
   xlim(0, gl_obs / 1000) +
-  ylim(150, 1250) +
+  # ylim(150, 1250) +
   labs(
     # title = "Prior vs posterior predictive surface elevation by year",
     y = "Surface elevation (m)", x = "Distance along flowline (km)"
@@ -576,17 +577,158 @@ for (yr in yearnum) {
 # rmse <- function(obs, sim) {
 #   sqrt(mean((obs - sim)^2, na.rm = T))
 # }
+prior_se_rmse <- prior_vel_rmse <- c()
+post_se_rmse <- post_vel_rmse <- c()
 
-### Extract all final-year surface elevation obs from posterior predictive simulations
-prior_pred_se_final <- prior_pred_obs[, , years, 1]
-post_pred_se_final <- post_pred_obs[, , years, 1]
-obs_se_final <- surf_elev_data[, years]
+for (yr in 1:years) {
+  ### Extract all final-year surface elevation obs from posterior predictive simulations
+  obs_se_final <- surf_elev_data[, yr]
+  obs_vel_final <- velocity_data[, yr]
 
-### Discard observation locations with missing data
-valid_locs <- which(!is.na(obs_se_final))
-prior_pred_se_final <- prior_pred_se_final[, valid_locs]
-post_pred_se_final <- post_pred_se_final[, valid_locs]
-obs_se_final <- obs_se_final[valid_locs]
+  ### Discard observation locations with missing data
+  valid_locs <- which(!is.na(obs_se_final))
+  prior_pred_se_mean <- prior_pred_obs_mean[valid_locs, yr, 1]
+  post_pred_se_mean <- post_pred_obs_mean[valid_locs, yr, 1]
+  obs_se_final <- na.omit(obs_se_final)
+
+  prior_pred_vel_mean <- prior_pred_obs_mean[valid_locs, yr, 2]
+  post_pred_vel_mean <- post_pred_obs_mean[valid_locs, yr, 2]
+  obs_vel_final <- obs_vel_final[valid_locs]
+
+  prior_se_rmse[yr] <- rmse(obs_se_final, prior_pred_se_mean)
+  post_se_rmse[yr] <- rmse(obs_se_final, post_pred_se_mean)
+  prior_vel_rmse[yr] <- rmse(obs_vel_final, prior_pred_vel_mean)
+  post_vel_rmse[yr] <- rmse(obs_vel_final, post_pred_vel_mean)
+
+}
+
+## CRPS
+
+prior_crps_se_fin <- prior_crps_vel_fin <- c()
+post_crps_se_fin <- post_crps_vel_fin <- c()
+for (yr in 1:years) {
+  ### Extract all final-year surface elevation obs from posterior predictive simulations
+  prior_pred_se_final <- prior_pred_obs[, , yr, 1]
+  post_pred_se_final <- post_pred_obs[, , yr, 1]
+  obs_se_final <- surf_elev_data[, yr]
+
+  ## Velocity
+  prior_pred_vel_final <- prior_pred_obs[, , yr, 2]
+  post_pred_vel_final <- post_pred_obs[, , yr, 2]
+  obs_vel_final <- velocity_data[, yr]
+
+  ### Discard observation locations with missing data
+  valid_locs <- which(!is.na(obs_se_final))
+  
+  prior_pred_se_final <- prior_pred_se_final[, valid_locs]
+  post_pred_se_final <- post_pred_se_final[, valid_locs]
+  obs_se_final <- obs_se_final[valid_locs]
+
+  prior_pred_vel_final <- prior_pred_vel_final[, valid_locs]
+  post_pred_vel_final <- post_pred_vel_final[, valid_locs]
+  obs_vel_final <- obs_vel_final[valid_locs]
+
+  prior_crps_se_fin[yr] <- crps_multivariate(
+    pred_samples = prior_pred_se_final,
+    observed = obs_se_final
+  )
+  post_crps_se_fin[yr] <- crps_multivariate(
+    pred_samples = post_pred_se_final,
+    observed = obs_se_final
+  )
+
+  prior_crps_vel_fin[yr] <- crps_multivariate(
+    prior_pred_vel_final,
+    obs_vel_final
+  )
+  post_crps_vel_fin[yr] <- crps_multivariate(
+    post_pred_vel_final,
+    obs_vel_final
+  )
+
+
+}
+
+
+## Collect RMSE into a data frame
+rmse_df <- data.frame(
+  year = as.integer(2010 + 0:(years - 1)),
+  prior_se_RMSE = prior_se_rmse,
+  post_se_RMSE = post_se_rmse,
+  prior_vel_RMSE = prior_vel_rmse,
+  post_vel_RMSE = post_vel_rmse
+)
+
+rmse_avg <- data.frame(
+  year = c("Average"),
+  prior_se_RMSE = mean(prior_se_rmse),
+  post_se_RMSE = mean(post_se_rmse),
+  prior_vel_RMSE = mean(prior_vel_rmse, na.rm = T),
+  post_vel_RMSE = mean(post_vel_rmse, na.rm = T)
+)
+
+rmse_df_all <- rbind(rmse_df, rmse_avg)
+
+## Save as a .csv file
+write.csv(rmse_df_all, file = paste0(plot_dir, "rmse_summary_", data_date, ".csv"), row.names = F)
+
+## Collect CRPS into a data frame
+crps_df <- data.frame(
+  year = as.integer(2010 + 0:(years - 1)),
+  prior_se_CRPS = prior_crps_se_fin,
+  post_se_CRPS = post_crps_se_fin,
+  prior_vel_CRPS = prior_crps_vel_fin,
+  post_vel_CRPS = post_crps_vel_fin
+)
+
+crps_avg <- data.frame(
+  year = c("Average"),
+  prior_se_CRPS = mean(prior_crps_se_fin),
+  post_se_CRPS = mean(post_crps_se_fin),
+  prior_vel_CRPS = mean(prior_crps_vel_fin, na.rm = T),
+  post_vel_CRPS = mean(post_crps_vel_fin, na.rm = T)
+)
+crps_df_all <- rbind(crps_df, crps_avg)
+
+## Save as a .csv file
+write.csv(crps_df_all, file = paste0(plot_dir, "crps_summary_", data_date, ".csv"), row.names = F)
+
+## Plot RMSE over time
+png(filename = paste0(plot_dir, "rmse_plot_", data_date, ".png"), width = 1000, height = 800, res = 150)
+
+se_rmse_plot <- ggplot() + 
+  geom_line(data = rmse_df, aes(x = year, y = prior_se_RMSE), col = "blue") +
+  geom_line(data = rmse_df, aes(x = year, y = post_se_RMSE), col = "red") +
+  labs(title = "Surface elevation RMSE over time", y = "RMSE", x = "Year") +
+  theme_bw() +
+  theme(text = element_text(size = 18))
+
+vel_rmse_plot <- ggplot() + 
+  geom_line(data = rmse_df, aes(x = year, y = prior_vel_RMSE), col = "blue") +
+  geom_line(data = rmse_df, aes(x = year, y = post_vel_RMSE), col = "red") +
+  labs(title = "Velocity RMSE over time", y = "RMSE", x = "Year") +
+  theme_bw() +
+  theme(text = element_text(size = 18))
+
+grid.arrange(grobs = list(se_rmse_plot, vel_rmse_plot), nrow = 2, ncol = 1)
+dev.off()
+
+## Plot CRPS over time
+png(filename = paste0(plot_dir, "crps_plot_", data_date, ".png"), width = 1000, height = 800, res = 150)  
+se_crps_plot <- ggplot() + 
+  geom_line(data = crps_df, aes(x = year, y = prior_se_CRPS), col = "blue") +
+  geom_line(data = crps_df, aes(x = year, y = post_se_CRPS), col = "red") +
+  labs(title = "Surface elevation CRPS over time", y = "CRPS", x = "Year") +
+  theme_bw() +
+  theme(text = element_text(size = 18))
+vel_crps_plot <- ggplot() + 
+  geom_line(data = crps_df, aes(x = year, y = prior_vel_CRPS), col = "blue") +
+  geom_line(data = crps_df, aes(x = year, y = post_vel_CRPS), col = "red") +
+  labs(title = "Velocity CRPS over time", y = "CRPS", x = "Year") +
+  theme_bw() +
+  theme(text = element_text(size = 18))
+grid.arrange(grobs = list(se_crps_plot, vel_crps_plot), nrow = 2, ncol = 1)
+dev.off()
 
 
 ## Plot prior vs posterior mean
@@ -605,42 +747,6 @@ lines(fin_df_vel$post_mean, col = "red")
 legend("topleft", legend = c("Observations", "Prior mean", "Posterior mean"), col = c("black", "blue", "red"), lty = 1)
 
 dev.off()
-
-prior_se_rmse <- rmse(fin_df$obs, fin_df$prior_mean)
-prior_vel_rmse <- rmse(fin_df_vel$obs, fin_df_vel$prior_mean)
-post_se_rmse <- rmse(fin_df$obs, fin_df$post_mean)
-post_vel_rmse <- rmse(fin_df_vel$obs, fin_df_vel$post_mean)
-
-## Collect RMSE into a data frame
-rmse_df <- data.frame(
-  Pred = c("Prior", "Posterior"),
-  surface_elev_RMSE = c(prior_se_rmse, post_se_rmse),
-  velocity_RMSE = c(prior_vel_rmse, post_vel_rmse)
-)
-
-## Save as a .csv file
-write.csv(rmse_df, file = paste0(plot_dir, "rmse_summary_", data_date, ".csv"), row.names = F)
-
-## Compute CRPS
-prior_crps_se_fin <- crps_multivariate(
-  pred_samples = prior_pred_se_final,
-  observed = obs_se_final
-)
-post_crps_se_fin <- crps_multivariate(
-  pred_samples = post_pred_se_final,
-  observed = obs_se_final
-)
-
-## Now calculate CRPS for velocity
-prior_pred_vel_final <- prior_pred_obs[, , years, 2]
-post_pred_vel_final <- post_pred_obs[, , years, 2]
-obs_vel_final <- velocity_data[, years]
-
-### Discard observation locations with missing data
-valid_locs_vel <- valid_locs # which(!is.na(obs_vel_final))
-prior_pred_vel_final <- prior_pred_vel_final[, valid_locs_vel]
-post_pred_vel_final <- post_pred_vel_final[, valid_locs_vel]
-obs_vel_final <- obs_vel_final[valid_locs_vel]
 
 ## Plot prior vs posterior spread
 png(file = paste0(plot_dir, "prior_vs_posterior_pred_se_final_", data_date, ".png"), width = 1000, height = 1500, res = 150)
@@ -670,22 +776,3 @@ lines(colMeans(post_pred_vel_final), col = "red", lwd = 2)
 legend("topright", legend = c("Prior samples", "Posterior samples", "Observations"), col = c("lightblue", "salmon", "black"), lty = 1)
 
 dev.off()
-
-prior_crps_vel_fin <- crps_multivariate(
-  prior_pred_vel_final,
-  obs_vel_final
-)
-post_crps_vel_fin <- crps_multivariate(
-  post_pred_vel_final,
-  obs_vel_final
-)
-
-## Collect CRPS into a data frame
-crps_df <- data.frame(
-  Pred = c("Prior", "Posterior"),
-  surface_elev_CRPS = c(prior_crps_se_fin, post_crps_se_fin),
-  velocity_CRPS = c(prior_crps_vel_fin, post_crps_vel_fin)
-)
-
-## Save as a .csv file
-write.csv(crps_df, file = paste0(plot_dir, "crps_summary_", data_date, ".csv"), row.names = F)

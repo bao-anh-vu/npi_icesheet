@@ -118,7 +118,7 @@ plot_flowline <- ggplot(vel_thwaites) +
     geom_point(aes(x = x, y = y, colour = v)) +
     scale_colour_distiller(
       palette = "BuPu", direction = 1,
-      # limits = c(1, 10000),
+      limits = c(1, 10000),
       name = "Velocity (m/a)"
     ) +
     # geom_point(data = gl_thwaites, aes(x = X, y = Y), color = "black", size = 0.2) +
@@ -126,13 +126,17 @@ plot_flowline <- ggplot(vel_thwaites) +
     geom_point(data = data.frame(chosen_pt), aes(x = x, y = y), color = "black", size = 5) +
     geom_line(data = data.frame(x = flowline_x, y = flowline_y),
                 aes(x = x, y = y), color = "red", linewidth = 2) +
-    theme_bw()
+    theme_bw() +
+    theme(text = element_text(size = 16), 
+          axis.title = element_blank()) 
 
 print("Saving flowline plot...")
 png(paste0("./plots/flowline2.png"), width = 800, height = 800, res = 100)
 print(plot_flowline)
 # plot(flowline_x, flowline_y, type = "l", col = "blue", xlab = "x", ylab = "y")
 dev.off()
+
+browser()
 
 ## Re-grid
 if (regrid_flowline) {

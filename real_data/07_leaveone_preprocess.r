@@ -18,6 +18,8 @@ save_data <- T
 standardise_output <- T
 # use_missing_pattern <- T
 leave_one_out <- T
+# correct_model_discrepancy <- T
+# correct_velocity_discrepancy <- T
 
 # library(tensorflow)
 # reticulate::use_condaenv("myenv", required = TRUE)
@@ -44,13 +46,13 @@ leave_one_out <- T
 #   })
 # }
 
-## Read data=
+## Read data
 data_date <- "20241111"
 
 # arg <- commandArgs(trailingOnly = TRUE)
 sets <- 51:100
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
-# setsf <- paste0("sets", sets[1], "-", sets[lenhgth(sets)])#formatC(sets, width=2, flag="0
+setsf <- paste0("sets", sets[1], "-", sets[length(sets)])#formatC(sets, width=2, flag="0
 
 train_data_dir <- "./data/training_data"
 
@@ -59,6 +61,26 @@ print("Reading surface data...")
 files <- lapply(setf, function(x) paste0(train_data_dir, "/surface_obs_arr_", x, "_", data_date, ".qs"))
 surface_obs_list <- lapply(files, qread)
 surface_obs_arr <- abind(surface_obs_list, along = 1)
+
+# if (correct_model_discrepancy) {
+#     system.time({
+#         print("Correcting model discrepancy...")
+#         vel_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/vel_discr_avg_", data_date, ".qs"))
+#         se_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/se_discr_avg_", data_date, ".qs"))
+        
+#         ## Replace NAs with 0s in discrepancy matrices
+#         vel_discr_mat <- ifelse(is.na(vel_discr_mat), 0, vel_discr_mat)
+#         se_discr_mat <- ifelse(is.na(se_discr_mat), 0, se_discr_mat)
+        
+#         for (i in 1:dim(surface_obs_arr)[1]) {
+#             if (correct_velocity_discrepancy) {
+#                 surface_obs_arr[i, , , 2] <- surface_obs_arr[i, , , 2] + vel_discr_mat
+#             }
+#             surface_obs_arr[i, , , 1] <- surface_obs_arr[i, , , 1] + se_discr_mat
+#         }
+#     })
+    
+# }
 
 # if (use_missing_pattern) {
     print("Reading missing patterns...")
@@ -81,6 +103,7 @@ surface_obs_arr <- abind(surface_obs_list, along = 1)
     rm(surface_obs_list)
 
 # }
+
 
 ## Read true surface elevation data
 files <- lapply(setf, function(x) paste0(train_data_dir, "/true_surface_elevs_", x, "_", data_date, ".qs"))
@@ -170,6 +193,7 @@ test_ind <- setdiff(1:remaining_sims, c(train_ind, val_ind))
 surface_obs_arr_train <- surface_obs_arr[train_ind, , , ]
 surface_obs_arr_val <- surface_obs_arr[val_ind, , , ]
 surface_obs_arr_test <- surface_obs_arr[test_ind, , , ]
+
 # train_input <- std_input[train_ind, , , ]
 # val_input <- std_input[val_ind, , , ]
 # test_input <- std_input[test_ind, , , ]

@@ -7,7 +7,8 @@ sim_obs <- function(param_list,
                     relax_years = NULL,
                     # steady_state, 
                     ini_velocity,
-                    ini_thickness, 
+                    ini_surface,
+                    # ini_thickness, 
                     vel_err_sd = 50, # default of 50 m/yr
                     smb = 0.5, # default of 0.5 m/yr
                     basal_melt = 0 # default of 0 m/yr
@@ -35,31 +36,33 @@ sim_obs <- function(param_list,
 
     # sim_results <- lapply(param_list, 
     #     function(param, domain, phys_params,
-    #             ini_velocity, ini_thickness, years, warmup,
+    #             ini_velocity, 
+    #             ini_surface,
+    #             ## ini_thickness, 
+    #             years, warmup,
     #             use_relaxation = F,
     #             relax_years = NULL,
     #             vel_err_sd,
     #             msmt_noise_info) {
     sim_results <- mclapply(param_list, 
         function(param, domain, phys_params,
-                ini_velocity, ini_thickness, years, 
+                ini_velocity, 
+                ini_surface,
+                ## ini_thickness, 
+                years, 
                 warmup,
                 use_relaxation = F,
                 relax_years = NULL,
                 vel_err_sd,
                 msmt_noise_info) {
 
-        # sim_out <- solve_ssa_nl(
-        #     domain = domain,
-        #     bedrock = param$bedrock,
-        #     friction_coef = param$friction * 1e6 * phys_params$secpera^(1 / phys_params$n),
-        #     phys_params = phys_params,
-        #     ini_velocity = ini_velocity,
-        #     ini_thickness = ini_thickness,
-        #     years = years + warmup,
-        #     steps_per_yr = 100,
-        #     add_process_noise = F
-        # )
+        ini_thickness <- calculate_thickness(
+            z = ini_surface,
+            b = param$bedrock,
+            z0 = 0,
+            rho = phys_params$rho_i,
+            rho_w = phys_params$rho_w
+        )
 
         sim_out <- solve_ssa_nl(
             domain = domain,
@@ -79,9 +82,15 @@ sim_obs <- function(param_list,
         ## Add noise to surface to obtain surface observations
         surface_obs <- get_obs(sim_out, vel_err_sd, msmt_noise_info, warmup = warmup)
 
-## Plot surface obs
-# png("./plots/temp/surface_obs.png")
-# matplot(surface_obs[,,2], type = 'l', lty = 1, col = rgb(0,0,0,0.3),)
+# Plot surface obs
+# png("./plots/temp/sim_surface_obs2.png", width = 1000, height = 600, res = 150)
+# matplot(sim_out$all_top_surface[, (1:warmup)], type = 'l', lty = 1, col = "salmon",
+#         # ylim = c(0, 1500),
+#         xlab = "Distance along flowline (m)", ylab = "Surface elevation (m)",
+#         main = "Simulated surface elevations")
+# lines(sim_out$all_top_surface[, 1], col = "red")
+# lines(ssa_steady$current_top_surface, col = "blue")
+# matlines(sim_out$all_top_surface[, -(1:warmup)], col = "black")
 # dev.off()
 # browser()
 
@@ -114,7 +123,8 @@ sim_obs <- function(param_list,
     phys_params = phys_params,
     domain = domain,
     ini_velocity = ini_velocity,
-    ini_thickness = ini_thickness,
+    # ini_thickness = ini_thickness,
+    ini_surface = ini_surface,
     years = years,
     warmup = warmup,
     use_relaxation = use_relaxation,

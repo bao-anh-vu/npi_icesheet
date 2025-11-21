@@ -48,5 +48,6 @@ calculate_thickness <- function(z, b, z0 = 0, rho = 917.0, rho_w = 1028.0) {
   H <- z - b
   float_ind <- GL:length(z)
   H[float_ind] <- (z[float_ind] - z0) / (1 - rho / rho_w)
+  
   return(H)
 }

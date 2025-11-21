@@ -537,7 +537,19 @@ png(filename = paste0(plot_dir, "pred_bed_fric_real_ggplot.png"), width = 2000, 
 grid.arrange(fric_p, bed_p, ncol = 2)
 dev.off()
 
-
+## Plot difference between bedmachine and predicted bed
+bed_df$diff <- bed_df$pred - bed_df$bedmachine
+bed_diff_p <- ggplot(data = bed_df, aes(x = domain, y = diff)) +
+    geom_line(color = "red", lwd = 1) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    xlim(0, 150) +
+    labs(x = "Flowline (km)", y = "Bed elevation difference (m)") +
+    theme_bw() +
+    theme(text = element_text(size = 20),
+          plot.margin = unit(c(1, 1, 1, 1), "cm"))    
+png(filename = paste0(plot_dir, "pred_bed_diff_real_ggplot.png"), width = 1000, height = 500, res = 100)
+print(bed_diff_p)
+dev.off()
 
 
 # gl_q <- qread(file = paste0(pred_output_dir, "/gl_quantiles_real_", data_date, ".qs"))

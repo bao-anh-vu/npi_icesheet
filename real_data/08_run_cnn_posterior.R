@@ -79,6 +79,8 @@ train_output <- cbind(train_data$fric_coefs, train_data$bed_coefs, train_data$gr
 val_output <- cbind(val_data$fric_coefs, val_data$bed_coefs, val_data$grounding_line)
 test_output <- cbind(test_data$fric_coefs, test_data$bed_coefs, test_data$grounding_line)
 
+browser()
+
 png(paste0(plot_dir, "input_", data_date, ".png"), width = 800, height = 400)
 par(mfrow = c(1, 2))
 sp <- sample(1:dim(val_input)[1], 1)

@@ -37,9 +37,9 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 resimulate <- T
 use_basal_melt_data <- T
 leave_one_out <- T
-nsims <- 1000 # 0
+nsims <- 100 # 0
 use_relaxation <- F
-warmup <- 5 # 2
+warmup <- 5 # years to let the model "adjust" before actually collecting observations
 avg_over_time <- T
 fit_spline <- T
 
@@ -55,41 +55,42 @@ gl_ind <- gl_pos$ind
 
 # Physical params
 
-params <- list(
-    secpera = 31556926, # seconds per annum
-    n = 3.0, # exponent in Glen's flow law
-    rho_i = 917.0, # ice density
-    rho_w = 1028.0, # sea water density
-    g = 9.81 # gravity constant
-    # A = 4.227e-25, #1.4579e-25, # flow rate parameter
-)
+# params <- list(
+#     secpera = 31556926, # seconds per annum
+#     n = 3.0, # exponent in Glen's flow law
+#     rho_i = 917.0, # ice density
+#     rho_w = 1028.0, # sea water density
+#     g = 9.81 # gravity constant
+#     # A = 4.227e-25, #1.4579e-25, # flow rate parameter
+# )
 
-params$m <- 1 / params$n
-params$B <- 0.6 * 1e6 * params$secpera^params$m
-params$A <- params$B^(-params$n)
+# params$m <- 1 / params$n
+# params$B <- 0.6 * 1e6 * params$secpera^params$m
+# params$A <- params$B^(-params$n)
 
-## SMB data
-smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
-smb_avg <- colMeans(smb_data_racmo, na.rm = T)
-params$as <- smb_avg # surface accumulation rate (m/s)
+# ## SMB data
+# smb_data_racmo <- qread(file = paste0("./data/SMB/flowline_landice_smb.qs")) ## from 1979 to 2016
+# smb_avg <- colMeans(smb_data_racmo, na.rm = T)
+# params$as <- smb_avg # surface accumulation rate (m/s)
 
-if (use_basal_melt_data) {
-    melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
-    # avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
-    # melt_nonmissing <- which(!is.na(avg_melt_rate))
-    # avg_melt_rate[1:(melt_nonmissing[1] - 1)] <- -0.1 # seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
-    # avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) # mean(avg_melt_rate[melt_nonmissing])
-    # avg_melt_rate <- -avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
+# if (use_basal_melt_data) {
+#     melt_thwaites <- qread(file = "./data/SMB/flowline_shelf_melt.qs")
+#     avg_melt_rate <- colMeans(melt_thwaites, na.rm = T)
+#     # melt_nonmissing <- which(!is.na(avg_melt_rate))
+#     # avg_melt_rate[1:(melt_nonmissing[1] - 1)] <- -0.1 # seq(0, avg_melt_rate[melt_nonmissing[1]], length.out = melt_nonmissing[1]-1)
+#     # avg_melt_rate[is.na(avg_melt_rate)] <- tail(avg_melt_rate[melt_nonmissing], 1) # mean(avg_melt_rate[melt_nonmissing])
+#     # avg_melt_rate <- -avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
 
-    avg_melt_shelf <- mean(melt_thwaites, na.rm = T)
-    avg_melt_rate <- rep(-0.1, J)
-    avg_melt_rate[gl_ind:J] <- -avg_melt_shelf # extra minus sign here as the melt rate in my model has the opposite sign as what is in the data
-} else { ## assume no melt
-    avg_melt_rate <- rep(0, J)
-}
-params$ab <- avg_melt_rate # melt rate (m/s)
+#     avg_melt_shelf <- mean(melt_thwaites, na.rm = T)
+#     # avg_melt_rate <- rep(-0.1, J)
+#     avg_melt_rate <- rep(0, J)
+#     avg_melt_rate[gl_ind:J] <- -avg_melt_shelf # extra minus sign here as the melt rate in my model has the opposite sign as what is in the data
+# } else { ## assume no melt
+#     avg_melt_rate <- rep(0, J)
+# }
+# params$ab <- avg_melt_rate # melt rate (m/s)
 
-# params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
+params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
 
 ## Bed observations
 bed_obs_df <- qread(file = paste0(data_dir, "bedmap/bed_obs_df_all.qs"))
@@ -123,8 +124,8 @@ vel_err_sd <- qread(file = paste0("./data/velocity/vel_err_sd_", data_date, ".qs
 
 if (resimulate) {
     print("Simulating friction coefficient...")
-set.seed(2025)
-fric_sims <- simulate_friction2(
+    set.seed(2025)
+    fric_sims <- simulate_friction2(
     nsim = nsims, domain = domain
 )
 
@@ -203,7 +204,8 @@ if (resimulate) {
         warmup = warmup,
         use_relaxation = use_relaxation,
         relax_years = warmup, # over how many years to relax towards observed thickness
-        ini_thickness = ssa_steady$current_thickness,
+        # ini_thickness = ssa_steady$current_thickness,
+        ini_surface = ssa_steady$current_top_surface,
         ini_velocity = ssa_steady$current_velocity,
         vel_err_sd = vel_err_sd
         # smb = smb_avg,
@@ -252,7 +254,7 @@ vel_discr <- lapply(vel_sims, function(M) vel_mat[, 1:years] - M[, 1:years])
 # GL_pos <- generated_data$gl_arr[, years]
 
 ### Plot model discrepancy
-nsims_plot <- 10
+nsims_plot <- 4
 plot_range <- 1:sum(!is.na(surf_elev_mat[, 1]))
 
 # pdf(file = paste0("./plots/discr/discrepancies_", data_date, ".pdf"), width = 10, height = 15)
@@ -301,7 +303,7 @@ for (s in 1:nsims_plot) {
 dev.off()
 
 # Plot bed for different simulations
-png(paste0("plots/discr/bed_sims_", data_date, ".png"), width = 1500, height = 250 * nsims_plot)
+png(paste0("plots/discr/bed_sims_", data_date, ".png"), width = 1500, height = 300 * nsims_plot)
 for (s in 1:nsims_plot) {
     plot(domain / 1000, bed_sims[, s],
         type = "l", lty = 1, col = "salmon",
@@ -312,15 +314,18 @@ for (s in 1:nsims_plot) {
 dev.off()
 
 ## Plot velocities for different simulations
-png(paste0("plots/discr/vel_sims_", data_date, ".png"), width = 1500, height = 250 * nsims_plot, res = 200)
+png(paste0("plots/discr/vel_sims_", data_date, ".png"), width = 1500, height = 300 * nsims_plot, res = 200)
 par(mfrow = c(nsims_plot / 2, 2))
 # layout(matrix(1:nsims, nrow = nsims/2, ncol = 2, byrow = TRUE))
 
 # Example: gradient from green to blue
 n_lines <- years # number of lines to plot
+plot_range <- 1:gl_ind
 
 # Create a color palette (green → blue)
-cols <- adjustcolor(colorRampPalette(c("blue", "turquoise"))(n_lines), alpha.f = 0.6)
+cols <- adjustcolor(colorRampPalette(c("maroon", "mistyrose"))(n_lines), alpha.f = 0.6)
+# grey_cols <- adjustcolor(colorRampPalette(c("lightcoral", "mistyrose"))(n_lines), alpha.f = 0.8)
+grey_cols <- adjustcolor(colorRampPalette(c("grey60", "grey90"))(n_lines), alpha.f = 0.8)
 
 for (s in 1:nsims_plot) {
     matplot(domain / 1000, vel_mat,
@@ -340,7 +345,7 @@ for (s in 1:nsims_plot) {
 dev.off()
 
 ## Plot velocity discrepancy
-png(paste0("plots/discr/vel_discrepancy_", data_date, ".png"), width = 1500, height = 250 * nsims_plot, res = 200)
+png(paste0("plots/discr/vel_discrepancy_", data_date, ".png"), width = 1500, height = 300 * nsims_plot, res = 200)
 par(mfrow = c(nsims_plot / 2, 2))
 for (s in 1:nsims_plot) {
     matplot(domain[plot_range] / 1000, vel_discr[[s]][plot_range, ],
@@ -357,39 +362,64 @@ for (s in 1:nsims_plot) {
 dev.off()
 
 ## Plot surface elevation for different simulations
-png(paste0("plots/discr/se_sims_", data_date, ".png"), width = 1500, height = 250 * nsims_plot, res = 200)
-par(mfrow = c(nsims_plot / 2, 2))
+png(paste0("plots/discr/se_sims_", data_date, ".png"), width = 1500, height = 500 * nsims_plot, res = 200)
+par(mfrow = c(nsims_plot, 2))
 for (s in 1:nsims_plot) {
-    matplot(domain / 1000, surf_elev_mat,
-        type = "l", lty = 1, col = "salmon",
+    matplot(domain[plot_range] / 1000, surf_elev_mat[plot_range, ],
+        type = "l", lty = 1, lwd = 2, col = grey_cols,
         # cex = 5,
-        ylim = c(0, 1600),
+        ylim = c(0, 1400),
         xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)",
         main = paste0("Surface elevation for simulation ", s)
     )
-    matlines(domain / 1000, se_sims[[s]],
+    matlines(domain[plot_range] / 1000, se_sims[[s]][plot_range, ],
         type = "l", lty = 1, col = cols, lwd = 2
     )
-    lines(domain / 1000, ssa_steady$current_top_surface, col = "black", lwd = 2)
-    legend("topright", legend = c("Simulated", "Observed"), col = c("blue", "salmon"), lty = 1, bty = "n")
+    # lines(domain / 1000, ssa_steady$current_top_surface, col = "black", lwd = 2)
+    # legend("topright", legend = c("Simulated", "Observed"), col = c("blue", "salmon"), lty = 1, bty = "n")
     # abline(v = GL_pos[s], lty = 2, col = "red")
+
+    matplot(domain[plot_range] / 1000, vel_mat[plot_range, ],
+        type = "l", lty = 1, lwd = 2, col = grey_cols,
+        # cex = 5,
+        ylim = c(0, 2600),
+        xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)",
+        main = paste0("Velocity for simulation ", s)
+    )
+    matlines(domain[plot_range] / 1000, vel_sims[[s]][plot_range, ],
+        type = "l", lty = 1, col = cols, lwd = 2
+    )
+    # lines(domain / 1000, ssa_steady$current_velocity, col = "black", lwd = 2)
+    # abline(v = GL_pos[s], lty = 2, col = "red")
+    # legend("bottomright", legend = c("Simulated", "Observed"), col = c("blue", "salmon"), lty = 1, bty = "n")
+
 }
 dev.off()
 
 ## Plot surface elevation discrepancy
-png(paste0("plots/discr/se_discrepancy_", data_date, ".png"), width = 1500, height = 250 * nsims_plot, res = 200)
-par(mfrow = c(nsims_plot / 2, 2))
+png(paste0("plots/discr/se_discrepancy_", data_date, ".png"), width = 1500, height = 500 * nsims_plot, res = 200)
+par(mfrow = c(nsims_plot, 2))
 for (s in 1:nsims_plot) {
     matplot(domain[plot_range] / 1000, se_discr[[s]][plot_range, ],
         type = "l", lty = 1, # col = rgb(0,0,0,0.25),
         # cex = 5,
         col = cols,
         # ylim = c(-500, 500),
-        xlab = "Distance along flowline (km)", ylab = "Discrepancy (m)",
+        xlab = "Distance along flowline (km)", ylab = "Surface elev. discrepancy (m)",
         main = paste0("Simulation ", s)
     )
     abline(h = 0, col = "grey", lty = 2)
     # abline(v = GL_pos[s], lty = 2, col = "red")
+
+    matplot(domain[plot_range] / 1000, vel_discr[[s]][plot_range, ],
+        type = "l", lty = 1, # col = rgb(0,0,0,0.25),
+        # cex = 5,
+        col = cols,
+        ylim = c(-1000, 1500),
+        xlab = "Distance along flowline (km)", ylab = "Velocity discrepancy (m/yr)",
+        main = paste0("Simulation ", s)
+    )
+    abline(h = 0, col = "grey", lty = 2)
 }
 dev.off()
 
@@ -425,14 +455,14 @@ if (avg_over_time) {
         png(paste0("./plots/discr/se_discrepancy_smooth.png"), width = 1500, height = 500, res = 200)
         par(mfrow = c(1, 2))
         plot(domain[plot_range] / 1e3, avg_se_discr[plot_range],
-            type = "l", col = cols[5], lwd = 2,
+            type = "l", col = cols[5], lwd = 2, lty = 1,
             xlab = "Distance along flowline (km)", ylab = "Discrepancy (m)",
             main = "Surface elevation discrepancy"
         )
         lines(domain[plot_range] / 1e3, se_discr_smooth[plot_range], col = "black", lwd = 2)
 
         plot(domain[plot_range] / 1e3, avg_vel_discr[plot_range],
-            type = "l", col = cols[5], lwd = 2,
+            type = "l", col = cols[5], lwd = 2, lty = 1,
             xlab = "Distance along flowline (km)", ylab = "Discrepancy (m/yr)",
             main = "Velocity discrepancy"
         )
@@ -490,21 +520,13 @@ if (avg_over_time) {
 
 
 #################################################
-# adj_se_mat <- surf_elev_mat - se_discr_mat
-# adj_vel_mat <- vel_mat - vel_discr_mat
-
-# browser()
-
-# # Save adjusted observed data
-# qsave(adj_se_mat, file = paste0(data_dir, "surface_elev/adj_se_mat_", file_tag, data_date, ".qs"))
-# qsave(adj_vel_mat, file = paste0(data_dir, "velocity/adj_vel_mat_", file_tag, data_date, ".qs"))
 
 ## Plot the average discrepancy
 # pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 15, height = 20, pointsize = 18)
 png(file = paste0("./plots/discr/avg_discrepancy_", data_date, ".png"), width = 800, height = 1000, res = 200)
 par(mfrow = c(2, 1))
 matplot(domain / 1000, se_discr_mat,
-    type = "l", col = cols, lwd = 2,
+    type = "l", col = cols, lwd = 2, lty = 1,
     # cex = 2,
     xlab = "Distance along flowline (km)", ylab = "Discrepancy (m)",
     main = "Average surface elevation discrepancy"
@@ -513,7 +535,7 @@ abline(h = 0, col = "grey", lty = 2)
 abline(v = gl, lty = 2)
 
 matplot(domain / 1000, vel_discr_mat,
-    type = "l", col = cols, lwd = 2,
+    type = "l", col = cols, lwd = 2, lty = 1,
     # cex = 2,
     xlab = "Distance along flowline (km)", ylab = "Discrepancy (m/yr)",
     main = "Average velocity discrepancy"
@@ -526,47 +548,39 @@ dev.off()
 
 # Plot observed data minus discrepancy
 
-# png(file = paste0("./plots/discr/vel_obs_minus_discr_", data_date, ".png"), width = 800, height = 600)
-pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 10, height = 20)
-
-par(mfrow = c(nsims_plot / 2, 2))
+# pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 10, height = 20)
+png(file = paste0("./plots/discr/adjusted_obs_", data_date, ".png"), width = 1500, height = 500 * nsims_plot, res = 200)
+par(mfrow = c(nsims_plot, 2))
 for (s in 1:nsims_plot) {
-    matplot(domain / 1000, vel_sims[[s]],
-        type = "l", col = "black", lwd = 2,
+    matplot(domain[plot_range] / 1000, vel_sims[[s]][plot_range, ],
+        type = "l", col = grey_cols, lwd = 2, lty = 1,
         ylim = c(0, 4000),
         xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)",
         main = "(Adjusted) observed vs simulated velocity"
     )
-    matlines(domain / 1000, vel_mat - vel_discr_mat,
-        type = "l", col = "salmon", lwd = 2
+    matlines(domain[plot_range] / 1000, (vel_mat - vel_discr_mat)[plot_range, ],
+        type = "l", col = cols, lwd = 2, lty = 1
     )
-    legend("topright",
-        legend = c("Simulated", "Observed - avg discrepancy"),
-        col = c("black", "salmon"), lwd = 2, bty = "n"
-    )
-    abline(v = gl, lty = 2)
-}
-# dev.off()
+    # legend("topright",
+    #     legend = c("Simulated", "Observed - avg discrepancy"),
+    #     col = c("black", "salmon"), lwd = 2, bty = "n"
+    # )
+    # abline(v = gl, lty = 2)
 
-## Same plots for the surface elevation
-# pdf(file = paste0("./plots/discr/adjusted_se_obs_", data_date, ".pdf"), width = 15, height = 20)
-
-
-par(mfrow = c(nsims_plot / 2, 2))
-for (s in 1:nsims_plot) {
-    matplot(domain / 1000, se_sims[[s]],
-        type = "l", col = "black", lwd = 2,
+    matplot(domain[plot_range] / 1000, se_sims[[s]][plot_range, ],
+        type = "l", col = grey_cols, lwd = 2, lty = 1,
         ylim = c(0, 1600),
         xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)",
         main = "(Adjusted) observed vs simulated surface elevation"
     )
-    matlines(domain / 1000, surf_elev_mat - se_discr_mat,
-        type = "l", col = "salmon", lwd = 2
+    matlines(domain[plot_range] / 1000, (surf_elev_mat - se_discr_mat)[plot_range, ],
+        type = "l", col = cols, lwd = 2, lty = 1
     )
-    legend("topright",
-        legend = c("Simulated", "Observed - avg discrepancy"),
-        col = c("black", "salmon"), lwd = 2, bty = "n"
-    )
-    abline(v = gl, lty = 2)
+    # legend("topright",
+    #     legend = c("Simulated", "Observed - avg discrepancy"),
+    #     col = c("black", "salmon"), lwd = 2, bty = "n"
+    # )
+    # abline(v = gl, lty = 2)
 }
 dev.off()
+

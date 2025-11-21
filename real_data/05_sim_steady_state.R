@@ -27,8 +27,8 @@ source("./source/fit_basis.R")
 
 rerun_steady_state <- T
 use_basal_melt_data <- F
-use_prior_mean <- T
-use_relaxation <- T
+use_prior_mean <- F
+use_relaxation <- F
 
 data_dir <- "./data/"
 data_date <- "20241111" #"20241103"
@@ -44,7 +44,7 @@ params <- list(
 )
 
 params$m <- 1 / params$n
-params$B <- 0.6 * 1e6 * params$secpera^params$m
+params$B <- 0.55 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 ## Flowline data
@@ -58,7 +58,7 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 ## Simulate bed
 # bed_sim <- create_bed(x = flowline_dist)
 # bed_sim <- qread(file = paste0(data_dir, "training_data/bed_sim_steady_state.qs"))
-set.seed(2025)
+# set.seed(2025)
 bed_prior <- qread(file = paste0("./data/bedmap/GP_fit_exp.qs"))
 L <- t(chol(bed_prior$cov))
 
@@ -224,8 +224,8 @@ if (rerun_steady_state) {
                             bedrock = bed_sim, 
                             friction_coef = fric_sim * 1e6 * params$secpera^(1 / params$n), 
                             phys_params = params,
-                            tol = 1e-04, #m/yr 
-                            # years = 100,
+                            # tol = 1e-04, #m/yr 
+                            years = 10,
                             steps_per_yr = 100, 
                             add_process_noise = F,
                             # thickness_bc = 3500,
@@ -244,24 +244,24 @@ if (rerun_steady_state) {
 }
 
 n_years_steady <- ncol(steady_state$all_top_surface) - 1
-png(file = paste0("./plots/steady_state/steady_state_", data_date, ".png"), width = 800, height = 600)
+png(file = paste0("./plots/steady_state/steady_state_", data_date, ".png"), width = 1000, height = 1200, res = 150)
 
 par(mfrow = c(2,1))
-matplot(flowline_dist/1000, steady_state$current_top_surface, type = "l", col = "black", ylim = c(0, 1500),
+matplot(flowline_dist/1000, surf_elev_mat, type = "l", col = "grey", ylim = c(0, 1500),
     xlab = "Distance along flowline (km)", ylab = "Elevation (m)", 
     main = paste0("Steady state after ", n_years_steady, " years"))
-matlines(flowline_dist/1000, surf_elev_mat, col = "red", lty = 1)
+lines(flowline_dist/1000, steady_state$current_top_surface, col = "black", lty = 1)
 # lines(flowline_dist/1000, relaxation$current_top_surface, col = "red")
 legend("topright", legend = c(paste0("Simulated steady-state"), "Observed"), 
-    col = c("black", "red"), lty = 1, bty = "n")
+    col = c("black", "grey"), lty = 1, bty = "n")
 
-matplot(flowline_dist/1000, steady_state$current_velocity, type = "l", col = "black", ylim = c(0, 4000),
+matplot(flowline_dist/1000, vel_mat, type = "l", col = "grey", ylim = c(0, 4000),
     xlab = "Distance along flowline (km)", ylab = "Velocity (m/a)")
-matlines(flowline_dist/1000, vel_mat, col = "red", lty = 1)
+lines(flowline_dist/1000, steady_state$current_velocity, col = "black", lty = 1)
 # lines(flowline_dist/1000, steady_state$current_velocity, col = "salmon")
 # lines(flowline_dist/1000, relaxation$current_velocity, col = "red")
 legend("topleft", legend = c(paste0("Simulated steady-state"), "Observed"), 
-    col = c("black", "red"), lty = 1, bty = "n")
+    col = c("black", "grey"), lty = 1, bty = "n")
 dev.off()
 
 # ## Then start ``thinning'' the ice by using present-day average melt rate

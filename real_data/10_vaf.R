@@ -36,7 +36,7 @@ dev.off()
 ## Now do the same but for bed and posterior predicted elevation data
 
 data_date <- "20241111" # "20241103"
-sets <- 51:100 #51:100 # 6:20
+sets <- 51:100 #1:50 #51:100 # 6:20
 # use_missing_pattern <- Tth
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T
@@ -175,11 +175,11 @@ vaf_plot <- ggplot(data = vaf_df, aes(x = as.factor(year), y = volume)) +
       geom_boxplot() +
       theme_bw() +
     #   ylim (c(95e3, 120e3)) +
-      labs(x = "Year", y = expression("Ice area (km"^2*")")) +
-      ggtitle("Plot of \"volume\" above flotation (VAF)") + 
-        theme(text = element_text(size = 24))
+      labs(x = "Year", y = expression("Ice area above flotation (km"^2*")")) +
+    #   ggtitle("Plot of \"volume\" above flotation (VAF)") + 
+        theme(text = element_text(size = 19))
 
-png(paste0(plot_dir, "ice_vaf_boxplot_", data_date, ".png"), width = 1500, height = 900, res = 150)
+png(paste0(plot_dir, "ice_vaf_boxplot_", data_date, ".png"), width = 1500, height = 600, res = 150)
 print(vaf_plot)
 dev.off()
 
@@ -193,12 +193,15 @@ vaf_change_plot <- ggplot(data = vaf_diff_df, aes(x = as.factor(year), y = volum
       geom_boxplot() +
       theme_bw() +
       labs(x = "Year", y = expression("Change in ice area (km"^2*")")) +
-      ggtitle("Change in area (volume) above flotation") +
+    #   ggtitle("Change in area (volume) above flotation") +
     theme(text = element_text(size = 20))
 
-png(paste0(plot_dir, "ice_vaf_change_boxplot_", data_date, ".png"), width = 800, height = 600, res = 100)
+png(paste0(plot_dir, "ice_vaf_change_boxplot_", data_date, ".png"), width = 1500, height = 600, res = 150)
 print(vaf_change_plot)
 dev.off()
+
+## Median change in VAF per year
+median_vaf <- apply(vaf_diff, 2, median)
 
 ## Calculate actual VAF using observed surface elevation data
 surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")

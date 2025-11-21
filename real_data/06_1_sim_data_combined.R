@@ -105,7 +105,7 @@ if (use_basal_melt_data) {
     # avg_melt_rate <- -avg_melt_rate # inverting this as eventually smb is calculated as smb - melt
 
     avg_melt_shelf <- mean(melt_thwaites, na.rm = T)
-    avg_melt_rate <- rep(-0.1, J)
+    avg_melt_rate <- rep(0, J)
     avg_melt_rate[gl_ind:J] <- -avg_melt_shelf # extra minus sign here as the melt rate in my model is written as positive if ice is decreasing in height
 } else { ## assume no melt
     avg_melt_rate <- rep(0, J)
@@ -331,7 +331,8 @@ for (i in 1:length(sets)) {
             warmup = warmup,
             use_relaxation = use_relaxation,
             relax_years = warmup, # over how many years to relax towards observed thickness
-            ini_thickness = ssa_steady$current_thickness,
+            # ini_thickness = ssa_steady$current_thickness,
+            ini_surface = ssa_steady$current_top_surface,
             ini_velocity = ssa_steady$current_velocity,
             vel_err_sd = vel_err_sd
             # smb = smb_avg,
