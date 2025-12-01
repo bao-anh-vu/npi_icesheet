@@ -54,7 +54,7 @@ data_date <- "20240320" # "20220329"
 N <- 1000 # number of simulations per set
 warmup <- 0
 years <- 20 + warmup
-sets <- 1:10 #11:20
+sets <- 1#:10 #11:20
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 # set <- 1 #commandArgs(trailingOnly = TRUE)
@@ -311,11 +311,11 @@ dev.off()
 ## Hovmoller plots of surface elevation and velocity
 plots <- list()
 
-nsamples <- 1
+nsamples <- 2
 sims <- sample(1:N, size = nsamples)
 
 space <- domain / 1000
-time <- 1:(years + 1 - warmup) # 1:dim(thickness_velocity_arr)[3]
+time <- 1:((years - 1) - warmup) # 1:dim(thickness_velocity_arr)[3]
 grid_test <- expand.grid(space, time)
 head(grid_test)
 names(grid_test) <- c("space", "time")
@@ -332,8 +332,8 @@ for (s in 1:nsamples) {
   # thickness_velocity_arr <- sim_results[[s]]$thickness_velocity_arr
   # thickness <- thickness_velocity_arr[sim,,,1]
   # velocity <- thickness_velocity_arr[sim,,,2]
-  surface_elev <- surface_obs_arr[sim, , , 1]
-  velocity <- surface_obs_arr[sim, , , 2]
+  surface_elev <- surface_obs_arr[sim, , time, 1]
+  velocity <- surface_obs_arr[sim, , time, 2]
   # grid_test$thickness <- as.vector(thickness)
   grid_test$surface_elev <- as.vector(surface_elev)
   grid_test$velocity <- as.vector(velocity)
@@ -342,7 +342,10 @@ for (s in 1:nsamples) {
   # geom_tile(aes(space, time, fill = thickness)) +
   surface_elev_plot <- ggplot(grid_test) +
     geom_tile(aes(space, time, fill = surface_elev)) +
-    scale_y_reverse() +
+    scale_y_reverse(
+        breaks = seq(min(grid_test$time), max(grid_test$time), 5),
+        labels = seq(min(grid_test$time), max(grid_test$time)+1, 5)
+    ) +
     scale_fill_distiller(palette = "Blues", direction = 1) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
@@ -352,7 +355,10 @@ for (s in 1:nsamples) {
 
   velocity_plot <- ggplot(grid_test) +
     geom_tile(aes(space, time, fill = velocity)) +
-    scale_y_reverse() +
+    scale_y_reverse(
+        breaks = seq(min(grid_test$time), max(grid_test$time), 5),
+        labels = seq(min(grid_test$time), max(grid_test$time)+1, 5)
+    ) +
     theme_bw() +
     theme(text = element_text(size = 24)) +
     scale_fill_distiller(palette = "Reds", direction = 1) +
@@ -403,9 +409,13 @@ for (s in 1:nsamples) {
 
 }
 
+plots <- lapply(plots, function(p) p + theme(plot.margin = margin(40, 20, 20, 20)))
+
 png(file = paste0("./plots/simulations_", setf, "_", data_date, "_01.png"), 
-          width = 1200, height = 900 * nsamples)
-grid.arrange(grobs = plots, nrow = 3, ncol = 2, layout_matrix= rbind(c(1,2), 3, 4))
+          width = 2000, height = 1100 * nsamples, res = 150)
+# grid.arrange(grobs = plots, ncol = nsamples, nrow = 4)
+grid.arrange(grobs = plots, nrow = nsamples, ncol = 4, 
+            layout_matrix= matrix(1:(nsamples*4), 4, 2))
 dev.off()
 
 # ## Plot an example ice sheet profile

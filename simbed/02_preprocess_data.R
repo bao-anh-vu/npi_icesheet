@@ -92,17 +92,21 @@ if (use_missing_pattern) {
 
     ## Plot missing surface elevation pattern over space-time
     se_st_plot <- ggplot(se_mp_df) + 
-        # geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) +
-        geom_tile(aes(x = gridpt, y = year, fill = val_mp)) +
-        # scale_fill_manual(values=c("grey", "turquoise")) +
+        geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) +
+        # geom_tile(aes(x = gridpt, y = year, fill = val_mp)) +
+        scale_y_reverse(
+            breaks = seq(min(se_mp_df$year)+1, max(se_mp_df$year), 5),
+            labels = seq(min(se_mp_df$year)+1, max(se_mp_df$year), 5)
+        ) +
+        scale_fill_manual(values=c("grey", "turquoise")) +
         theme_bw() + 
-        # labs(x = "Grid Point", y = "Year", fill = "Non-missing") +
-        labs(x = "Grid Point", y = "Year", fill = "Surface elev.") +
-        scale_fill_distiller(palette = "Blues", direction = 1) +
+        labs(x = "Grid Point", y = "Year", fill = "Non-missing") +
+        # labs(x = "Grid Point", y = "Year", fill = "Surface elev.") +
+        # scale_fill_distiller(palette = "Blues", direction = 1) +
         # ggtitle("Thwaites Glacier Surface Elevation Over Time") + 
-        theme(text = element_text(hjust = 0.5, size = 30))
+        theme(text = element_text(hjust = 0.5, size = 24))
 
-    png("./plots/surf_elev_missing_pattern2.png", width = 800, height = 600)
+    png("./plots/surf_elev_missing_pattern.png", width = 1200, height = 800, res = 150)
     print(se_st_plot)
     dev.off()
 
@@ -117,17 +121,21 @@ if (use_missing_pattern) {
 
     ## Plot missing velocity pattern over space-time
     vel_st_plot <- ggplot(vel_mp_df) + 
-        # geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
-        # scale_fill_manual(values=c("grey", "turquoise")) +
-        geom_tile(aes(x = gridpt, y = year, fill = val_mp)) +
+        geom_tile(aes(x = gridpt, y = year, fill = factor(nonmissing))) + 
+        scale_fill_manual(values=c("grey", "turquoise")) +
+        scale_y_reverse(
+            breaks = seq(min(se_mp_df$year)+1, max(se_mp_df$year), 5),
+            labels = seq(min(se_mp_df$year)+1, max(se_mp_df$year), 5)
+        ) +
+        # geom_tile(aes(x = gridpt, y = year, fill = val_mp)) +
         theme_bw() + 
-        # labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
-        labs(x = "Grid Point", y = "Year", fill = "Surface velocity") + 
-        scale_fill_distiller(palette = "Reds", direction = 1) +
+        labs(x = "Grid Point", y = "Year", fill = "Non-missing") + 
+        # labs(x = "Grid Point", y = "Year", fill = "Surface velocity") + 
+        # scale_fill_distiller(palette = "Reds", direction = 1) +
         # ggtitle("Thwaites Glacier Velocity Over Time") + 
-        theme(text = element_text(hjust = 0.5, size = 30))
+        theme(text = element_text(hjust = 0.5, size = 24))
 
-    png("./plots/vel_missing_pattern2.png", width = 800, height = 600)
+    png("./plots/vel_missing_pattern.png", width = 1200, height = 800, res = 150)
     print(vel_st_plot)
     dev.off()
 
