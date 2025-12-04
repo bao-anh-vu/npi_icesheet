@@ -1,4 +1,4 @@
-## Neural posterior inference for calibrating ice sheet simulators"
+## Neural posterior inference for calibrating ice sheet simulators
 
 This folder contains R code for the observing system simulation experiment (OSSE) and the real data example in the manuscript "Neural posterior inference with state-space models for
 calibrating ice sheet simulators".
