@@ -5,7 +5,7 @@ initialise_ice_thickness <- function(domain, surface_obs, bed,
 
   # Calculate ice thickness from z and b
   simulated_thickness <- matrix(0, nrow = J, ncol = n_sims)
-  thickness_ens <- list()
+  # thickness_ens <- list()
   
   ## Subtract bed from observed surface elevation to get ice thickness
   h <- surface_obs - bed #s[, j]
