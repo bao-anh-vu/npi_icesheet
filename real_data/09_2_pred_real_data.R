@@ -30,11 +30,11 @@ correct_model_discrepancy <- T
 correct_velocity_discrepancy <- T
 avg_over_time <- T
 leave_one_out <- T
-resample_posterior <- T
+resample_posterior <- F
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 #51:100 #51:100 #6:20
+sets <- 51:100 #51:100 #51:100 #51:100 #6:20
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 data_dir <- paste0("./data/training_data/", setsf, "/")
@@ -64,8 +64,16 @@ if (!dir.exists(pred_output_dir)) {
 }
 
 ## Domain data
-ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_", data_date, ".qs"))
-domain <- ssa_steady$domain
+# ssa_steady <- qread(file = paste0("data/training_data/steady_state/steady_state_", data_date, ".qs"))
+# domain <- ssa_steady$domain
+
+# Flowline info
+flowline <- qread(paste0("./data/flowline_regrid.qs"))
+J <- nrow(flowline) # number of grid points
+# flowline <- flowline[1:J, ]
+flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
+domain <- c(0, cumsum(na.omit(flowline_dist)))
+
 gl_pos <- qread(file = paste0("data/grounding_line/gl_pos.qs"))
 gl_obs <- domain[gl_pos$ind]
 
@@ -474,7 +482,7 @@ fric_p <- ggplot(data = fric_df, aes(x = domain)) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
     # ylim(0, 0.5) +
-    labs(x = "Flowline (km)", y = expression(paste("Friction coefficient (", M ~ Pa ~ m^{-1/3} ~ a^{1/3}, ")"))) +
+    labs(x = "Distance along flowline (km)", y = expression(paste("Friction coefficient (", M ~ Pa ~ m^{-1/3} ~ {yr}^{1/3}, ")"))) +
     theme_bw() +
     theme(text = element_text(size = 20),
             plot.margin = unit(c(1, 1, 1, 1), "cm"))
@@ -515,7 +523,7 @@ bed_p <- ggplot(data = bed_df, aes(x = domain)) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
     ylim(-1500, -500) +
-    labs(x = "Flowline (km)", y = "Bed elevation (m)", color = "") +
+    labs(x = "Distance along flowline (km)", y = "Bed elevation (m)", color = "") +
     scale_color_manual(
         values = c(
             "Predicted bed" = "red",
@@ -543,7 +551,7 @@ bed_diff_p <- ggplot(data = bed_df, aes(x = domain, y = diff)) +
     geom_line(color = "red", lwd = 1) +
     geom_hline(yintercept = 0, linetype = "dashed") +
     xlim(0, 150) +
-    labs(x = "Flowline (km)", y = "Bed elevation difference (m)") +
+    labs(x = "Distance along flowline (km)", y = "Bed elevation difference (m)") +
     theme_bw() +
     theme(text = element_text(size = 20),
           plot.margin = unit(c(1, 1, 1, 1), "cm"))    

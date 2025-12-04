@@ -134,7 +134,7 @@ for (i in 1:n_years) {
 
 }
 
-vel_smoothed2[, 1:2] <- NA # discard 2010-2011 data as well due to noisy observations
+vel_smoothed2[, 1:3] <- NA # discard 2010-2012 data as well due to noisy observations
     
 qsave(vel_smoothed2, "./data/velocity/vel_smoothed.qs")
 

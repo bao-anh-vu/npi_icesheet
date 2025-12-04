@@ -19,7 +19,7 @@ library(qs)
 use_missing_pattern <- TRUE
 
 ## Plot simulations and also plot real data
-set <- 51
+set <- 52
 setf <- formatC(set, width = 2, flag = "0")
 
 ## Directory for training data
@@ -106,7 +106,7 @@ dev.off()
 ## Hovmoller plots of some simulations
 plots <- list()
 
-nsamples <- 4
+nsamples <- 2
 sims <- sample(1:dim(surface_obs_arr)[1], size = nsamples)
 
 space <- domain / 1000
@@ -130,7 +130,10 @@ for (s in 1:nsamples) {
 
     surface_elev_plot <- ggplot(grid_test) +
         geom_tile(aes(space, time, fill = surface_elev)) +
-        scale_y_reverse() +
+        scale_y_reverse(
+        breaks = seq(min(grid_test$time), max(grid_test$time), 5),
+        labels = seq(min(grid_test$time), max(grid_test$time)+1, 5)
+        ) +
         scale_fill_distiller(palette = "Blues", direction = 1) +
         theme_bw() +
         theme(text = element_text(size = 24)) +
@@ -141,7 +144,10 @@ for (s in 1:nsamples) {
 
     velocity_plot <- ggplot(grid_test) +
         geom_tile(aes(space, time, fill = velocity)) +
-        scale_y_reverse() +
+        scale_y_reverse(
+        breaks = seq(min(grid_test$time), max(grid_test$time), 5),
+        labels = seq(min(grid_test$time), max(grid_test$time)+1, 5)
+        ) +
         theme_bw() +
         xlab("Domain (km)") +
         ylab("Year") +
@@ -181,7 +187,7 @@ for (s in 1:nsamples) {
         geom_point(data = bed_obs_df, aes(x = loc/1000, y = bed_elev), col = "red", size = 2) +
         # geom_line(aes(x = domain, y = fitted_bed), col = "red") +
         theme_bw() +
-        ylim(c(-1500, -500)) +
+        ylim(c(-1500, -600)) +
         xlim(c(0, domain[gl] / 1e3)) +
         xlab("Domain (km)") +
         ylab("Bed (m)") +
@@ -194,11 +200,13 @@ for (s in 1:nsamples) {
     plots[[ind[4]]] <- bed_plot
 }
 
+plots <- lapply(plots, function(p) p + theme(plot.margin = margin(40, 20, 20, 20)))
+
 png(
     file = paste0("./plots/cnn/input/simulations_", setf, "_", data_date, ".png"),
-    width = 2800, height = 400 * nsamples, res = 100
+    width = 4000, height = 2200 * nsamples, res = 300
 )
-grid.arrange(grobs = plots, nrow = nsamples, ncol = 4)
+grid.arrange(grobs = plots, layout_matrix = matrix(1:(nsamples*4), 4, nsamples))
 dev.off()
 
 

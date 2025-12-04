@@ -119,13 +119,13 @@ plot_flowline <- ggplot(vel_thwaites) +
     scale_colour_distiller(
       palette = "BuPu", direction = 1,
       limits = c(1, 10000),
-      name = "Velocity (m/a)"
+      name = "Velocity (m/yr)"
     ) +
     # geom_point(data = gl_thwaites, aes(x = X, y = Y), color = "black", size = 0.2) +
     geom_sf(data = thwaites_bound, color = "black", fill = NA) +
-    geom_point(data = data.frame(chosen_pt), aes(x = x, y = y), color = "black", size = 5) +
+    geom_point(data = data.frame(chosen_pt), aes(x = x, y = y), color = "black", size = 3) +
     geom_line(data = data.frame(x = flowline_x, y = flowline_y),
-                aes(x = x, y = y), color = "red", linewidth = 2) +
+                aes(x = x, y = y), color = "red", linewidth = 1) +
     theme_bw() +
     theme(text = element_text(size = 16), 
           axis.title = element_blank()) 

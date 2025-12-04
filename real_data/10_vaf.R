@@ -36,7 +36,7 @@ dev.off()
 ## Now do the same but for bed and posterior predicted elevation data
 
 data_date <- "20241111" # "20241103"
-sets <- 51:100 #1:50 #51:100 # 6:20
+sets <- 1:50 #51:100 #1:50 #51:100 # 6:20
 # use_missing_pattern <- Tth
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T
@@ -105,22 +105,23 @@ calc_vaf <- function(dx, bed, se, rho_i = 917, rho_w = 1028) {
     # Compute the difference between curves
     h <- se - bed
     
-    total_vol <- sum((h[-1] + h[-length(h)]) / 2) * dx
-    h_under_water <- pmin(bed, 0)
-    vol_under_water <- sum((h_under_water[-1] + h_under_water[-length(h_under_water)]) / 2) * dx
+    # total_vol <- sum((h[-1] + h[-length(h)]) / 2) * dx
+    # h_under_water <- pmin(bed, 0)
+    # vol_under_water <- sum((h_under_water[-1] + h_under_water[-length(h_under_water)]) / 2) * dx
 
-    vaf <- total_vol + (rho_w / rho_i) * vol_under_water
+    # vaf <- total_vol + (rho_w / rho_i) * vol_under_water
 
     h_per_cell <- (h[-1] + h[-length(h)]) / 2 # take height in the middle of each grid cell
     bed_per_cell <- (bed[-1] + bed[-length(bed)]) / 2
 
-    vaf2 <- sum(pmax(h_per_cell + pmin(bed_per_cell, 0) * (rho_w / rho_i)), 0) * dx
+    vaf <- sum(pmax(h_per_cell + pmin(bed_per_cell, 0) * (rho_w / rho_i)), 0) * dx
+    return(vaf)
 
     # Compute area using the trapezoidal rule
     # trapezoidal rule: sum((y[i] + y[i+1])/2 * dx)
     # dx <- diff(x)[1]  # uniform grid spacing
     # area <- sum((diff_y[-1] + diff_y[-length(diff_y)]) / 2) * dx
-    return(list(vaf = vaf, vaf2 = vaf2))
+    # return(list(vaf = vaf, vaf2 = vaf2))
 }
 
 ## Calculate volume above floatation for each posterior sample
@@ -136,8 +137,8 @@ for (s in 1:n_post_samples) {
     post_se <- post_se[n_grounded, ]
     # test <- quadrature(dx = dx, y1 = post_bed, y2 = post_se)
     vol <- sapply(1:dim(post_se)[2], function(i) quadrature(dx = dx, y1 = post_bed, y2 = post_se[, i]))
-    vaf <- sapply(1:dim(post_se)[2], function(i) calc_vaf(dx = dx, bed = post_bed, se = post_se[, i])$vaf )
-    vaf2 <- sapply(1:dim(post_se)[2], function(i) calc_vaf(dx = dx, bed = post_bed, se = post_se[, i])$vaf2)
+    vaf <- sapply(1:dim(post_se)[2], function(i) calc_vaf(dx = dx, bed = post_bed, se = post_se[, i]))
+    # vaf2 <- sapply(1:dim(post_se)[2], function(i) calc_vaf(dx = dx, bed = post_bed, se = post_se[, i])$vaf2)
     
     # if (vol[length(vol)] > vol[1]) {
     #     warning("Warning: Ice volume is increasing over time in sample ", s, ". Check the model predictions.")
@@ -157,27 +158,44 @@ for (s in 1:n_post_samples) {
     # }
     vol_ls[[s]] <- vol
     vaf_ls[[s]] <- vaf  
-    vaf_ls2[[s]] <- vaf2  
+    # vaf_ls2[[s]] <- vaf2  
     
     # cat("Sample:", s, "Mean ice volume (m^2):", mean(test2) * 1e9, "\n")
 }
 
+## Calculate actual VAF using observed surface elevation data
+surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+obs_vaf <- sapply(1:dim(post_se)[2], function(i) calc_vaf(dx = dx, bed = post_bed, se = na.omit(surf_elev_data[, i])))
+obs_vaf <- obs_vaf * 1e-6 ## Convert to km^2
+
 ## Create box plot of ice volume
 vaf_mat <- do.call(rbind, vaf_ls)
-
-## Convert to km^2
-vaf_mat <- vaf_mat * 1e-6
+vaf_mat <- vaf_mat * 1e-6 ## Convert to km^2
 
 ## Convert to data frame for ggplot
 vaf_df <- data.frame(year = rep(2010:2020, each = n_post_samples),
                      volume = as.vector(vaf_mat))  
+
+obs_vaf_df <- data.frame(year = 2010:2020,
+                         volume = obs_vaf)
+
 vaf_plot <- ggplot(data = vaf_df, aes(x = as.factor(year), y = volume)) +
-      geom_boxplot() +
-      theme_bw() +
-    #   ylim (c(95e3, 120e3)) +
-      labs(x = "Year", y = expression("Ice area above flotation (km"^2*")")) +
-    #   ggtitle("Plot of \"volume\" above flotation (VAF)") + 
-        theme(text = element_text(size = 19))
+  geom_boxplot() +
+  geom_point(data = obs_vaf_df,
+             aes(x = as.factor(year), y = volume),
+             color = "red", size = 3) +
+  theme_bw() +
+  labs(x = "Year", y = expression("Ice area above flotation (km"^2*")")) +
+  theme(text = element_text(size = 19))
+
+
+# vaf_plot <- ggplot(data = vaf_df, aes(x = as.factor(year), y = volume)) +
+#       geom_boxplot() +
+#       theme_bw() +
+#     #   ylim (c(95e3, 120e3)) +
+#       labs(x = "Year", y = expression("Ice area above flotation (km"^2*")")) +
+#     #   ggtitle("Plot of \"volume\" above flotation (VAF)") + 
+#         theme(text = element_text(size = 19))
 
 png(paste0(plot_dir, "ice_vaf_boxplot_", data_date, ".png"), width = 1500, height = 600, res = 150)
 print(vaf_plot)
@@ -189,9 +207,16 @@ vaf_diff <- t(apply(vaf_mat, 1, diff))
 vaf_diff_df <- data.frame(year = rep(2011:2020, each = n_post_samples),
                           volume_change = as.vector(vaf_diff))
 
+obs_vaf_diff <- obs_vaf[2:length(obs_vaf)] - obs_vaf[1:(length(obs_vaf) - 1)]
+obs_vaf_diff_df <- data.frame(year = 2011:2020,
+                              volume_change = obs_vaf_diff)
+
 vaf_change_plot <- ggplot(data = vaf_diff_df, aes(x = as.factor(year), y = volume_change)) +
       geom_boxplot() +
-      theme_bw() +
+        geom_point(data = obs_vaf_diff_df,
+                     aes(x = as.factor(year), y = volume_change),
+                     color = "red", size = 3) +
+        theme_bw() +
       labs(x = "Year", y = expression("Change in ice area (km"^2*")")) +
     #   ggtitle("Change in area (volume) above flotation") +
     theme(text = element_text(size = 20))
@@ -201,18 +226,16 @@ print(vaf_change_plot)
 dev.off()
 
 ## Median change in VAF per year
-median_vaf <- apply(vaf_diff, 2, median)
+# median_vaf <- apply(vaf_diff, 2, median)
 
-## Calculate actual VAF using observed surface elevation data
-surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
-
-## but we don't have the true bed...
+    
 ## so maybe compare the change in height to observed change in height?
 years <- ncol(surf_elev_data)
 obs_se_change <- surf_elev_data[, 2:years] - surf_elev_data[, 1:(years - 1)]
 avg_obs_se_change <- colMeans(obs_se_change, na.rm = T) #rowMeans(obs_se_change, na.rm = T)
 
 total_obs_se_change <- surf_elev_data[, years] - surf_elev_data[, 1]
+
 ## Calculate mean predicted change in surface elevation from posterior samples
 # mean_post_se <- apply(post_se_samples, c(2, 3), mean)
 # pred_se_change <- mean_post_se[, 2:years] - mean_post_se[,

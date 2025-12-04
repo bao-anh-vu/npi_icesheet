@@ -50,7 +50,7 @@ regenerate_sims <- T
 save_sims <- T
 # log_transform <- T
 use_basal_melt_data <- T
-constrain_gl <- F
+# constrain_gl <- F
 use_relaxation <- F # whether to use relaxation towards observed thickness in the simulations
 warmup <- 5 # 1 # how many years after steady-state to ignore (to let the model get used to new parameters) before collecting data
 
@@ -83,9 +83,16 @@ params$B <- 0.6 * 1e6 * params$secpera^params$m
 params$A <- params$B^(-params$n)
 
 # 0. Load ice sheet at steady state
-ssa_steady <- qread(file = paste0(train_data_dir, "/steady_state/steady_state_", data_date, ".qs"))
-domain <- ssa_steady$domain
-J <- length(domain)
+# ssa_steady <- qread(file = paste0(train_data_dir, "/steady_state/steady_state_", data_date, ".qs"))
+# domain <- ssa_steady$domain
+# J <- length(domain)
+
+# Flowline info
+flowline <- qread(paste0("./data/flowline_regrid.qs"))
+J <- nrow(flowline) # number of grid points
+# flowline <- flowline[1:J, ]
+flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
+domain <- c(0, cumsum(na.omit(flowline_dist)))
 
 ## Grounding line position
 gl_pos <- qread(file = paste0("./data/grounding_line/gl_pos.qs"))
@@ -118,6 +125,33 @@ qsave(params, file = paste0(train_data_dir, "/phys_params_", data_date, ".qs"))
 # 0. Load surface elevation data
 surf_elev_mat <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
 
+## Velocity data
+library(mgcv)
+vel_mat <- qread("./data/velocity/vel_smoothed.qs")
+# vel_mat <- qread("./data/velocity/all_velocity_arr.qs")
+years <- ncol(vel_mat)
+vel_curr <- rowMeans(vel_mat[, (years-5):years]) # average over the last 10 years
+
+## Smooth the velocity out with gam()
+vel_df <- data.frame(domain = domain, vel = vel_curr)
+vel_data <- vel_df %>% filter(!is.na(vel))
+vel_missing <- vel_df %>% filter(is.na(vel))
+
+gam_fit <- gam(vel ~ s(domain, k = 20), data = vel_data)
+
+# Predict at missing locations (works even if outside observed range)
+vel_pred <- predict(
+  gam_fit,
+  newdata = data.frame(domain = vel_missing$domain)
+)
+vel_missing$vel <- vel_pred
+
+vel_curr_smooth <- rbind(vel_data, vel_missing) %>%
+  arrange(domain) %>%
+  pull(vel)
+
+# qsave(vel_curr_smooth, file = paste0("./data/velocity/ini_vel_", data_date, ".qs"))
+
 ## Load velocity error data
 vel_err_avg <- qread(file = paste0("./data/velocity/vel_error_flowline_avg.qs"))
 se_err_ls <- qread(file = "./data/surface_elev/se_err_flowline.qs")
@@ -125,11 +159,10 @@ se_err_avg <- unlist(se_err_ls)
 
 ## Fit a curve through the velocity error data to smooth it out
 vel_err_df <- data.frame(
-    dist = ssa_steady$domain / 1000,
+    dist = domain / 1000,
     vel_error = vel_err_avg
 )
 
-library(mgcv)
 vel_err_fit <- gam(vel_error ~ s(dist, k = 50), data = vel_err_df)
 vel_err_smooth <- predict(vel_err_fit, newdata = vel_err_df)
 vel_err_sd <- as.vector(vel_err_smooth) / 3 # assume sd is 1/3 the smoothed error value
@@ -331,9 +364,10 @@ for (i in 1:length(sets)) {
             warmup = warmup,
             use_relaxation = use_relaxation,
             relax_years = warmup, # over how many years to relax towards observed thickness
-            # ini_thickness = ssa_steady$current_thickness,
-            ini_surface = ssa_steady$current_top_surface,
-            ini_velocity = ssa_steady$current_velocity,
+            # ini_surface = ssa_steady$current_top_surface,
+            # ini_velocity = ssa_steady$current_velocity,
+            ini_surface = surf_elev_mat[, 1],
+            ini_velocity = vel_curr_smooth,
             vel_err_sd = vel_err_sd
             # smb = smb_avg,
             # basal_melt = avg_melt_rate
@@ -430,7 +464,7 @@ surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs")
 # vel_mat <- qread(file = "./data/velocity/all_velocity_arr.qs")
 vel_mat <- qread(file = "./data/velocity/vel_smoothed.qs")
 
-sim <- 1
+sim <- 8
 png("./plots/cnn/input/sim_vs_real.png", width = 500, height = 600)
 par(mfrow = c(2, 1))
 
@@ -439,7 +473,7 @@ matplot(surface_obs_arr[sim, , , 1],
     xlab = "Grid point", ylab = "Surface elevation (m)"
 )
 matlines(surf_elev_mat, col = "salmon", lty = 2)
-lines(ssa_steady$current_top_surface, col = "blue")
+# lines(ssa_steady$current_top_surface, col = "blue")
 
 matplot(vel_mat,
     ylim = c(0, 6000), type = "l", col = "salmon",
@@ -447,7 +481,7 @@ matplot(vel_mat,
 )
 # matlines(vel_mat2, col = "black", lty = 2)
 matlines(surface_obs_arr[sim, , , 2], col = "grey", lty = 2)
-lines(ssa_steady$current_velocity, col = "blue")
+# lines(ssa_steady$current_velocity, col = "blue")
 dev.off()
 
 ## Hovmoller plots of some simulations

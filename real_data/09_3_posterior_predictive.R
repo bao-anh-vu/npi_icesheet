@@ -50,7 +50,7 @@ correct_model_discrepancy <- T
 correct_velocity_discrepancy <- T # can correct velocity discrepancy as well, if F will just correct surface elevation discrepancy
 avg_over_time <- T
 warmup <- 5
-n_samples <- 100
+n_samples <- 1000
 
 ## Directories
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
@@ -73,19 +73,28 @@ if (correct_model_discrepancy) {
 
 ## Load real data
 surf_elev_data <- qread(file = "./data/surface_elev/surf_elev_mat.qs")
+
 # velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
 velocity_data <- qread(file = "./data/velocity/vel_smoothed.qs")
+vel_curr_smooth <- qread(file = paste0("./data/velocity/ini_vel_", data_date, ".qs"))
 
 ## Measurement error standard deviations
 vel_err_sd <- qread(file = paste0("./data/velocity/vel_err_sd_", data_date, ".qs"))
 
 # Load physical parameters (SMB, basal melt rate, etc.)
-params <- qread(file = paste0("./data/training_data/", "/phys_params_", data_date, ".qs"))
+params <- qread(file = paste0("./data/training_data/phys_params_", data_date, ".qs"))
 
 # Load ice sheet at steady state
-ssa_steady <- qread(file = paste0("./data/training_data/steady_state/steady_state_", data_date, ".qs"))
-domain <- ssa_steady$domain
-J <- length(domain)
+# ssa_steady <- qread(file = paste0("./data/training_data/steady_state/steady_state_", data_date, ".qs"))
+# domain <- ssa_steady$domain
+# J <- length(domain)
+
+# Flowline info
+flowline <- qread(paste0("./data/flowline_regrid.qs"))
+J <- nrow(flowline) # number of grid points
+# flowline <- flowline[1:J, ]
+flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
+domain <- c(0, cumsum(na.omit(flowline_dist)))
 
 ## Observed GL position
 gl_pos <- qread(file = paste0("data/grounding_line/gl_pos.qs"))
@@ -207,8 +216,8 @@ post_fric_df <- data.frame(
 # post_fric_df_wide <- pivot_wider(post_fric_df, names_from = sample, values_from = fric, names_prefix = "sample")
 # post_fric_df_long <- pivot_longer(post_fric_df_wide, cols = starts_with("sample"), names_to = "sample", values_to = "fric")
 post_fric_plot <- ggplot() +
-  geom_line(data = prior_fric_df, aes(x = x, y = fric, group = sample), col = "lightblue") +
-  geom_line(data = post_fric_df, aes(x = x, y = fric, group = sample), col = "salmon") +
+  geom_line(data = prior_fric_df, aes(x = x, y = fric, group = sample), col = "royalblue") +
+  geom_line(data = post_fric_df, aes(x = x, y = fric, group = sample), col = "red") +
   geom_line(alpha = 0.3) +
   theme_bw() +
   xlim(c(0, 150)) +
@@ -237,8 +246,8 @@ bedmachine_df <- data.frame(x = domain / 1000, bed = bedmachine$bed_avg)
 # post_bed_df_sample <- post_bed_df %>% filter(sample %in% 1:n_plot_samples)
 
 post_bed_plot <- ggplot() +
-  geom_line(data = prior_bed_df, aes(x = x, y = bed, group = sample), col = "lightblue") +
-  geom_line(data = post_bed_df, aes(x = x, y = bed, group = sample), col = "salmon") +
+  geom_line(data = prior_bed_df, aes(x = x, y = bed, group = sample), col = "royalblue") +
+  geom_line(data = post_bed_df, aes(x = x, y = bed, group = sample), col = "red") +
   geom_line(data = bedmachine_df, aes(x = x, y = bed), col = "blue", lwd = 1, lty = 2) +
   geom_point(data = bed_obs_df, aes(x = loc / 1000, y = bed_elev), col = "black", size = 2) +
   theme_bw() +
@@ -264,9 +273,10 @@ post_pred <- sim_obs(
   phys_params = params,
   years = years, # sim_beds = T,
   warmup = warmup,
-  # ini_thickness = ssa_steady$current_thickness,
-  ini_surface = ssa_steady$current_top_surface,
-  ini_velocity = ssa_steady$current_velocity,
+  # ini_surface = ssa_steady$current_top_surface,
+  # ini_velocity = ssa_steady$current_velocity,
+  ini_surface = surf_elev_data[, 1],
+  ini_velocity = vel_curr_smooth,
   vel_err_sd = vel_err_sd
   # smb = smb_avg,
   # basal_melt = avg_melt_rate
@@ -279,9 +289,11 @@ prior_pred <- sim_obs(
   phys_params = params,
   years = years, # sim_beds = T,
   warmup = warmup,
-  # ini_thickness = ssa_steady$current_thickness,
-  ini_surface = ssa_steady$current_top_surface,
-  ini_velocity = ssa_steady$current_velocity,
+  # # ini_thickness = ssa_steady$current_thickness,
+  # ini_surface = ssa_steady$current_top_surface,
+  # ini_velocity = ssa_steady$current_velocity,
+  ini_surface = surf_elev_data[, 1],
+  ini_velocity = vel_curr_smooth,
   vel_err_sd = vel_err_sd
   # smb = smb_avg,
   # basal_melt = avg_melt_rate
@@ -491,8 +503,8 @@ library(gridExtra)
 
 png(filename = paste0(plot_dir, "post_pred_se_by_year.png"), width = 2000, height = 3000, res = 200)
 p1 <- ggplot(se_post_pred_df, aes(x = domain)) +
-  geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "lightblue", alpha = 0.75) +
-  geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "salmon", alpha = 0.4) +
+  geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "royalblue", alpha = 0.25) +
+  geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "red", alpha = 0.3) +
   # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
   geom_line(aes(y = obs), color = "black", lwd = 0.8) +
   # geom_vline(data = gl_df, aes(xintercept = x), lty = 2) + # plot GL position
@@ -516,8 +528,8 @@ for (yr in yearnum) {
   png(filename = paste0(plot_dir, "post_pred_se_year", formatC(yr, width = 2, flag = "0"), "_", data_date, ".png"), width = 1000, height = 600, res = 150)
 
   p_yr <- ggplot(se_df, aes(x = domain)) +
-    geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "lightblue", alpha = 0.75) +
-    geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "salmon", alpha = 0.5) +
+    geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "royalblue", alpha = 0.25) +
+    geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "red", alpha = 0.3) +
     # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
     geom_line(aes(y = obs), color = "black", lwd = 0.8) +
     # facet_wrap(~ year, ncol = 2) +
@@ -535,8 +547,8 @@ for (yr in yearnum) {
 ## Same for the velocity
 png(filename = paste0(plot_dir, "post_pred_vel_by_year.png"), width = 2000, height = 3000, res = 200)
 p2 <- ggplot(vel_post_pred_df, aes(x = domain)) +
-  geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "lightblue", alpha = 0.75) +
-  geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "salmon", alpha = 0.4) +
+  geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "royalblue", alpha = 0.25) +
+  geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "red", alpha = 0.3) +
   # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
   geom_line(aes(y = obs), color = "black", lwd = 0.8) +
   facet_wrap(~year, ncol = 2, scales = "free_y") +
@@ -558,8 +570,8 @@ for (yr in yearnum) {
   png(filename = paste0(plot_dir, "post_pred_vel_year", formatC(yr, width = 2, flag = "0"), "_", data_date, ".png"), width = 1000, height = 600, res = 150)
 
   p_yr <- ggplot(vel_df, aes(x = domain)) +
-    geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "lightblue", alpha = 0.75) +
-    geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "salmon", alpha = 0.5) +
+    geom_ribbon(aes(ymin = prior_lci, ymax = prior_uci), fill = "royalblue", alpha = 0.25) +
+    geom_ribbon(aes(ymin = post_lci, ymax = post_uci), fill = "red", alpha = 0.3) +
     # geom_line(aes(y = prior_mean), color = "blue", size = 1) +
     geom_line(aes(y = obs), color = "black", lwd = 0.8) +
     # facet_wrap(~ year, ncol = 2) +
@@ -753,7 +765,7 @@ png(file = paste0(plot_dir, "prior_vs_posterior_pred_se_final_", data_date, ".pn
 
 par(mfrow = c(2, 1))
 matplot(t(prior_pred_se_final),
-  type = "l", col = "lightblue",
+  type = "l", col = "royalblue",
   main = "Prior vs posterior predictive surface elevation samples",
   ylab = "Surface elevation (m)", xlab = "Location index"
 )
@@ -761,11 +773,11 @@ matlines(t(post_pred_se_final), col = "lightpink", alpha = 0.25)
 lines(obs_se_final, col = "black", lwd = 2)
 lines(colMeans(prior_pred_se_final), col = "blue", lwd = 2)
 lines(colMeans(post_pred_se_final), col = "red", lwd = 2)
-legend("topright", legend = c("Prior samples", "Posterior samples", "Observations"), col = c("lightblue", "salmon", "black"), lty = 1)
+legend("topright", legend = c("Prior samples", "Posterior samples", "Observations"), col = c("royalblue", "red", "black"), lty = 1)
 
 ## Same for the velocity
 matplot(t(prior_pred_vel_final),
-  type = "l", col = "lightblue",
+  type = "l", col = "royalblue",
   main = "Prior vs posterior predictive surface velocity samples",
   ylab = "Surface velocity (m/yr)", xlab = "Location index"
 )
@@ -773,6 +785,6 @@ matlines(t(post_pred_vel_final), col = "lightpink", alpha = 0.25)
 lines(obs_vel_final, col = "black", lwd = 2)
 lines(colMeans(prior_pred_vel_final), col = "blue", lwd = 2)
 lines(colMeans(post_pred_vel_final), col = "red", lwd = 2)
-legend("topright", legend = c("Prior samples", "Posterior samples", "Observations"), col = c("lightblue", "salmon", "black"), lty = 1)
+legend("topright", legend = c("Prior samples", "Posterior samples", "Observations"), col = c("royalblue", "red", "black"), lty = 1)
 
 dev.off()

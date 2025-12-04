@@ -28,9 +28,6 @@ lat <- ncvar_get(racmo_data, "lat")
 ice_density <- 917 # kg m^-3
 smb <- smb_kg_per_m2 / ice_density #* secpera
 
-# IMPORTANT: I THINK THIS SMB DATA MIGHT ALREADY BE IN kg m^-2 a^-1 not kg m^-2 s^-1,
-# DESPITE THE DOCUMENTATION SAYING IT'S IN kg m^-2 s^-1. NEED TO CONFIRM THIS.
-
 # Extract rotated coordinates
 # rot_lats <- ncvar_get(racmo_data, "rlat") # Replace 'rlat' with your variable name
 # rot_lons <- ncvar_get(racmo_data, "rlon") # Replace 'rlon' with your variable name
