@@ -412,10 +412,10 @@ for (s in 1:nsamples) {
 plots <- lapply(plots, function(p) p + theme(plot.margin = margin(40, 20, 20, 20)))
 
 png(file = paste0("./plots/simulations_", setf, "_", data_date, "_01.png"), 
-          width = 2000, height = 1100 * nsamples, res = 150)
+          width = 4000, height = 2200 * nsamples, res = 300)
 # grid.arrange(grobs = plots, ncol = nsamples, nrow = 4)
 grid.arrange(grobs = plots, nrow = nsamples, ncol = 4, 
-            layout_matrix= matrix(1:(nsamples*4), 4, 2))
+            layout_matrix= matrix(1:(nsamples*4), 4, nsamples))
 dev.off()
 
 # ## Plot an example ice sheet profile

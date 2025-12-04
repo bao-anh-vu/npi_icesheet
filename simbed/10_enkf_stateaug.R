@@ -47,7 +47,7 @@ source("./source/enkf/initialise_ice_thickness.R")
 # set.seed(ssa_seed)
 
 run_EnKF <- T
-save_enkf_output <- T
+save_enkf_output <- F
 # save_bg_output <- F
 use_missing_pattern <- T
 

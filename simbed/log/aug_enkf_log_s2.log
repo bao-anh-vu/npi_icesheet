@@ -1,0 +1,140 @@
+Loading required package: slam
+Loading required package: sparsesvd
+
+Attaching package: ‘fastmatrix’
+
+The following object is masked from ‘package:Matrix’:
+
+    lu
+
+
+Attaching package: ‘expm’
+
+The following object is masked from ‘package:Matrix’:
+
+    expm
+
+Loading required package: R.oo
+Loading required package: R.methodsS3
+R.methodsS3 v1.8.2 (2022-06-13 22:00:14 UTC) successfully loaded. See ?R.methodsS3 for help.
+R.oo v1.25.0 (2022-06-12 02:20:02 UTC) successfully loaded. See ?R.oo for help.
+
+Attaching package: ‘R.oo’
+
+The following object is masked from ‘package:R.methodsS3’:
+
+    throw
+
+The following objects are masked from ‘package:methods’:
+
+    getClasses, getMethods
+
+The following objects are masked from ‘package:base’:
+
+    attach, detach, load, save
+
+R.utils v2.12.3 (2023-11-18 01:00:02 UTC) successfully loaded. See ?R.utils for help.
+
+Attaching package: ‘R.utils’
+
+The following object is masked from ‘package:utils’:
+
+    timestamp
+
+The following objects are masked from ‘package:base’:
+
+    cat, commandArgs, getOption, isOpen, nullfile, parse, use, warnings
+
+Loading required package: spam
+Spam version 2.10-0 (2023-10-23) is loaded.
+Type 'help( Spam)' or 'demo( spam)' for a short introduction 
+and overview of this package.
+Help for individual functions is also obtained by adding the
+suffix '.spam' to the function name, e.g. 'help( chol.spam)'.
+
+Attaching package: ‘spam’
+
+The following object is masked from ‘package:R.utils’:
+
+    cleanup
+
+The following object is masked from ‘package:Matrix’:
+
+    det
+
+The following objects are masked from ‘package:base’:
+
+    backsolve, forwardsolve
+
+Loading required package: viridisLite
+
+Try help(fields) to get started.
+
+Attaching package: ‘tidyr’
+
+The following object is masked from ‘package:R.utils’:
+
+    extract
+
+The following objects are masked from ‘package:Matrix’:
+
+    expand, pack, unpack
+
+
+Attaching package: ‘dplyr’
+
+The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+
+Attaching package: ‘matrixStats’
+
+The following object is masked from ‘package:dplyr’:
+
+    count
+
+
+Attaching package: ‘mvtnorm’
+
+The following objects are masked from ‘package:spam’:
+
+    rmvnorm, rmvt
+
+
+Attaching package: ‘gridExtra’
+
+The following object is masked from ‘package:dplyr’:
+
+    combine
+
+
+Attaching package: ‘FRK’
+
+The following object is masked from ‘package:stats’:
+
+    simulate
+
+qs 0.26.3
+[1] "Reading missing patterns..."
+[1] "Simulating friction coefficient..."
+[1] "Simulating beds..."
+[1] "Sample 1"
+[1] "Initialising ensemble..."
+[1] "Simulating friction coefficient..."
+[1] "Calculating ice thicknesses based on simulated beds and observed top surface elevation..."
+[1] "Running filter..."
+Forecast step 1 
+Error in base::rowMeans(x, na.rm = na.rm, dims = dims, ...) : 
+  'x' must be numeric
+Calls: run_enkf_missing -> pmin -> rowMeans -> rowMeans -> <Anonymous>
+In addition: Warning messages:
+1: In mclapply(ens.list, propagate, mc.cores = 10L, domain = domain,  :
+  scheduled core 8 encountered error in user code, all values of the job will be affected
+2: In matrix(unlist(ens.list), nrow = 4 * J, ncol = Ne) :
+  data length [7203700] is not a sub-multiple or multiple of the number of rows [8004]
+Execution halted

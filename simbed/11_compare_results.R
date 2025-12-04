@@ -42,11 +42,11 @@ setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 # set.seed(NULL)
 # sample_ind <- 1 #commandArgs(trailingOnly = TRUE) # sample index
 # s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
-sample_ind <- as.numeric(commandArgs(trailingOnly = TRUE))
+sample_ind <- 3 #as.numeric(commandArgs(trailingOnly = TRUE))
 s <- sample_ind
 
 years <- 20
-save_points <- c(1, floor(years/2) + 1, years+1) #c(1, 11, 21)
+save_points <- c(1, 10, 20) #c(1, 11, 21)
 
 Ne <- 1000 # Ensemble size for EnKFSA
 Ne_enkf <- 500 # Ensemble size for EnKF-CNN
@@ -152,9 +152,9 @@ enkfsa.velocity <- lapply(enkfsa.velocity, as.matrix)
 # #00BFC4 # teal
 
 if (use_missing_pattern) {
-    plot_dir <- paste0("./plots/combined/Ne", Ne, "/missing/sample", sample_ind)
+    plot_dir <- paste0("./plots/combined/missing/sample", sample_ind)
 } else {
-    plot_dir <- paste0("./plots/combined/Ne", Ne, "/nonmissing/sample", sample_ind)
+    plot_dir <- paste0("./plots/combined/nonmissing/sample", sample_ind)
 }
 
 if (!dir.exists(plot_dir)) {
@@ -206,7 +206,7 @@ if (plot_ice_thickness) {
         true_thickness.df <- data.frame(domain = domain / 1000, thickness = true_thicknesses[s, , t])
 
         # Plot title
-        title <- paste("t = ", t - 1, "yr")
+        title <- paste("t = ", t, "yr")
         thickness_plot <- ggplot(thickness.df) +
             geom_ribbon(
                 data = thickness.df,
@@ -225,7 +225,7 @@ if (plot_ice_thickness) {
             xlab("Domain (km)") +
             ylab("Ice thickness (m)") +
             # xlim(0, 500) +
-            theme(text = element_text(size = 18)) +
+            theme(text = element_text(size = 17)) +
             ggtitle(title) +
             theme(plot.title = element_text(
                 hjust = 0.95, vjust = 0.5, face = "bold",
@@ -233,7 +233,7 @@ if (plot_ice_thickness) {
             ))
 
         # thickness_plots[[ind]] <- thickness_plot
-        png(paste0(plot_dir, "/thickness_enkf_", t - 1, "_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
+        png(paste0(plot_dir, "/thickness_enkf_", t, "_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
         print(thickness_plot)
         # grid.arrange(grobs = thickness_plots, ncol = 2)
         dev.off()
@@ -274,7 +274,7 @@ if (plot_velocity) {
         true_velocities.df <- data.frame(domain = domain / 1000, velocity = true_velocities[s, , t])
 
         # Plot title
-        title <- paste("t = ", t - 1, "yr")
+        title <- paste("t = ", t, "yr")
         velocity_plot <- ggplot(velocities.df) +
             geom_ribbon(
                 aes(domain, ymin = enkfsa_lower, ymax = enkfsa_upper),
@@ -290,14 +290,14 @@ if (plot_velocity) {
             geom_line(data = velocities.df, aes(domain, cnn_mean), colour = "red") +
             xlab("Domain (km)") +
             ylab("Velocity (m)") +
-            theme(text = element_text(size = 18)) +
+            theme(text = element_text(size = 17)) +
             ggtitle(title) +
             theme(plot.title = element_text(
                 hjust = 0.95, vjust = 0.5, face = "bold",
                 margin = margin(t = 20, b = -30)
             ))
 
-        png(paste0(plot_dir, "/velocity_enkf", t - 1, "_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
+        png(paste0(plot_dir, "/velocity_enkf", t, "_s", sample_ind, ".png"), width = 2000, height = 1000, res = 300)
         print(velocity_plot)
         # grid.arrange(grobs = vel_plots, ncol = 2)
         dev.off()
@@ -392,7 +392,7 @@ if (plot_bed) {
         geom_point(data = bed_obs_df, aes(location, bed_elev), colour = "black") +
         xlim(0, 600) +
         ylim(-1250, -300) +
-        theme(text = element_text(size = 18)) +
+        theme(text = element_text(size = 17)) +
         xlab("Domain (km)") +
         ylab("Bed elevation (m)") #+
         # ggtitle(title) +
@@ -479,9 +479,9 @@ if (plot_friction) {
         geom_vline(xintercept = true_gl[s, years], lty = 2, colour = "black") +
         xlim(0, 400) +
         ylim(0, 0.1) +
-        theme(text = element_text(size = 18)) +
+        theme(text = element_text(size = 17)) +
         xlab("Domain (km)") +
-        ylab(bquote("Friction (M Pa m"^{-1/3}~"a"^{1/3}~")"))
+        ylab(bquote("Friction (M Pa m"^{-1/3}~"yr"^{1/3}~")"))
         
         # ggtitle(title) +
         # theme(plot.title = element_text(

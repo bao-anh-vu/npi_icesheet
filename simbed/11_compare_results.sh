@@ -3,7 +3,7 @@
 echo "Comparing samples..."
 
 # List of arguments
-arguments=(7 8)
+arguments=(1 2 3)
 
 # Loop over arguments and run each R script in the background
 for arg in "${arguments[@]}"
