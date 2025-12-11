@@ -49,13 +49,9 @@ avg_over_time <- T
 fit_spline <- T
 
 ## Physical domain info
-# ssa_steady <- qread(file = paste0(data_dir, "training_data/steady_state/steady_state_", data_date, ".qs"))
-# domain <- ssa_steady$domain
-# J <- length(domain)
 
 flowline <- qread(paste0("./data/flowline_regrid.qs"))
 J <- nrow(flowline) # number of grid points
-# flowline <- flowline[1:J, ]
 flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)
 domain <- c(0, cumsum(na.omit(flowline_dist)))
 
@@ -116,24 +112,9 @@ surf_elev_mat <- qread("./data/surface_elev/surf_elev_mat.qs") # this is on grou
 vel_curr_smooth <- qread(file = paste0("./data/velocity/ini_vel_", data_date, ".qs"))
 vel_err_sd <- qread(file = paste0("./data/velocity/vel_err_sd_", data_date, ".qs"))
 
-# ## Plot average melt rate
-# png(file = paste0("./plots/steady_state/avg_melt_rate_", data_date, ".png"), width = 800, height = 600)
-# plot(domain / 1000, params$ab,
-#     type = "l",
-#     xlab = "Distance along flowline (km)", ylab = "Basal melt rate (m/a)"
-# )
-# abline(v = ssa_steady$grounding_line[length(ssa_steady$grounding_line)], lty = 2, col = "red")
-# dev.off()
-
-
 ######################################
 ##     Simulate bed and friction    ##
 ######################################
-
-# sim_param_output <- sim_params(
-#     nsims = nsims, domain = ssa_steady$domain,
-#     bed_obs = bed_obs_df[bed_obs_df$chosen == 1, ]
-# )
 
 if (resimulate) {
     print("Simulating friction coefficient...")
@@ -189,13 +170,6 @@ param_list <- lapply(1:nsims, function(r) {
 
 }
 
-
-
-# sim_param_list <- sim_param_output$sim_param_list
-# bed_sims <- sim_param_list$bedrock
-
-# fric_scale <- 1e6 * params$secpera^(1 / params$n)
-# fric_sims <- sim_param_list$friction #* fric_scale
 
 years <- dim(surf_elev_mat)[2] # number of years data is collected
 # warmup <- 0 # number of years to discard after steady state (for the model to adjust to new friction & bed)
@@ -263,7 +237,6 @@ if (leave_one_out) {
 }
 se_discr <- lapply(se_sims, function(M) surf_elev_mat[, 1:years] - M[, 1:years])
 vel_discr <- lapply(vel_sims, function(M) vel_mat[, 1:years] - M[, 1:years])
-
 
 # GL_pos <- sapply(sim_out, function(x) x$grounding_line[length(x$grounding_line)])
 # GL_pos <- generated_data$gl_arr[, years]
@@ -413,33 +386,6 @@ for (s in 1:nsims_plot) {
 dev.off()
 
 ## Plot surface elevation discrepancy
-# png(paste0("plots/discr/se_discrepancy_", data_date, ".png"), width = 1500, height = 550 * nsims_plot, res = 300)
-# par(mfrow = c(nsims_plot, 2))
-# for (s in 1:nsims_plot) {
-#     matplot(domain[plot_range] / 1000, se_discr[[s]][plot_range, ],
-#         type = "l", lty = 1, # col = rgb(0,0,0,0.25),
-#         cex = 1.5,
-#         col = cols,
-#         # ylim = c(-500, 500),
-#         xlab = "Distance along flowline (km)", ylab = "Surface elev. discrepancy (m)",
-#         main = paste0("Simulation ", s)
-#     )
-#     abline(h = 0, col = "grey", lty = 2)
-#     # abline(v = GL_pos[s], lty = 2, col = "red")
-
-#     matplot(domain[plot_range] / 1000, vel_discr[[s]][plot_range, ],
-#         type = "l", lty = 1, # col = rgb(0,0,0,0.25),
-#         cex = 1.5,
-#         col = cols,
-#         ylim = c(-1000, 1500),
-#         xlab = "Distance along flowline (km)", ylab = "Velocity discrepancy (m/yr)",
-#         main = paste0("Simulation ", s)
-#     )
-#     abline(h = 0, col = "grey", lty = 2)
-# }
-# dev.off()
-
-## ggplot equivalent
 x_vals <- domain[plot_range] / 1000
 
 tidy_mat <- function(mat, sim_id, varname) {
@@ -530,7 +476,6 @@ grid.arrange(grobs = c(se_sim_plots, vel_sim_plots),
             layout_matrix = matrix(1:(nsims_plot * 2), nsims_plot, 2) )
 dev.off()
 
-
 ## Plot discrepancy using ggplot
 
 se_discr_plots <- list()
@@ -582,7 +527,6 @@ vel_discr_plots <- lapply(vel_discr_plots, function(p) p + theme(plot.margin = m
 png(paste0("plots/discr/discrepancies_ggplot_", data_date, ".png"), width = 2000, height = 700 * nsims_plot, res = 200)
 grid.arrange(grobs = c(se_discr_plots, vel_discr_plots), 
             layout_matrix = matrix(1:(nsims_plot * 2), nsims_plot, 2))
-# print(plots[[1]])
 dev.off()
 
 
@@ -590,13 +534,6 @@ dev.off()
 # years <- dim(vel_mat)[2]
 vel_discr_mat <- Reduce("+", vel_discr) / length(vel_discr)
 se_discr_mat <- Reduce("+", se_discr) / length(se_discr)
-
-# vel_discr_sub <- vel_discr[1:100]
-# se_discr_sub <- se_discr[1:100]
-
-# vel_discr_mat_sub <- Reduce("+", vel_discr_sub) / length(vel_discr_sub)
-# se_discr_mat_sub <- Reduce("+", se_discr_sub) / length(se_discr_sub)
-
 
 if (avg_over_time) {
     avg_se_discr <- rowMeans(se_discr_mat, na.rm = T)
@@ -651,30 +588,6 @@ if (avg_over_time) {
     qsave(se_discr_mat, file = paste0(data_dir, "discrepancy/", setsf, "/se_discr_", data_date, ".qs"))
 }
 
-# # if (avg_over_time) {
-#     # ## Find average discrepancy (over simulations and over time)
-#     # vel_discr_concat <- do.call(cbind, vel_discr)
-#     # avg_vel_discr <- rowMeans(vel_discr_concat, na.rm = T)
-#     # se_discr_concat <- do.call(cbind, se_discr)
-#     # avg_se_discr <- rowMeans(se_discr_concat, na.rm = T)
-
-#     # vel_discr_mat <- matrix(rep(avg_vel_discr, years), nrow = J, ncol = years)
-#     # se_discr_mat <- matrix(rep(avg_se_discr, years), nrow = J, ncol = years)
-
-# # } else {
-#     ## Find average discrepancy (over simulations) for each year
-#     vel_discr_mat <- Reduce("+", vel_discr) / length(vel_discr)
-#     se_discr_mat <- Reduce("+", se_discr) / length(se_discr)
-
-#     # ## For the 11th year, just use the average discrepancy from the previous years
-#     # avg_vel_discr <- rowMeans(vel_discr_mat, na.rm = T)
-#     # avg_se_discr <- rowMeans(se_discr_mat, na.rm = T)
-#     # vel_discr_mat <- cbind(vel_discr_mat, avg_vel_discr)
-#     # se_discr_mat <- cbind(se_discr_mat, avg_se_discr)
-# # }
-
-
-
 #################################################
 
 ## Plot the average discrepancy
@@ -701,45 +614,6 @@ abline(v = gl, lty = 2)
 dev.off()
 
 # Plot observed data minus discrepancy
-
-# pdf(file = paste0("./plots/discr/adjusted_obs_", data_date, ".pdf"), width = 10, height = 20)
-# png(file = paste0("./plots/discr/adjusted_obs_", data_date, ".png"), width = 1500, height = 550 * nsims_plot, res = 300)
-# par(mfrow = c(nsims_plot, 2))
-# for (s in 1:nsims_plot) {
-#     # legend("topright",
-#     #     legend = c("Simulated", "Observed - avg discrepancy"),
-#     #     col = c("black", "salmon"), lwd = 1.5, bty = "n"
-#     # )
-#     # abline(v = gl, lty = 2)
-
-#     matplot(domain[plot_range] / 1000, se_sims[[s]][plot_range, ],
-#         type = "l", col = grey_cols, lwd = 1.5, lty = 1,
-#         ylim = c(0, 1400),
-#         xlab = "Distance along flowline (km)", ylab = "Surface elevation (m)",
-#         main = paste0("Simulation ", s)
-#     )
-#     matlines(domain[plot_range] / 1000, (surf_elev_mat - se_discr_mat)[plot_range, ],
-#         type = "l", col = cols, lwd = 1.5, lty = 1
-#     )
-#     # legend("topright",
-#     #     legend = c("Simulated", "Observed - avg discrepancy"),
-#     #     col = c("black", "salmon"), lwd = 1.5, bty = "n"
-#     # )
-#     # abline(v = gl, lty = 2)
-
-#     matplot(domain[plot_range] / 1000, vel_sims[[s]][plot_range, ],
-#         type = "l", col = grey_cols, lwd = 1.5, lty = 1,
-#         ylim = c(0, 3000),
-#         xlab = "Distance along flowline (km)", ylab = "Velocity (m/yr)",
-#         main = paste0("Simulation ", s)
-#     )
-#     matlines(domain[plot_range] / 1000, (vel_mat - vel_discr_mat)[plot_range, ],
-#         type = "l", col = cols, lwd = 1.5, lty = 1
-#     )
-# }
-# dev.off()
-
-## Same plot but in ggplot
 
 adj_se_sim_plots <- list()
 adj_vel_sim_plots <- list()
