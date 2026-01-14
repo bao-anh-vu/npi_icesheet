@@ -3,40 +3,41 @@ setwd("~/SSA_model/CNN/real_data/")
 
 library(qs)
 library(ggplot2)
+
 ## Toy example to test quadrature methods
 
-# Example: area between two curves using trapezoidal integration
+# # Example: area between two curves using trapezoidal integration
 
-# Generate a regular grid
-x <- seq(0, 2 * pi, length.out = 200)
+# # Generate a regular grid
+# x <- seq(0, 2 * pi, length.out = 200)
 
-# Define two curves
-y1 <- sin(x)
-y2 <- cos(x)
+# # Define two curves
+# y1 <- sin(x)
+# y2 <- cos(x)
 
-# Compute the difference between curves
-diff_y <- abs(y2 - y1)
+# # Compute the difference between curves
+# diff_y <- abs(y2 - y1)
 
-# Compute area using the trapezoidal rule
-# trapezoidal rule: sum((y[i] + y[i+1])/2 * dx)
-dx <- diff(x)[1]  # uniform grid spacing
-area <- sum((diff_y[-1] + diff_y[-length(diff_y)]) / 2) * dx
+# # Compute area using the trapezoidal rule
+# # trapezoidal rule: sum((y[i] + y[i+1])/2 * dx)
+# dx <- diff(x)[1]  # uniform grid spacing
+# area <- sum((diff_y[-1] + diff_y[-length(diff_y)]) / 2) * dx
 
-cat("Approximate area between curves:", area, "\n")
+# cat("Approximate area between curves:", area, "\n")
 
-# Optional: visualize
-png("./plots/temp/area_between_curves.png", width = 800, height = 600)
-plot(x, y1, type = "l", col = "blue", lwd = 2, ylim = c(-1, 1))
-lines(x, y2, col = "red", lwd = 2)
-polygon(c(x, rev(x)), c(y1, rev(y2)), col = rgb(0.2, 0.7, 0.9, 0.3), border = NA)
-legend("topright", legend = c("y1 = sin(x)", "y2 = cos(x)"), col = c("blue", "red"), lwd = 2)
+# # Optional: visualize
+# png("./plots/temp/area_between_curves.png", width = 800, height = 600)
+# plot(x, y1, type = "l", col = "blue", lwd = 2, ylim = c(-1, 1))
+# lines(x, y2, col = "red", lwd = 2)
+# polygon(c(x, rev(x)), c(y1, rev(y2)), col = rgb(0.2, 0.7, 0.9, 0.3), border = NA)
+# legend("topright", legend = c("y1 = sin(x)", "y2 = cos(x)"), col = c("blue", "red"), lwd = 2)
 
-dev.off()
+# dev.off()
 
 ## Now do the same but for bed and posterior predicted elevation data
 
 data_date <- "20241111" # "20241103"
-sets <- 1:50 #51:100 #1:50 #51:100 # 6:20
+sets <- 51:100 
 # use_missing_pattern <- Tth
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T
