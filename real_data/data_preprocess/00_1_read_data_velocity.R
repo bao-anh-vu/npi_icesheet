@@ -24,10 +24,6 @@ data_dir <- "./data/"
 # unzip("./boundaries/Basins_Antarctica_v02.zip", junkpaths = FALSE)
 basin_data <- read_sf(paste0(data_dir, "boundaries/Basins/Basins_Antarctica_v02.shp"))
 
-# basin_plot <- ggplot(basin_data) +
-#   geom_sf(fill = "#69b3a2", color = "white") +
-#   theme_bw()
-
 # png(paste0("./plots/basin_plot.png"), width = 800, height = 800)
 # print(basin_plot)
 # dev.off()
@@ -60,18 +56,6 @@ if (reread_data) {
   grid$vx <- c(vx)
   grid$vy <- c(vy)
   grid$v_error <- c(v_error)
-  # plot_vel_ant <- ggplot(grid) + 
-  # geom_point(aes(x = x, y = y, colour = v)) +
-  # scale_colour_distiller(palette = "Reds", direction = 1,
-  #                       #  limits = c(min_vel, max_vel),
-  #                        name = "Velocity (m/a)") +
-  # # geom_sf(data = basin_data, color = "black", fill = NA) +
-  # theme_bw()
-
-  # print("Saving velocity plot...")
-  # png(paste0("./plots/vel_ant.png"), width = 800, height = 800)
-  # print(plot_vel_ant)
-  # dev.off()
 
   ## Select only grid points that fall within Thwaites glacier
   thwaites_points <- as.data.frame(st_coordinates(st_geometry(thwaites_bound)))
@@ -114,16 +98,6 @@ plot_thwaites <- ggplot(grid_thwaites) +
 png(paste0("./plots/vel_thwaites.png"), width = 800, height = 800)
 print(plot_thwaites)
 dev.off()
-
-# Select only points within Thwaites glacier
-
-# thwaites_sp <- as(thwaites_bound, "Spatial")
-# pts <- SpatialPoints(grid_thwaites[, c("x", "y")], proj4string = CRS(proj4string(thwaites_sp)))
-# # ov <- over(pts, as(city_bdry, "SpatialPolygons"))
-# ov <- over(pts, thwaites_sp)
-# removed_rows <- attr(na.omit(ov), "na.action") # remove NA rows as those are points that do not fall within the shapefile
-# retained_rows <- setdiff(1:nrow(grid_thwaites), removed_rows)
-# thwaites_vel <- grid_thwaites[retained_rows,]
 
 qsave(grid_thwaites, file = "./data/thwaites_vel.qs")
 

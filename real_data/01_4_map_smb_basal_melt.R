@@ -16,9 +16,6 @@ data_dir <- "./data/"
 
 smb_thwaites <- qread(file = paste0(data_dir, "/SMB/smb_shelf_thwaites.qs"))
 
-# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
-# flowline <- na.omit(flowline)
-
 flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
@@ -44,12 +41,11 @@ avg_nearest_four <- function(df, pos, grid_size) {
 
 flowline_shelf_smb <- matrix(NA, nrow = ncol(smb_thwaites) - 2, ncol = nrow(flowline))
 for (col in 3:ncol(smb_thwaites)) {
-# for (col in 3:4) {
 
     t <- col - 2
     cat("t = ", t, "\n")
 
-    ## Try filtering grid points in v with coordinates in x_thwaites and y_thwaites
+    ## Select grid points in v with coordinates in x_thwaites and y_thwaites
     smb_df <- smb_thwaites[, c(1, 2, col)] 
     colnames(smb_df) <- c("x", "y", "val")
 

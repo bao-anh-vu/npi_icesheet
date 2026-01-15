@@ -86,7 +86,6 @@ for (year in years) {
         thwaites_vel <- qread(paste0(data_dir, "velocity/vel_thwaites_", year, ".qs"))
     }
 
-
     avg_nearest_four <- function(pos, data, var, delta = 120) {
         near_pts <- data %>% filter(
             x >= (pos[1] - delta) & x <= (pos[1] + delta),
@@ -105,32 +104,31 @@ for (year in years) {
         return(near_v)
     }
 
-## Flowline data
-flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
+    ## Flowline data
+    flowline <- qread(paste0(data_dir, "flowline_regrid.qs"))
 
-flowline <- na.omit(flowline)
-flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
+    flowline <- na.omit(flowline)
+    flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
-## Also map velocity error to flowline
-print("Mapping velocity error to flowline...")
-grid_thwaites <- qread("./data/velocity/vel_thwaites.qs") # "composite" (averaged) vel data
+    ## Also map (average) velocity error to flowline
+    print("Mapping velocity error to flowline...")
+    grid_thwaites <- qread("./data/velocity/vel_thwaites.qs") # "composite" (averaged) vel data
 
-test <- mclapply(flowline_pos, avg_nearest_four, data = grid_thwaites, var = "v_error", mc.cores = 10L) # , mc.cores = 12L)
-vel_err_avg <- sapply(test, function(x) x$v_avg)
-# Range of velocity error is (6.00 1360.75), which is crazy!!
+    test <- mclapply(flowline_pos, avg_nearest_four, data = grid_thwaites, var = "v_error", mc.cores = 10L) # , mc.cores = 12L)
+    vel_err_avg <- sapply(test, function(x) x$v_avg)
+    # Range of velocity error is (6.00 1360.75), which is crazy!!
 
-qsave(vel_err_avg, file = paste0(data_dir, "velocity/vel_error_flowline_avg.qs"))
+    qsave(vel_err_avg, file = paste0(data_dir, "velocity/vel_error_flowline_avg.qs"))
 
-## Plot error along flowline
-png(paste0("./plots/velocity/avg_vel_error_flowline.png"), width = 800, height = 500)
-plot(1:nrow(flowline), vel_err_avg,
-    type = "l",
-    main = paste0("Velocity error along flowline for ", year),
-    xlab = "Point along flowline", ylab = "Velocity error (m/a)"
-)
-dev.off()
+    ## Plot error along flowline
+    png(paste0("./plots/velocity/avg_vel_error_flowline.png"), width = 800, height = 500)
+    plot(1:nrow(flowline), vel_err_avg,
+        type = "l",
+        main = paste0("Velocity error along flowline for ", year),
+        xlab = "Point along flowline", ylab = "Velocity error (m/a)"
+    )
+    dev.off()
 
-browser()
 
     if (remap_vel) {
         cat("Mapping velocity to flowline for year ", year, "\n")
@@ -201,38 +199,3 @@ browser()
     # print(plot_vel_flowline)
     # dev.off()
 }
-
-
-
-
-# vel_nearest <- sapply(velocities, function(x) x$v_nearest)
-# vel_avg <- sapply(velocities, function(x) x$v_avg)
-
-# # png(paste0("./plots/vel_flowline_nearest.png"), width = 800, height = 500)
-# # plot(1:length(flowline), vel_nearest, type = "l", xlab = "Point along flowline", ylab = "Velocity (m/a)")
-# # # lines(1:length(flowline))
-# # dev.off()
-
-# # png(paste0("./plots/vel_flowline_avg.png"), width = 800, height = 500)
-# # plot(1:length(flowline), vel_avg, type = "l", xlab = "Grid point", ylab = "Velocity (m/a)")
-# # dev.off()
-
-# flowline_df <- data.frame(x = flowline_x, y = flowline_y)
-# J <- length(flowline_df$x)
-# flowline_tail <- flowline_df[(J - 20):J, ]
-# # png(paste0("./plots/flowline_grid.png"), width = 800, height = 800)
-
-# tail_gridpts <- thwaites_vel %>% filter(x >= min(flowline_tail$x) & x <= max(flowline_tail$x) &
-#                                         y >= min(flowline_tail$y) & y <= max(flowline_tail$y))
-
-# png(paste0("./plots/flowline_tail", year, ".png"), width = 800, height = 400)
-# ggplot(tail_gridpts) +
-#     geom_point(aes(x = x, y = y, colour = v)) +
-#     scale_colour_distiller(palette = "Reds", direction = 1,
-#                             #  limits = c(min_vel, max_vel),
-#                             name = "Velocity (m/a)") +
-#     geom_point(data = flowline_tail,
-#     aes(x = x, y = y), color = "black", size = 3) +
-#     coord_fixed() +
-#     theme_bw()
-# dev.off()

@@ -12,22 +12,15 @@ library(sp)
 library(parallel)
 library(qs)
 
-# library(raster)
-
 setwd("~/SSA_model/CNN/real_data/")
-
-# reread_data <- T
-# remap_vel <- T
 
 data_dir <- "./data"
 
-## Basin shapefilethe7
-# unzip("./boundaries/Basins_Antarctica_v02.zip", junkpaths = FALSE)
+## Basin shapefile
 basin_data <- read_sf(paste0(data_dir, "/boundaries/Basins/Basins_Antarctica_v02.shp"))
 thwaites_bound <- basin_data %>% filter(NAME == "Thwaites")
 
 ## Grounding line data
-# gl_thwaites <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 gl_thwaites <- qread(paste0(data_dir, "/grounding_line/gl_thwaites.qs"))
 
 # surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/height_thwaites.rds"))
@@ -36,7 +29,6 @@ se_err_grid <- qread(paste0(data_dir, "/surface_elev/height_err_thwaites.qs"))
 
 ## Flowline data
 delta <- 1920 # grid size
-# flowline <- readRDS(paste0(data_dir, "/flowline_regrid.rds"))
 flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 flowline_pos <- lapply(1:nrow(flowline), function(i) as.numeric(flowline[i, ]))
 
@@ -62,8 +54,6 @@ avg_nearest_four <- function(pos, values) {
 }
 
 years <- 2010:2020
-# test <- surf_elev_data %>% select(x, y, height2013, height2020) %>% 
-#         mutate(height_diff = height2020 - height2013) 
 
 se_err_ls <- list()
 for (i in 1:length(years)) {
@@ -79,8 +69,6 @@ qsave(se_err_ls, paste0(data_dir, "/surface_elev/se_err_flowline.qs"))
 for (year in years) {
     var <- paste0("height", year)
     cat("Mapping surface elevation data to flowline for", year, "\n")
-
-    # gl <- readRDS(paste0(data_dir, "/gl_thwaites.rds"))
 
     annual_surf_elev <- surf_elev_data %>% select(x, y, all_of(var))
 
@@ -98,32 +86,11 @@ for (year in years) {
     dev.off()
 
     surf_elev <- lapply(flowline_pos, avg_nearest_four, values = annual_surf_elev) #, mc.cores = 12L)
-    ## where's the ice shelf??
-browser()
+
     png(paste0("./plots/surface_elev/elev_flowline_1d_", year, ".png"), width = 800, height = 500)
     plot(unlist(surf_elev), type = "l")
     dev.off()
 
-    # saveRDS(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
     qsave(surf_elev, paste0(data_dir, "/surface_elev/surf_elev_", year, ".qs"))
     qsave(se_err, paste0(data_dir, "/surface_elev/surf_elev_err_", year, ".qs"))
 }
-
-
-
-# pos <- flowline_pos[[1]]
-# near_pts <- surf_elev_data %>% filter(
-#     x >= (pos[1] - delta) & x <= (pos[1] + delta),
-#     y >= (pos[2] - delta) & y <= (pos[2] + delta)
-# )
-
-#     near_height <- near_pts %>%
-#         mutate(dist = sqrt((x - pos[1])^2 + (y - pos[2])^2)) %>%
-#         filter(dist > 0) %>%
-#         arrange(dist) %>%
-#         slice_min(dist, n = 4) %>%
-#         select(.data[[var]]) %>%
-#         summarise(height_avg = mean(.data[[var]])) # , vx_avg = mean(vx), vy_avg = mean(vy)) # %>% # take average vx and vx as vx and vy at current position
-#     # as.numeric()
-
-#     return(near_height)
