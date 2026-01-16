@@ -1,12 +1,19 @@
 ## Neural posterior inference for calibrating ice sheet simulators
 
-This folder contains R code for the observing system simulation experiment (OSSE) and the real data example in the manuscript "Neural posterior inference with state-space models for
-calibrating ice sheet simulators".
+This folder contains R code for the observing system simulation experiment (OSSE) and the real data example in the manuscript "Neural posterior inference with state-space models for calibrating ice sheet simulators".
 
 ## Folder structure
 Each example is stored in one folder. 
 
-Each folder contains scripts that are numbered in the sequence to produce the results of the OSSE/real data example. Each folder also contains a `source` sub-folder, which contains auxiliary R scripts needed for running the 1D Shelfy-Stream Approximation (SSA) ice sheet model.
+Each folder contains scripts that are numbered in sequence to produce the results of the OSSE/real data example. Each folder also contains a `source` sub-folder, which contains auxiliary R scripts needed for running the 1D Shelfy-Stream Approximation (SSA) ice sheet model.
+
+For the real data example, there is a `data_preprocessing` folder containing scripts that prepare Antarctic data for the case study. The scripts perform the following steps:
+* Read (time-averaged) velocity data and extract a flowline from a selected point in the interior of the ice sheet towards the ocean
+* Read Antarctic (continent-wide) data and filter observations to only those that fall within the Thwaites Glacier boundaries. Datasets used include:
+  * Surface velocity and surface elevation data from [NASA MEaSUREs ITS_LIVE](https://its-live.jpl.nasa.gov/)
+  * BedMap3 data from [SCAR](https://bedmap.scar.org/)
+  * BedMachine v3 data from [NSIDC](https://nsidc.org/data/nsidc-0756/versions/3)
+  * Surface mass balance data from the [Regional Atmospheric Climate Model 2 (RACMO2), version 2.3](https://zenodo.org/records/3677642)
 
 ## RStudio version requirements
 The code in this repository was written using R version 4.4.3. 
@@ -21,5 +28,8 @@ Running the source code requires the following packages (along with their depend
 6. `dplyr` v1.1.4
 7. `ggplot2` v3.4.4
 8. `gridExtra` v2.3
-9. `gtable` v0.3.4         
+9. `gtable` v0.3.4  
+10. `sf`
+11. `matrixStats`
+12. `FRK`       
  
