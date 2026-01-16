@@ -8,12 +8,14 @@ Each example is stored in one folder.
 Each folder contains scripts that are numbered in sequence to produce the results of the OSSE/real data example. Each folder also contains a `source` sub-folder, which contains auxiliary R scripts needed for running the 1D Shelfy-Stream Approximation (SSA) ice sheet model.
 
 For the real data example, there is a `data_preprocessing` folder containing scripts that prepare Antarctic data for the case study. The scripts perform the following steps:
-* Read (time-averaged) velocity data and extract a flowline from a selected point in the interior of the ice sheet towards the ocean
+* Read (time-averaged) velocity data and extract a flowline from a selected point in the interior of the ice sheet towards the ocean.
 * Read Antarctic (continent-wide) data and filter observations to only those that fall within the Thwaites Glacier boundaries. Datasets used include:
-  * Surface velocity and surface elevation data from [NASA MEaSUREs ITS_LIVE](https://its-live.jpl.nasa.gov/)
-  * BedMap3 data from [SCAR](https://bedmap.scar.org/)
-  * BedMachine v3 data from [NSIDC](https://nsidc.org/data/nsidc-0756/versions/3)
-  * Surface mass balance data from the [Regional Atmospheric Climate Model 2 (RACMO2), version 2.3](https://zenodo.org/records/3677642)
+  * Annual surface velocity and surface elevation data from [NASA MEaSUREs ITS_LIVE](https://its-live.jpl.nasa.gov/),
+  * BedMap3 data from [SCAR](https://bedmap.scar.org/),
+  * BedMachine v3 data from [NSIDC](https://nsidc.org/data/nsidc-0756/versions/3),
+  * Surface mass balance data from the [Regional Atmospheric Climate Model 2 (RACMO2), version 2.3](https://zenodo.org/records/3677642).
+* Map 2D observations to the 1D flowline by taking the average of the nearest 4 values around each grid point along the flowline as the value at that grid point.
+* For the surface velocity and surface elevation, combine annual datasets from 2010--2020 into a consolidated dataset 
 
 ## RStudio version requirements
 The code in this repository was written using R version 4.4.3. 
