@@ -57,22 +57,11 @@ flowline_dist <- c(0, cumsum(na.omit(flowline_dist)))
 
 vel_smoothed <- matrix(NA, nrow = J, ncol = length(years))
 
-# gl_pos <- readRDS(paste0(data_dir, "/grounding_line/gl_pos.rds")) ## grounding line position
-# gl_pos <- qread(paste0(data_dir, "/grounding_line/gl_pos.qs")) ## grounding line position
-# gl_ind <- gl_pos$ind
-# delta <- 120 # grid size
-# flowline$ind <- 1:nrow(flowline)
-# gl_near_pts <- flowline %>% filter(
-#                 x >= (gl_pos[1] - delta) & x <= (gl_pos[1] + delta),
-#                 y >= (gl_pos[2] - delta) & y <= (gl_pos[2] + delta))
-# gl_ind <- gl_near_pts$ind
-
 ## If before GL, use 20 intervals; if after GL, use 50 intervals
 # n_intervals <- 20
 interval_size_before_gl <- 100 # gl_ind %/% 5
 interval_size_after_gl <- 200 # (J - gl_ind) %/% 3
 
-# i <- 1
 smooth_years <- years[1:3] # only smooth first 3 years (2010-2012) as the other years look fine
 for (i in 1:length(smooth_years)) {
     year <- years[i]
@@ -84,11 +73,6 @@ for (i in 1:length(smooth_years)) {
     intervals_before_gl <- split(before_gl, ceiling(seq_along(before_gl) / interval_size_before_gl))
     intervals_after_gl <- split(after_gl, ceiling(seq_along(after_gl) / interval_size_after_gl))
     intervals <- c(intervals_before_gl, intervals_after_gl)
-    # intervals <- split(vel_yr, cut(1:length(vel_yr), breaks = seq(0, length(vel_yr), by = interval_size)))
-
-    # interval_medians_before_gl <- sapply(intervals_before_gl, function(x) median(x, na.rm = T))
-    # interval_medians_after_gl <- sapply(intervals_after_gl, function(x) median(x, na.rm = T))
-    # interval_medians <- c(interval_medians_before_gl, interval_medians_after_gl)
     interval_medians <- sapply(intervals, function(x) median(x, na.rm = T))
 
     interval_outliers <- sapply(intervals, function(x) {
@@ -242,42 +226,3 @@ dev.off()
 
 
 
-
-
-## Smooth velocity data
-# vel_smoothed <- matrix(NA, nrow = nrow(velocity_arr), ncol = ncol(velocity_arr))
-
-# for (i in 1:length(years)) {
-#     year <- years[i]
-#     vel_df <- data.frame(x = flowline_dist, vel = velocity_arr[, i])
-#     test <- loess(vel ~ x, data = vel_df, span = 0.05)#$fitted
-#     imputed <- predict(test, newdata = vel_df)
-
-#     png(paste0("./plots/temp/vel_imputed_", year, ".png"), width = 750, height = 500)
-#     plot(vel_df$x, vel_df$vel, type = "l", col = "grey", lwd = 2,
-#             ylim = c(0, max(imputed, na.rm = T)),
-#             main = paste("Velocity in ", year))
-#     lines(vel_df$x, imputed, col = "red")
-#     dev.off()
-
-# }
-
-
-
-# ## Missing pattern for surface elevation data
-# # year <- 2000
-# surf_elev_mat <- matrix(NA, nrow = J, ncol = length(years))
-# for (i in 1:length(years)) {
-#     year <- years[i]
-#     surf_elev_data <- readRDS(file = paste0(data_dir, "/surface_elev/surf_elev_", year, ".rds"))
-#     surf_elev_mat[, i] <- unlist(surf_elev_data)[1:J]
-# }
-
-# qsave(surf_elev_mat, "./data/surface_elev/surf_elev_mat.qs")
-
-# png("./plots/surface_elev/surf_elev_st_plot.png", width = 800, height = 600)
-# image(surf_elev_mat)
-# dev.off()
-
-# surf_ev_missing_pattern <- ifelse(is.na(surf_elev_mat), 0, 1)
-# qsave(surf_ev_missing_pattern, "./data/surface_elev/missing_pattern.qs")

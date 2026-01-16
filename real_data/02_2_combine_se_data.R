@@ -18,7 +18,6 @@ years <- 2010:2020
 data_dir <- "./data"
 
 ## Missing pattern for surface elevation data
-# year <- 2000
 flowline <- qread(paste0(data_dir, "/flowline_regrid.qs"))
 J <- nrow(flowline) # number of grid points
 flowline_dist <- sqrt((flowline$x[2:J] - flowline$x[1:(J-1)])^2 + (flowline$y[2:J] - flowline$y[1:(J-1)])^2)

@@ -1,3 +1,5 @@
+# Simulate steady-state ice sheet/ice shelf profile along a flowline
+
 setwd("~/SSA_model/CNN/real_data/")
 
 library(qs)

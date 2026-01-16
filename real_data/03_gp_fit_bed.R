@@ -1,3 +1,6 @@
+## Fit a Gaussian process to bed elevation data along the flowline
+## to use as a prior
+
 setwd("~/SSA_model/CNN/real_data/")
 
 library(qs)
