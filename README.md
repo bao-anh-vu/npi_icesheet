@@ -1,12 +1,27 @@
 ## Neural posterior inference for calibrating ice sheet simulators
 
-This folder contains R code for the observing system simulation experiment (OSSE) and the real data example in the manuscript "Neural posterior inference with state-space models for calibrating ice sheet simulators".
+This folder contains R code for the observing system simulation experiment (OSSE) and the real data example in the manuscript [Neural posterior inference with state-space models for calibrating ice sheet simulators](https://arxiv.org/abs/2512.09561), by Vu et al. (2025).
 
 ## Folder structure
 Each example is stored in one folder. 
 
 Each folder contains scripts that are numbered in sequence to produce the results of the OSSE/real data example. Each folder also contains a `source` sub-folder, which contains auxiliary R scripts needed for running the 1D Shelfy-Stream Approximation (SSA) ice sheet model.
 
+### Steps for running the simulation
+Both the simulation study and the real data example are produced with the following steps:
+1. Simulate steady-state ice sheet (to be used as initial conditions for the simulation). 
+2. Simulate training data (surface elevation and velocity) for the neural network 
+3. Split data into train/validation/test sets
+4. Set up and run a convolutional neural network (CNN)
+5. Post-process CNN output to produce posterior inference for model parameters
+
+For the simulation study, there are additional scripts to run the ensemble Kalman filter (EnKF) for inferring the (latent) time-varying ice thickness.
+
+For the real data example, there are additional scripts to 
+* Use the trained CNN to infer model parameters (bed elevation and friction) given data from a transect in Thwaites Glacier, Antarctica
+* Calculate the volume above flotation (VAF) based on the inferred bed elevation and friction 
+
+### Data pre-processing
 For the real data example, there is a `data_preprocessing` folder containing scripts that prepare Antarctic data for the case study. The scripts perform the following steps:
 * Read (time-averaged) velocity data and extract a flowline from a selected point in the interior of the ice sheet towards the ocean.
 * Read Antarctic (continent-wide) data and filter observations to only those that fall within the Thwaites Glacier boundaries. Datasets used include:
