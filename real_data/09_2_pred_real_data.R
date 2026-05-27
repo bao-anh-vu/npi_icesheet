@@ -28,11 +28,11 @@ correct_model_discrepancy <- T
 correct_velocity_discrepancy <- T
 avg_over_time <- T
 leave_one_out <- T
-resample_posterior <- F
+resample_posterior <- T
 
 ## Read data
 data_date <- "20241111" #"20241103"
-sets <- 51:100 
+sets <- 1:50 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 data_dir <- paste0("./data/training_data/", setsf, "/")

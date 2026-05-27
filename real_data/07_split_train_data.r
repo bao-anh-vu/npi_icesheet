@@ -50,7 +50,7 @@ leave_one_out <- T
 data_date <- "20241111"
 
 # arg <- commandArgs(trailingOnly = TRUE)
-sets <- 51:100
+sets <- 1:50
 setf <- lapply(sets, function(x) formatC(x, width = 2, flag = "0"))
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])#formatC(sets, width=2, flag="0
 
@@ -103,7 +103,7 @@ surface_obs_arr <- abind(surface_obs_list, along = 1)
     rm(surface_obs_list)
 
 # }
-
+    
 
 ## Read true surface elevation data
 files <- lapply(setf, function(x) paste0(train_data_dir, "/true_surface_elevs_", x, "_", data_date, ".qs"))
@@ -334,9 +334,9 @@ train_data <- list(
     true_bed = true_bed_train,
     true_fric = true_fric_train,
     true_gl = true_gl_train,
-    true_surface_elev = true_surface_arr[train_ind, , ],
-    true_thickness_train =  true_thickness_arr[train_ind, , ],
-    true_velocity_train = true_velocity_arr[train_ind, , ]
+    true_surface_elev = true_surface_arr[train_ind, ,],
+    true_thickness_train =  true_thickness_arr[train_ind, ,],
+    true_velocity_train = true_velocity_arr[train_ind, ,]
 )
 
 if (save_data) {
@@ -361,9 +361,9 @@ val_data <- list(
     true_bed = true_bed_val,
     true_fric = true_fric_val,
     true_gl = true_gl_val,
-    true_surface_elev = true_surface_arr[val_ind, , ],
-    true_thickness_val =  true_thickness_arr[val_ind, , ],
-    true_velocity_val = true_velocity_arr[val_ind, , ]
+    true_surface_elev = true_surface_arr[val_ind, ,],
+    true_thickness_val =  true_thickness_arr[val_ind, ,],
+    true_velocity_val = true_velocity_arr[val_ind, ,]
 )
 
 if (save_data) {
@@ -388,9 +388,9 @@ test_data <- list(
     true_bed = true_bed_test,
     true_fric = true_fric_test,
     true_gl = true_gl_test,
-    true_surface_elev = true_surface_arr[test_ind, , ],
-    true_thickness_test =  true_thickness_arr[test_ind, , ],
-    true_velocity_test = true_velocity_arr[test_ind, , ]
+    true_surface_elev = true_surface_arr[test_ind, ,],
+    true_thickness_test =  true_thickness_arr[test_ind, ,],
+    true_velocity_test = true_velocity_arr[test_ind, ,]
 )
 
 if (save_data) {

@@ -43,7 +43,7 @@ source("./source/comparison_metrics.R")
 
 ## Flags/settings
 data_date <- "20241111" # "20241103"
-sets <- 51:100 # 6:20
+sets <- 1:50 # 6:20
 # use_missing_pattern <- T
 use_basal_melt_data <- T
 correct_model_discrepancy <- T
@@ -330,6 +330,10 @@ if (correct_model_discrepancy) {
     vel_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/vel_discr_avg_", data_date, ".qs"))
     se_discr_mat <- qread(file = paste0("./data/discrepancy/", setsf, "/se_discr_avg_", data_date, ".qs"))
 
+    ## "Repeat" the discr for the last year (the year that was left out)
+    vel_discr_mat <- cbind(vel_discr_mat, vel_discr_mat[, 1])
+    se_discr_mat <- cbind(se_discr_mat, se_discr_mat[, 1])
+    
     # ## Fit a spline through the avg discrepancy
     #   library(mgcv)
     #   spline_fit <- gam(avg_se_discr ~ s(domain, k = 20))
@@ -442,6 +446,7 @@ if (correct_model_discrepancy) {
   dev.off()
 
   ## Add discrepancy to simulated observations
+  
   for (s in 1:length(prior_pred$results)) {
     prior_pred_obs[s, , , 1] <- prior_pred_obs[s, , , 1] + se_discr_mat
     prior_pred_obs[s, , , 2] <- prior_pred_obs[s, , , 2] + vel_discr_mat

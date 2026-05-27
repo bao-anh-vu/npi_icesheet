@@ -37,7 +37,7 @@ library(ggplot2)
 ## Now do the same but for bed and posterior predicted elevation data
 
 data_date <- "20241111" # "20241103"
-sets <- 51:100 
+sets <- 1:50 
 # use_missing_pattern <- Tth
 # use_basal_melt_data <- T
 correct_model_discrepancy <- T

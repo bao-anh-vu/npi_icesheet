@@ -59,11 +59,10 @@ train_data_dir <- "./data/training_data"
 
 ## Presets
 data_date <- "20241111"
-N <- 1000 # 0 # number of simulations per set
-# set <- 1 #commandArgs(trailingOnly = TRUE)
-args <- commandArgs(trailingOnly = TRUE)
-set_start <- args[1]
-set_end <- args[2]
+N <- 1050 # number of simulations per set
+# args <- commandArgs(trailingOnly = TRUE)
+set_start <- 1 # args[1]
+set_end <- 50 #args[2]
 sets <- seq(set_start, set_end, by = 1) # :50 # 50 #:10
 setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 years <- 11 # number of years data is collected (not including initial condition)
@@ -376,7 +375,9 @@ for (i in 1:length(sets)) {
     )
 
     ## Need to get rid of the simulations that failed here
+    errors <- sim_results$errors
     bad_sims <- sim_results$bad_sims
+    
     if (length(bad_sims) > 0) {
         cat("Some simulations failed in set", set, "\n")
         good_sims <- sim_results$results[-bad_sims]
@@ -392,7 +393,7 @@ for (i in 1:length(sets)) {
     } else {
         good_sims <- sim_results$results
     }
-
+    
     generated_data <- process_sim_results(sims = good_sims)
 
     surface_obs_arr_s <- generated_data$surface_obs_arr
@@ -404,7 +405,7 @@ for (i in 1:length(sets)) {
     true_surface_elevs <- generated_data$true_surface_elevs
     true_thicknesses <- generated_data$true_thicknesses
     true_velocities <- generated_data$true_velocities
-
+    
     if (save_sims) {
         qsave(friction_basis, file = paste0(train_data_dir, "/friction_basis_", setf, "_", data_date, ".qs"))
         qsave(bed_basis, file = paste0(train_data_dir, "/bed_basis_", setf, "_", data_date, ".qs"))
@@ -536,7 +537,7 @@ for (s in 1:nsamples) {
     # }
 
     df <- data.frame(
-        domain = ssa_steady$domain[1:gl] / 1000, friction = friction_sim # ,
+        domain = domain[1:gl] / 1000, friction = friction_sim # ,
         # fitted_fric = fitted_fric_sim
     )
     friction_plot <- ggplot(df, aes(x = domain, y = friction)) +
@@ -550,7 +551,7 @@ for (s in 1:nsamples) {
 
     bed_sim <- bed_arr[sim, ] #+ bed_mean
     #   fitted_bed_sim <- fitted_bed[sim, ] + bed_mean
-    bed_df <- data.frame(domain = ssa_steady$domain / 1000, bed = bed_sim) # , fitted_bed = fitted_bed_sim)
+    bed_df <- data.frame(domain = domain / 1000, bed = bed_sim) # , fitted_bed = fitted_bed_sim)
 
     bed_plot <- ggplot(bed_df, aes(x = domain, y = bed)) +
         geom_line() +

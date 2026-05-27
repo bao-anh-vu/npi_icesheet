@@ -34,17 +34,6 @@ sim_obs <- function(param_list,
     L <- as(L, "dgCMatrix")
     msmt_noise_info <- list(corrmat_chol = L, length_scale = l)
 
-    # sim_results <- lapply(param_list, 
-    #     function(param, domain, phys_params,
-    #             ini_velocity, 
-    #             ini_surface,
-    #             ## ini_thickness, 
-    #             years, warmup,
-    #             use_relaxation = F,
-    #             relax_years = NULL,
-    #             vel_err_sd,
-    #             msmt_noise_info) {
-
     sim_results <- mclapply(param_list, 
         function(param, domain, phys_params,
                 ini_velocity, 
@@ -57,27 +46,17 @@ sim_obs <- function(param_list,
                 vel_err_sd,
                 msmt_noise_info) {
 
-se_grounded <- na.omit(ini_surface) # Use surface elevation in the year 2000 to initialise ice thickness
-gl_ind <- length(se_grounded) # grounding line index
-H_ini <- se_grounded - param$bedrock[1:gl_ind]
-length_shelf <- length(domain) - length(se_grounded)
-
-# se_gl <- se_grounded[gl_ind]
-# se_shelf <- seq(from = se_gl, to = 100, length.out = length_shelf) # extend the same surface elevation at the GL to the ice shelf
-# H_shelf <- - se_shelf * (params$rho_w / (params$rho_i - params$rho_w)) # thickness at grounding line based on flotation condition
-# H_shelf <- se_shelf / (1 - params$rho_i / params$rho_w) # thickness at grounding line based on flotation condition
-# H_shelf <- - bed_sim[(gl_ind+1):J] * params$rho_w / params$rho_i #- 100 # minus an offset to satisfy flotation condition 
-H_gl <- - param$bedrock[(gl_ind+1)] * phys_params$rho_w / phys_params$rho_i #- 100 # minus an offset to satisfy flotation condition 
-# H_shelf <- rep(500, length_shelf) 
-H_shelf <- H_gl * exp(-0.002*seq(0, length_shelf-1))
-# H_shelf <- seq(from = H_gl, to = 500, length.out = length_shelf)
-
-# thickness_at_gl <- - bed_sim[gl_ind][1] * params$rho_w / params$rho_i
-# H_shelf <- seq(thickness_at_gl - 1, 500, length.out = length_shelf)
-
-ini_thickness <- c(H_ini, H_shelf)
-
-# z <- get_surface_elev(H = H_ini_all, b = bed_sim, z0 = 0, rho = params$rho_i, rho_w = params$rho_w, include_GL = TRUE)
+        se_grounded <- na.omit(ini_surface) # Use surface elevation in the year 2000 to initialise ice thickness
+        gl_ind <- length(se_grounded) # grounding line index
+        H_ini <- se_grounded - param$bedrock[1:gl_ind]
+        length_shelf <- length(domain) - length(se_grounded)
+        
+        H_gl <- - param$bedrock[(gl_ind+1)] * phys_params$rho_w / phys_params$rho_i #- 100 # minus an offset to satisfy flotation condition 
+        H_shelf <- H_gl * exp(-0.002*seq(0, length_shelf-1))
+        
+        ini_thickness <- c(H_ini, H_shelf)
+        
+        # z <- get_surface_elev(H = H_ini_all, b = bed_sim, z0 = 0, rho = params$rho_i, rho_w = params$rho_w, include_GL = TRUE)
 
 
 
@@ -157,7 +136,7 @@ ini_thickness <- c(H_ini, H_shelf)
     vel_err_sd = vel_err_sd,
     msmt_noise_info = msmt_noise_info,
     mc.cores = 50L,
-    ## mc.allow.fatal = TRUE,
+    # mc.allow.fatal = TRUE
     mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
     )
 

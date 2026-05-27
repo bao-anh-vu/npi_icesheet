@@ -35,14 +35,14 @@ source("./source/process_sim_results.R")
 
 data_dir <- "./data/"
 data_date <- "20241111" # "20241103"
-sets <- 51:100 #51:100 #51:100 # 51:100 #51:100 #6:20
+sets <- 1:50 
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 ## Flags
 resimulate <- F
 use_basal_melt_data <- T
 leave_one_out <- T
-nsims <- 100 # 0
+nsims <- 1000
 use_relaxation <- F
 warmup <- 5 # years to let the model "adjust" before actually collecting observations
 avg_over_time <- T
@@ -310,7 +310,7 @@ par(mfrow = c(nsims_plot / 2, 2))
 n_lines <- years+1 # number of lines to plot
 plot_range <- 1:gl_ind
 
-# Create a color palette (green → blue)
+# Create a color palette
 cols <- adjustcolor(colorRampPalette(c("maroon", "lightpink"))(n_lines), alpha.f = 0.8)
 # grey_cols <- adjustcolor(colorRampPalette(c("lightcoral", "mistyrose"))(n_lines), alpha.f = 0.8)
 grey_cols <- adjustcolor(colorRampPalette(c("grey40", "grey80"))(n_lines), alpha.f = 0.8)
@@ -402,15 +402,16 @@ tidy_mat <- function(mat, sim_id, varname) {
 ## Plot simulations 
 se_sim_plots <- list()
 vel_sim_plots <- list()
+plot_years <- 1:(years-1) #seq(from = 1, to = years, by = 2)
 
 for (s in 1:nsims_plot) {
 
   # --- Build tidy data for sim s ---
-  df_surf_sim <- tidy_mat(se_sims[[s]][, 1:years], s, "Surface elevation")
-  df_surf_obs <- tidy_mat((surf_elev_mat)[, 1:years], s, "Surface elevation")
+  df_surf_sim <- tidy_mat(se_sims[[s]][, plot_years], s, "Surface elevation")
+  df_surf_obs <- tidy_mat((surf_elev_mat)[, plot_years], s, "Surface elevation")
 
-  df_vel_sim  <- tidy_mat(vel_sims[[s]][, 1:years], s, "Velocity")
-  df_vel_obs  <- tidy_mat((vel_mat)[, 1:years], s, "Velocity")
+  df_vel_sim  <- tidy_mat(vel_sims[[s]][, plot_years], s, "Velocity")
+  df_vel_obs  <- tidy_mat((vel_mat)[, plot_years], s, "Velocity")
 
   # --- Surface elevation panel ---
   p1 <- ggplot() +
@@ -615,17 +616,23 @@ dev.off()
 
 # Plot observed data minus discrepancy
 
-adj_se_sim_plots <- list()
-adj_vel_sim_plots <- list()
+adj_se_sim_plots <- adj_se_sim_plots_zoom <- list()
+adj_vel_sim_plots <- adj_vel_sim_plots_zoom <- list()
+
+# Create a color palette
+cols <- adjustcolor(colorRampPalette(c("maroon", "lightpink"))(length(plot_years)), alpha.f = 1)
+# grey_cols <- adjustcolor(colorRampPalette(c("lightcoral", "mistyrose"))(n_lines), alpha.f = 0.8)
+grey_cols <- adjustcolor(colorRampPalette(c("grey20", "grey80"))(length(plot_years)), alpha.f = 1)
+
 
 for (s in 1:nsims_plot) {
 
   # --- Build tidy data for sim s ---
-  df_surf_sim <- tidy_mat(se_sims[[s]][, 1:years], s, "Surface elevation")
-  df_surf_obs <- tidy_mat((surf_elev_mat - se_discr_mat)[, 1:years], s, "Surface elevation")
+  df_surf_sim <- tidy_mat(se_sims[[s]][, plot_years], s, "Surface elevation")
+  df_surf_obs <- tidy_mat((surf_elev_mat - se_discr_mat)[, plot_years], s, "Surface elevation")
 
-  df_vel_sim  <- tidy_mat(vel_sims[[s]][, 1:years], s, "Velocity")
-  df_vel_obs  <- tidy_mat((vel_mat - vel_discr_mat)[, 1:years], s, "Velocity")
+  df_vel_sim  <- tidy_mat(vel_sims[[s]][, plot_years], s, "Velocity")
+  df_vel_obs  <- tidy_mat((vel_mat - vel_discr_mat)[, plot_years], s, "Velocity")
 
   # --- Surface elevation panel ---
   p1 <- ggplot() +
@@ -654,6 +661,28 @@ for (s in 1:nsims_plot) {
     theme_bw() +
     theme(legend.position = "none")
 
+  # Zoomed plot
+  p1_zoom <- p1 +
+    coord_cartesian(
+      xlim = c(80, 100),
+      ylim = c(600, 900)
+    ) +
+    labs(title = paste("Simulation", s, "(Zoomed in)"))
+    # theme(
+    #   axis.title = element_blank(),
+    #   plot.title = element_blank()
+    # )
+  
+  # Combine
+  # p_final <- p1 + p_zoom
+    # inset_element(
+    #   p_zoom,
+    #   left = 0.55,
+    #   bottom = 0.08,
+    #   right = 0.98,
+    #   top = 0.45
+    # )
+  
   # --- Velocity panel ---
   p2 <- ggplot() +
     # simulated curves (grey)
@@ -681,14 +710,34 @@ for (s in 1:nsims_plot) {
     theme_bw() +
     theme(legend.position = "none")
 
+  p2_zoom <- p2 +
+    coord_cartesian(
+      xlim = c(80, 100),
+      ylim = c(0, 600)
+    ) +
+    labs(title = paste("Simulation", s, "(Zoomed in)"))
+  
   # Save row of two plots
-    adj_se_sim_plots[[s]] <- p1 
+    adj_se_sim_plots[[s]] <- p1
+    adj_se_sim_plots_zoom[[s]] <- p1_zoom
+    
     adj_vel_sim_plots[[s]] <- p2
+    adj_vel_sim_plots_zoom[[s]] <- p2_zoom
+    
 }
 
-png(paste0("plots/discr/adjusted_obs_ggplot_", data_date, ".png"), width = 2000, height = 700 * nsims_plot, res = 300)
-grid.arrange(grobs = c(adj_se_sim_plots, adj_vel_sim_plots), 
-            layout_matrix = matrix(1:(nsims_plot * 2), nsims_plot, 2) )
+png(paste0("plots/discr/adjusted_se_obs_ggplot_", data_date, ".png"), width = 2000, height = 700 * nsims_plot, res = 300)
+# grid.arrange(grobs = c(adj_se_sim_plots, adj_vel_sim_plots), 
+            # layout_matrix = matrix(1:(nsims_plot * 2), nsims_plot, 2) )
+grid.arrange(grobs = c(adj_se_sim_plots, adj_se_sim_plots_zoom), 
+             layout_matrix = matrix(1:(nsims_plot * 2), nsims_plot, 2))
+dev.off()
+
+png(paste0("plots/discr/adjusted_vel_obs_ggplot_", data_date, ".png"), width = 2000, height = 700 * nsims_plot, res = 300)
+# grid.arrange(grobs = c(adj_se_sim_plots, adj_vel_sim_plots), 
+# layout_matrix = matrix(1:(nsims_plot * 2), nsims_plot, 2) )
+grid.arrange(grobs = c(adj_vel_sim_plots, adj_vel_sim_plots_zoom), 
+             layout_matrix = matrix(1:(nsims_plot * 2), nsims_plot, 2))
 dev.off()
 
 # ## Plot adjusted obs by year
