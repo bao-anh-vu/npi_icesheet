@@ -423,7 +423,7 @@ fric_p <- ggplot(data = fric_df, aes(x = domain)) +
                            (MPa ~ m^{-1/3} ~ {yr}^{1/3})))) +
     theme_bw() +
     theme(text = element_text(size = 22),
-            plot.margin = unit(rep(0.5, 4), "cm"))
+            plot.margin = unit(c(0.5, 1, 0.5, 0.5), "cm"))
 
 # png(filename = paste0(plot_dir, "pred_fric_real_ggplot.png"), width = 1000, height = 500, res = 100)
 # print(fric_p)
