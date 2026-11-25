@@ -1,4 +1,4 @@
-sim_obs <- function(param_list, years = 20, warmup = 0,
+sim_obs <- function(param_list, phys_params, years = 20, warmup = 0,
                     steady_state, log_transform = T) { # , bed_obs) {
     
 
@@ -82,8 +82,8 @@ sim_obs <- function(param_list, years = 20, warmup = 0,
     # if (sim_beds) {
 simt1 <- proc.time()
 
-    # sim_results <- lapply(param_list, function(param, log_transform) {
-    sim_results <- mclapply(param_list, function(param, log_transform) {
+    # sim_results <- lapply(param_list, function(param, phys_params, log_transform) {
+    sim_results <- mclapply(param_list, function(param, phys_params, log_transform) {
 
         ## Artificial error for debugging purposes
         # s <- sample(c(0, 1), 1)
@@ -97,6 +97,7 @@ simt1 <- proc.time()
 
         reference <- solve_ssa_nl(
             domain = ssa_steady$domain,
+            phys_params = phys_params,
             bedrock = param$bedrock,
             friction_coef = fric * fric_scale,
             ini_velocity = ssa_steady$current_velocity,
@@ -140,6 +141,7 @@ simt1 <- proc.time()
         return(simulated_data)
     },
     log_transform = log_transform,
+    phys_params = phys_params,
     mc.cores = 50L,
     mc.preschedule = FALSE ## So that if one core encounters an error, the rest of the jobs run on that core will not be affected
     )

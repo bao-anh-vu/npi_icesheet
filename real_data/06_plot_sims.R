@@ -19,7 +19,7 @@ library(qs)
 use_missing_pattern <- TRUE
 
 ## Plot simulations and also plot real data
-set <- 52
+set <- 1
 setf <- formatC(set, width = 2, flag = "0")
 
 ## Directory for training data
@@ -174,7 +174,7 @@ for (s in 1:nsamples) {
         theme_bw() +
         xlim(c(0, domain[gl] / 1e3)) +
         xlab("Domain (km)") +
-        ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")")) +
+        ylab(bquote("Friction (MPa m"^"-1/3" ~ "a"^"1/3" ~ ")")) +
         theme(text = element_text(size = 24))
 
     bed_sim <- bed_basis$fitted_values[sim, ] + bed_basis$mean
@@ -272,3 +272,4 @@ se_masked_plot <- ggplot(se_df) +
 png("./plots/cnn/input/real_data_hovmoller.png", width = 2000, height = 600, res = 150)
 grid.arrange(grobs = list(se_masked_plot, vel_masked_plot), nrow = 1)
 dev.off()
+

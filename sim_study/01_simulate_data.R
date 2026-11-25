@@ -1,6 +1,6 @@
 ## Generate 1000 simulations
 
-setwd("~/SSA_model/CNN/simbed")
+setwd("~/SSA_model/CNN/sim_study")
 
 rm(list = ls())
 
@@ -61,6 +61,20 @@ setf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 nbasis <- 150
 
+## Physical params
+params <- list(
+  secpera = 31556926, # seconds per annum
+  n = 3.0, # exponent in Glen's flow law
+  rho_i = 917.0, # ice density
+  rho_w = 1028.0, # sea water density
+  g = 9.81 # gravity constant
+  # A = 4.227e-25, #1.4579e-25, # flow rate parameter
+)
+
+params$m <- 1 / params$n
+params$B <- 0.3 * 1e6 * params$secpera^params$m
+params$A <- params$B^(-params$n)
+
 # 0. Load ice sheet at steady state
 ssa_steady <- readRDS(file = paste0(train_data_dir, "/initial_conds/ssa_steady_20220329.rds", sep = ""))
 domain <- ssa_steady$domain
@@ -86,7 +100,7 @@ if (save_sims) {
 }
 
 ## Scaling units for friction coefficients
-secpera <- 31556926
+secpera <- params$secpera
 fric_scale <- 1e6 * secpera^(1 / 3)
 
 sim_results_list <- list()
@@ -169,6 +183,7 @@ if (regenerate_sims) {
       #                         bed_obs = bed_obs, steady_state = ssa_steady)
       sim_results <- sim_obs(
         param_list = fitted_param_list,
+        phys_params = params,
         years = years, # sim_beds = T,
         # bed_obs = bed_obs,
         warmup = warmup,
@@ -311,8 +326,8 @@ dev.off()
 ## Hovmoller plots of surface elevation and velocity
 plots <- list()
 
-nsamples <- 2
-sims <- sample(1:N, size = nsamples)
+#nsamples <- 2
+sims <- 1:2 #sample(1:N, size = nsamples)
 
 space <- domain / 1000
 time <- 1:((years - 1) - warmup) # 1:dim(thickness_velocity_arr)[3]
@@ -385,7 +400,7 @@ for (s in 1:nsamples) {
     theme_bw() +
     theme(text = element_text(size = 24)) +
     xlab("Domain (km)") +
-    ylab(bquote("Friction (M Pa m"^"-1/3" ~ "yr"^"1/3" ~ ")"))
+    ylab(bquote("Friction (MPa m"^"-1/3" ~ "yr"^"1/3" ~ ")"))
 
   bed_sim <- bed_arr[sim, ] + bed_mean
   fitted_bed_sim <- fitted_bed[sim, ] + bed_mean

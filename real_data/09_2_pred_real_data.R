@@ -418,10 +418,12 @@ fric_p <- ggplot(data = fric_df, aes(x = domain)) +
     geom_vline(data = gl_df, aes(xintercept = gl), linetype = "dashed") +
     xlim(0, 150) +
     # ylim(0, 0.5) +
-    labs(x = "Distance along flowline (km)", y = expression(paste("Friction coefficient (", M ~ Pa ~ m^{-1/3} ~ {yr}^{1/3}, ")"))) +
+    labs(x = "Distance along flowline (km)", 
+       y = expression(atop("Friction coefficient",
+                           (MPa ~ m^{-1/3} ~ {yr}^{1/3})))) +
     theme_bw() +
-    theme(text = element_text(size = 20),
-            plot.margin = unit(c(1, 1, 1, 1), "cm"))
+    theme(text = element_text(size = 22),
+            plot.margin = unit(rep(0.5, 4), "cm"))
 
 # png(filename = paste0(plot_dir, "pred_fric_real_ggplot.png"), width = 1000, height = 500, res = 100)
 # print(fric_p)
@@ -458,16 +460,17 @@ bed_p <- ggplot(data = bed_df, aes(x = domain)) +
     ) +
     theme_bw() +
     theme(
-        text = element_text(size = 20),
-        plot.margin = unit(c(1, 1, 1, 1), "cm"),
+        text = element_text(size = 22),
+        plot.margin = unit(c(0.5, 0.5, 0.5, 1), "cm"),
         legend.position = "none"   # or "bottom"
     )
 
-
-# ggsave(filename = paste0(plot_dir, "pred_bed_real_ggplot.png"), plot = p, width = 10, height = 5)
-png(filename = paste0(plot_dir, "pred_bed_fric_real_ggplot.png"), width = 2000, height = 600, res = 120)
-grid.arrange(fric_p, bed_p, ncol = 2)
-dev.off()
+bed_fric_combined <- grid.arrange(fric_p, bed_p, ncol = 2)
+ggsave(filename = paste0(plot_dir, "pred_bed_fric_real_ggplot.png"), 
+       plot = bed_fric_combined, width = 16, height = 5)
+# png(filename = paste0(plot_dir, "pred_bed_fric_real_ggplot.png"), width = 2000, height = 600, res = 150)
+# 
+# dev.off()
 
 ## Plot difference between bedmachine and predicted bed
 bed_df$diff <- bed_df$pred - bed_df$bedmachine

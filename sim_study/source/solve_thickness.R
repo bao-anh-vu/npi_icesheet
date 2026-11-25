@@ -15,8 +15,15 @@ solve_thickness <- function(velocity, thickness, domain, bed, include_GL = TRUE,
   dx <- x[2] - x[1]
   J <- L / dx
   
+  # Time increment
+  dt <- secpera / steps_per_yr
+  
   ## Convert input velocity into m/s
   u <- u / secpera
+  
+  ## CFL condition
+  # stopifnot((max(u) * dt / dx) < 1)
+  if ((max(u) * dt / dx) > 1) {print("CFL condition violated")}
   
   # Surface mass balance rate
   if (M_bueler) {
@@ -36,10 +43,7 @@ solve_thickness <- function(velocity, thickness, domain, bed, include_GL = TRUE,
     }
   }
   M_stag <- 0.5 * (M[2:(J+1)] + M[1:J])
-  
-  # Time increment
-  dt <- secpera / steps_per_yr
-  
+
   # Upwind scheme
   H[2:(J+1)] <- H[2:(J+1)] + dt * M_stag - dt/dx * (u[2:(J+1)] * H[2:(J+1)] - u[1:J] * H[1:J])
   

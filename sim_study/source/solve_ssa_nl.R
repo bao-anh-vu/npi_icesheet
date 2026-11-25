@@ -84,7 +84,7 @@ solve_ssa_nl <- function(domain = NULL, bedrock = NULL, friction_coef = NULL,
                          perturb_hardness =  FALSE,
                          add_process_noise = TRUE,
                          process_noise_info = NULL) {
-
+  
   t1 <- proc.time()
   
   ## Define physical parameters

@@ -4,7 +4,7 @@ library(ggplot2)
 library(mvtnorm)
 library(qs)
 
-setwd("/home/babv971/SSA_model/CNN/simbed/")
+setwd("/home/babv971/SSA_model/CNN/sim_study/")
 rm(list = ls())
 
 source("./source/surface_elev.R")
@@ -37,16 +37,11 @@ sets <- 1:50 # 10
 setsf <- paste0("sets", sets[1], "-", sets[length(sets)])
 
 ## Test sample index
-# set.seed(2024)
-# chosen_test_samples <- sample(1:500, 50)
-# set.seed(NULL)
-# sample_ind <- 1 #commandArgs(trailingOnly = TRUE) # sample index
-# s <- chosen_test_samples[sample_ind] # the actual number of the sample in the test set
-sample_ind <- 3 #as.numeric(commandArgs(trailingOnly = TRUE))
+sample_ind <- 1 #as.numeric(commandArgs(trailingOnly = TRUE))
 s <- sample_ind
 
 years <- 20
-save_points <- c(1, 10, 20) #c(1, 11, 21)
+save_points <- c(1, 10, 20) # years at which to plot results
 
 Ne <- 1000 # Ensemble size for EnKFSA
 Ne_enkf <- 500 # Ensemble size for EnKF-CNN
@@ -92,24 +87,11 @@ pred_fric <- qread(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".q
 pred_bed <- qread(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".qs"))
 pred_gl <- qread(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".qs"))
 
-# pred_fric <- readRDS(file = paste0(cnn.output_dir, "/pred_fric_", output_date, ".rds"))
-# pred_bed <- readRDS(file = paste0(cnn.output_dir, "/pred_bed_", output_date, ".rds"))
-# pred_gl <- readRDS(file = paste0(cnn.output_dir, "/pred_gl_", output_date, ".rds"))
-
-
 print("Reading posterior samples from CNN...")
-# fric_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".rds"))
-# bed_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/bed_post_samples_", output_date, ".rds"))
-# gl_samples_ls <- readRDS(file = paste0(cnn.output_dir, "/gl_post_samples_", output_date, ".rds"))
 
 fric_samples_ls <- qread(file = paste0(cnn.output_dir, "/fric_post_samples_", output_date, ".qs"))
 bed_samples_ls <- qread(file = paste0(cnn.output_dir, "/bed_post_samples_", output_date, ".qs"))
 gl_samples_ls <- qread(file = paste0(cnn.output_dir, "/gl_post_samples_", output_date, ".qs"))
-
-
-## Scaling units for friction coefficients
-# secpera <- 31556926
-# fric_scale <- 1e6 * secpera^(1 / 3)
 
 ## Read EnKF-CNN results
 cnn.thickness <- qread(file = paste0(cnn_enkf.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne", Ne_enkf, "_", output_date, ".qs", sep = ""))
@@ -118,12 +100,9 @@ cnn.velocity <- qread(file = paste0(cnn_enkf.output_dir, "/enkf_velocities_sampl
 cnn.thickness <- lapply(cnn.thickness, as.matrix)
 cnn.velocity <- lapply(cnn.velocity, as.matrix)
 
-# test <- lapply(cnn.thickness, base::rowMeans)
-
 cnn.bed <- pred_bed[, s]
 cnn.fric <- pred_fric[, s]
 cnn.gl <- pred_gl[s, ]
-
 
 cnn.bed_q <- apply(bed_samples_ls[[s]], 1, quantile, probs = c(0.025, 0.975))
 cnn.fric_q <- apply(fric_samples_ls[[s]], 1, quantile, probs = c(0.025, 0.975))
@@ -131,7 +110,6 @@ cnn.bed_lq <- cnn.bed_q[1, ]
 cnn.bed_uq <- cnn.bed_q[2, ]
 cnn.fric_lq <- cnn.fric_q[1, ]
 cnn.fric_uq <- cnn.fric_q[2, ]
-
 
 ## Read EnKF-StateAug results
 enkfsa.thickness <- qread(file = paste0(enkfsa.output_dir, "/enkf_thickness_sample", sample_ind, "_Ne", Ne, "_", output_date,  ".qs", sep = ""))
@@ -481,7 +459,7 @@ if (plot_friction) {
         ylim(0, 0.1) +
         theme(text = element_text(size = 17)) +
         xlab("Domain (km)") +
-        ylab(bquote("Friction (M Pa m"^{-1/3}~"yr"^{1/3}~")"))
+        ylab(bquote("Friction (MPa m"^{-1/3}~"yr"^{1/3}~")"))
         
         # ggtitle(title) +
         # theme(plot.title = element_text(

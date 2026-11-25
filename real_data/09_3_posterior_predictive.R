@@ -222,7 +222,7 @@ post_fric_plot <- ggplot() +
   theme_bw() +
   xlim(c(0, 150)) +
   xlab("Distance along flowline (km)") +
-  ylab(bquote("Friction (M Pa m"^"-1/3" ~ "a"^"1/3" ~ ")")) +
+  ylab(bquote("Friction (MPa m"^"-1/3" ~ "a"^"1/3" ~ ")")) +
   theme(text = element_text(size = 24))
 
 # png(filename = paste0(plot_dir, "fric_samples_real_gg_", data_date, ".png"), width = 1000, height = 600, res = 150)
